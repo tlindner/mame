@@ -48,7 +48,7 @@ WRITE_LINE_MEMBER(serial_printer_device::update_serial)
 
 	set_data_frame(startbits, databits, parity, stopbits);
 
-	int rxbaud = convert_baud(m_rs232_rxbaud->read());
+	int rxbaud = convert_baud(m_rs232_rxbaud->read(), baud_fine_adjustment());
 	set_rcv_rate(rxbaud);
 
 	// TODO: make this configurable

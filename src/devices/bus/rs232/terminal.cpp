@@ -43,10 +43,10 @@ WRITE_LINE_MEMBER(serial_terminal_device::update_serial)
 
 	set_data_frame(startbits, databits, parity, stopbits);
 
-	int const txbaud = convert_baud(m_rs232_txbaud->read());
+	int const txbaud = convert_baud(m_rs232_txbaud->read(), baud_fine_adjustment());
 	set_tra_rate(txbaud);
 
-	int const rxbaud = convert_baud(m_rs232_rxbaud->read());
+	int const rxbaud = convert_baud(m_rs232_rxbaud->read(), baud_fine_adjustment());
 	set_rcv_rate(rxbaud);
 
 	output_rxd(1);

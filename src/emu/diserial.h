@@ -128,6 +128,9 @@ protected:
 	const char *parity_tostring(parity_t stop_bits);
 	const char *stop_bits_tostring(stop_bits_t stop_bits);
 
+	float baud_fine_adjustment() { return m_baud_fine_adjust; }
+	void set_baud_fine_tune( float f) {m_baud_fine_adjust = f; }
+
 private:
 	TIMER_CALLBACK_MEMBER(rcv_clock) { rx_clock_w(!m_rcv_clock_state); }
 	TIMER_CALLBACK_MEMBER(tra_clock) { tx_clock_w(!m_tra_clock_state); }
@@ -179,6 +182,8 @@ private:
 
 	void tra_edge();
 	void rcv_edge();
+
+	float m_baud_fine_adjust;
 };
 
 

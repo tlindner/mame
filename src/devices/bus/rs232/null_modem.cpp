@@ -62,10 +62,10 @@ WRITE_LINE_MEMBER(null_modem_device::update_serial)
 
 	set_data_frame(startbits, databits, parity, stopbits);
 
-	int txbaud = convert_baud(m_rs232_txbaud->read());
+	int txbaud = convert_baud(m_rs232_txbaud->read(), baud_fine_adjustment());
 	set_tra_rate(txbaud);
 
-	int rxbaud = convert_baud(m_rs232_rxbaud->read());
+	int rxbaud = convert_baud(m_rs232_rxbaud->read(), baud_fine_adjustment());
 	set_rcv_rate(rxbaud);
 
 	output_rxd(1);
@@ -120,7 +120,7 @@ void null_modem_device::queue()
 			}
 		}
 
-		int txbaud = convert_baud(m_rs232_txbaud->read());
+		int txbaud = convert_baud(m_rs232_txbaud->read(), baud_fine_adjustment());
 		m_timer_poll->adjust(attotime::from_hz(txbaud));
 	}
 }

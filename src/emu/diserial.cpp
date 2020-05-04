@@ -34,7 +34,8 @@ device_serial_interface::device_serial_interface(const machine_config &mconfig, 
 	m_tra_rate(attotime::never),
 	m_rcv_line(0),
 	m_tra_clock_state(false),
-	m_rcv_clock_state(false)
+	m_rcv_clock_state(false),
+	m_baud_fine_adjust(1.0)
 {
 	/* if sum of all bits in the byte is even, then the data
 	has even parity, otherwise it has odd parity */
@@ -89,6 +90,7 @@ void device_serial_interface::interface_post_start()
 	device().save_item(NAME(m_rcv_line));
 	device().save_item(NAME(m_tra_clock_state));
 	device().save_item(NAME(m_rcv_clock_state));
+	device().save_item(NAME(m_baud_fine_adjust));
 }
 
 void device_serial_interface::set_rcv_rate(const attotime &rate)

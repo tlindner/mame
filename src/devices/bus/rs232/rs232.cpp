@@ -152,6 +152,12 @@ WRITE_LINE_MEMBER( rs232_port_device::write_spds )
 		m_dev->input_spds(state);
 }
 
+void rs232_port_device::set_baud_fine_tune(float f)
+{
+	if (m_dev)
+		m_dev->set_baud_fine_tune(f);
+}
+
 device_rs232_port_interface::device_rs232_port_interface(const machine_config &mconfig, device_t &device) :
 	device_interface(device, "rs232")
 {

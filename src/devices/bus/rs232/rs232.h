@@ -135,6 +135,8 @@ public:
 	DECLARE_READ_LINE_MEMBER( rxc_r ) { return m_dce_rxc; }
 	DECLARE_READ_LINE_MEMBER( txc_r ) { return m_dce_txc; }
 
+	void set_baud_fine_tune(float f);
+
 protected:
 	rs232_port_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock);
 
@@ -187,14 +189,16 @@ public:
 	DECLARE_WRITE_LINE_MEMBER( output_rxc ) { m_port->m_dce_rxc = state; m_port->m_rxc_handler(state); }
 	DECLARE_WRITE_LINE_MEMBER( output_txc ) { m_port->m_dce_txc = state; m_port->m_txc_handler(state); }
 
+	void set_baud_fine_tune( float f ) { if(m_port) m_port->set_baud_fine_tune(f); }
+
 protected:
 	device_rs232_port_interface(const machine_config &mconfig, device_t &device);
 
 	rs232_port_device *m_port;
 
-	static int convert_baud(uint8_t baud)
+	static int convert_baud(uint8_t baud, float fine_baud_adjust)
 	{
-		static const int values[] =
+		static const float values[] =
 		{
 			110,
 			150,
@@ -212,7 +216,7 @@ protected:
 			115200
 		};
 
-		return values[baud];
+		return values[baud] * fine_baud_adjust;
 	}
 
 	static int convert_startbits(uint8_t startbits)
