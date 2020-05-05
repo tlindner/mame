@@ -322,7 +322,6 @@ DISPATCH10:
 		case 0x4D:									set_d();		%TST16;		return;
 		case 0x4F:									set_d();		%CLR16;		return;
 
-		case 0x50:									set_w();		%NEG16;		return;
 		case 0x53:									set_w();		%COM16;		return;
 		case 0x54:									set_w();		%LSR16;		return;
 		case 0x56:									set_w();		%ROR16;		return;
