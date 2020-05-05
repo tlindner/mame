@@ -103,10 +103,8 @@ void coco_rs232_device::device_add_mconfig(machine_config &config)
 }
 
 ROM_START(coco_rs232_device)
-//	ROM_REGION(0x1000, "eprom", ROMREGION_ERASE00)
-	ROM_REGION(0x4000, "eprom", ROMREGION_ERASE00)
-//	ROM_LOAD("deluxe_rs-232_program_pak_1983_26-2226_tandy.rom", 0x0000, 0x1000, CRC(d990e1f9) SHA1(3fad25f3462a0b581b9c182ac11ad90c8fa08cb6))
-	ROM_LOAD("nos96809l1_1773.rom", 0x0000, 0x4000, CRC(c1e9e7d0) SHA1(d7404bda954c946d08a58cd40a4a56c714ce2e3f))
+	ROM_REGION(0x1000, "eprom", ROMREGION_ERASE00)
+	ROM_LOAD("deluxe_rs-232_program_pak_1983_26-2226_tandy.rom", 0x0000, 0x1000, CRC(d990e1f9) SHA1(3fad25f3462a0b581b9c182ac11ad90c8fa08cb6))
 ROM_END
 
 //-------------------------------------------------
@@ -124,7 +122,7 @@ const tiny_rom_entry *coco_rs232_device::device_rom_region() const
 
 READ8_MEMBER(coco_rs232_device::cts_read)
 {
-	return m_eprom->base()[offset & 0x3fff];
+	return m_eprom->base()[offset & 0x0fff];
 }
 
 //**************************************************************************
