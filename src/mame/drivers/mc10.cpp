@@ -4,7 +4,7 @@
 
     TRS-80 Radio Shack MicroColor Computer
 
-	May 2020: Added emulation for Darren Atkinson's MCX128.
+	May 2020: Added emulation for Darren Atkinson's MCX 128.
 
 ***************************************************************************/
 
@@ -66,6 +66,8 @@ protected:
 	required_memory_bank m_bank1;
 	optional_memory_bank m_bank2;
 
+	uint8_t *m_ram_base;
+
 private:
 	void alice32_mem(address_map &map);
 	void alice90_mem(address_map &map);
@@ -87,7 +89,6 @@ private:
 	required_device<printer_image_device> m_printer;
 	required_ioport_array<8> m_pb;
 
-	uint8_t *m_ram_base;
 	uint32_t m_ram_size;
 	uint8_t m_keyboard_strobe;
 	uint8_t m_port2;
@@ -109,10 +110,9 @@ public:
 private:
 	DECLARE_READ8_MEMBER(mcx128_bf00_r);
 	DECLARE_WRITE8_MEMBER(mcx128_bf00_w);
-	DECLARE_READ8_MEMBER(mcx128_bf01_r);
-	DECLARE_WRITE8_MEMBER(mcx128_bf01_w);
 
 	void mcx128_mem(address_map &map);
+	void update_mcx128_banking();
 
 	// device-level overrides
 	virtual void driver_start() override;
@@ -120,10 +120,16 @@ private:
 
 	required_device<ram_device> m_mcx_ram;
 	required_memory_bank m_bank3;
-	required_memory_bank m_bank4;
+	required_memory_bank m_bank4r;
+	required_memory_bank m_bank4w;
+	required_memory_bank m_bank5r;
+	required_memory_bank m_bank5w;
+	required_memory_bank m_bank6r;
+	required_memory_bank m_bank6w;
 
+	uint8_t *m_mcx_cart_rom_base;
+	uint8_t *m_mcx_int_rom_base;
 	uint8_t *m_mcx_ram_base;
-	uint32_t m_mcx_ram_size;
 
 	uint8_t m_bank_control;
 	uint8_t m_map_control;
@@ -181,79 +187,92 @@ WRITE8_MEMBER( mc10_state::alice32_bfff_w )
 }
 
 /***************************************************************************
-    mcx128_bf00: RAM Bank Control Register
+    $bf00: RAM Bank Control Register
 
     7 6 5 4 3 2 1 0
     | | | | | | | |
     | | | | | | | +- Bank Selection for Page 0
     | | | | | | +--- Bank Selection for Page 1
     +-+-+-+-+-+----- N/C
-***************************************************************************/
 
-READ8_MEMBER( mcx128_state::mcx128_bf00_r )
-{
-	return m_bank_control;
-}
 
-WRITE8_MEMBER( mcx128_state::mcx128_bf00_w )
-{
-	m_bank_control = data & 3;
-	int page0_select = BIT(m_bank_control,0);
-	int page1_select = BIT(m_bank_control,1);
+    $bf01: ROM Map Control Register
 
-	m_bank1->set_base(m_mcx_ram_base + (page0_select * 64 * 1024));
-	m_bank2->set_base(m_mcx_ram_base + (8 * 1024) + (page1_select * 64 * 1024));
-
-	mcx128_bf01_w(space,0,m_map_control);
-}
-
-/***************************************************************************
-    mcx128_bf00: ROM Map Control Register
-
-    7 6 5 4 3 2 1 0
-    | | | | | | | |    0 0 - 16K External ROM
-    | | | | | | | +-\_ 0 1 - 8K RAM / 8K External ROM
-    | | | | | | +---/  1 0 - 8K RAM / 8K Internal ROM
-    | | | | | |        1 1 - 16K RAM
+    7 6 5 4 3 2 1 0        |         reading           | writing |
+    | | | | | | | |    0 0 - 16K External ROM            16K RAM
+    | | | | | | | +-\_ 0 1 - 8K RAM / 8K External ROM    16K RAM
+    | | | | | | +---/  1 0 - 8K RAM / 8K Internal ROM    16K RAM
+    | | | | | |        1 1 - 16K RAM                     16K RAM
     +-+-+-+-+-+--------N/C
+
 ***************************************************************************/
 
-READ8_MEMBER( mcx128_state::mcx128_bf01_r)
+void mcx128_state::update_mcx128_banking()
 {
-	return m_map_control;
-}
+	int32_t bank_offset_page_0 = 0x10000 * BIT(m_bank_control,0);
+	int32_t bank_offset_page_1 = 0x10000 * BIT(m_bank_control,1);
 
-WRITE8_MEMBER( mcx128_state::mcx128_bf01_w)
-{
-	m_map_control = data & 3;
-	memory_region *cart_rom = memregion("cart");
-	memory_region *internal_rom = memregion("maincpu");
-	int page1_select = BIT(m_bank_control,1);
+	fprintf( stderr, "ub: bank page 0: %d, bank page 1: %d, map control: %d\n", bank_offset_page_0, bank_offset_page_1, m_map_control );
+
+	m_bank1->set_base(m_mcx_ram_base + bank_offset_page_0 + 0);
+
+	if( bank_offset_page_1 == 0)
+		m_bank2->set_base(m_ram_base); /* internal 4K when page is 0 */
+	else
+		m_bank2->set_base(m_mcx_ram_base + bank_offset_page_1 + 0x8000);
+
+	m_bank3->set_base(m_mcx_ram_base + bank_offset_page_1 + 0x8000 + 0x1000);
+
+	m_bank4w->set_base(m_mcx_ram_base + bank_offset_page_0 + 0x4000);
+	m_bank5w->set_base(m_mcx_ram_base + bank_offset_page_0 + 0x6000);
+	m_bank6w->set_base(m_mcx_ram_base + 0 + 0x7f00); /* always bank 0 */
 
 	switch( m_map_control )
 	{
 		case 0:
-			m_bank3->set_base(cart_rom->base());
-			m_bank4->set_base(cart_rom->base() + (8 * 1024));
-
+			m_bank4r->set_base(m_mcx_cart_rom_base);
+			m_bank5r->set_base(m_mcx_cart_rom_base + 0x2000);
+			m_bank6r->set_base(m_mcx_cart_rom_base + 0x3f00);
 			break;
 
 		case 1:
-			m_bank3->set_base(m_mcx_ram_base + (16 * 1024) + (page1_select * 64 * 1024));
-			m_bank4->set_base(cart_rom->base() + (8 * 1024));
-
+			m_bank4r->set_base(m_mcx_ram_base + bank_offset_page_0 + 0x4000);
+			m_bank5r->set_base(m_mcx_cart_rom_base + 0x2000 + 0x2000);
+			m_bank6r->set_base(m_mcx_cart_rom_base + 0x3f00 + 0x2000);
 			break;
 
 		case 2:
-			m_bank3->set_base(m_mcx_ram_base + (16 * 1024) + (page1_select * 64 * 1024));
-			m_bank4->set_base(internal_rom->base() + (8 * 1024));
+			m_bank4r->set_base(m_mcx_ram_base + bank_offset_page_0 + 0x4000);
+			m_bank5r->set_base(m_mcx_int_rom_base);
+			m_bank6r->set_base(m_mcx_int_rom_base + 0x1f00);
 			break;
 
 		case 3:
-			m_bank3->set_base(m_mcx_ram_base + (16 * 1024) + (m_bank_control * 64 * 1024));
-			m_bank4->set_base(m_mcx_ram_base + ((16 + 8) * 1024) + (m_bank_control * 64 * 1024));
+			m_bank4r->set_base(m_mcx_ram_base + bank_offset_page_0 + 0x4000);
+			m_bank5r->set_base(m_mcx_ram_base + bank_offset_page_0 + 0x6000);
+			m_bank6r->set_base(m_mcx_ram_base + 0 + 0x7f00); /* always bank 0 */
 			break;
 	}
+}
+
+
+READ8_MEMBER( mcx128_state::mcx128_bf00_r )
+{
+	fprintf( stderr, "bf00 ready: offset: %d\n", offset );
+
+	if( (offset & 1) == 0 ) return m_bank_control;
+
+	return m_map_control;
+}
+
+WRITE8_MEMBER( mcx128_state::mcx128_bf00_w )
+{
+	if( (offset & 1) == 0 )
+		m_bank_control = data & 3;
+	else
+		m_map_control = data & 3;
+
+	update_mcx128_banking();
 }
 
 
@@ -367,7 +386,12 @@ mcx128_state::mcx128_state(const machine_config &mconfig, device_type type, cons
 	: mc10_state(mconfig, type, tag)
 	, m_mcx_ram(*this, "mcx_ram")
 	, m_bank3(*this, "bank3")
-	, m_bank4(*this, "bank4")
+	, m_bank4r(*this, "bank4r")
+	, m_bank4w(*this, "bank4w")
+	, m_bank5r(*this, "bank5r")
+	, m_bank5w(*this, "bank5w")
+	, m_bank6r(*this, "bank6r")
+	, m_bank6w(*this, "bank6w")
 {
 }
 
@@ -415,17 +439,14 @@ void mcx128_state::driver_start()
 	// call base device_start
 	mc10_state::driver_start();
 
-	address_space &prg = m_maincpu->space(AS_PROGRAM);
-
 	m_mcx_ram_base = m_mcx_ram->pointer();
-	m_mcx_ram_size = m_mcx_ram->size();
+	m_mcx_cart_rom_base = memregion("cart")->base();
+	m_mcx_int_rom_base = memregion("maincpu")->base();
 
-	m_bank1->set_base(m_mcx_ram_base + (0 * 64 * 1024));
-	m_bank2->set_base(m_mcx_ram_base + (8 * 1024) + (0 * 64 * 1024));
+	save_item(NAME(m_bank_control));
+	save_item(NAME(m_map_control));
 
-	memory_region *cart_rom = memregion("cart");
-	m_bank3->set_base(cart_rom->base());
-	m_bank4->set_base(cart_rom->base() + (8 * 1024));
+	update_mcx128_banking();
 }
 
 
@@ -435,7 +456,7 @@ void mcx128_state::driver_reset()
 	mc10_state::driver_reset();
 
 	m_bank_control = 0;
-	m_map_control = 0;;
+	m_map_control = 0;
 }
 
 
@@ -476,14 +497,18 @@ void mc10_state::alice90_mem(address_map &map)
 void mcx128_state::mcx128_mem(address_map &map)
 {
 	map(0x0000, 0x3fff).bankrw("bank1");
-	map(0x4000, 0xbeff).bankrw("bank2");
-	map(0xbf00, 0xbf00).rw(FUNC(mcx128_state::mcx128_bf00_r), FUNC(mcx128_state::mcx128_bf00_w));
-	map(0xbf01, 0xbf01).rw(FUNC(mcx128_state::mcx128_bf01_r), FUNC(mcx128_state::mcx128_bf01_w));
-	map(0xbf00, 0xbf7f).noprw(); /* unused */
+	map(0x4000, 0x4fff).bankrw("bank2");
+	map(0x5000, 0xbeff).bankrw("bank3");
+	map(0xbf00, 0xbf01).rw(FUNC(mcx128_state::mcx128_bf00_r), FUNC(mcx128_state::mcx128_bf00_w));
+	map(0xbf02, 0xbf7f).noprw(); /* unused */
 	map(0xbf80, 0xbffe).noprw(); /* unused */
 	map(0xbfff, 0xbfff).rw(FUNC(mc10_state::mc10_bfff_r), FUNC(mc10_state::mc10_bfff_w));
-	map(0xc000, 0xdfff).bankrw("bank3");
-	map(0xe000, 0xffff).bankrw("bank4");
+	map(0xc000, 0xdfff).bankr("bank4r");
+	map(0xc000, 0xdfff).bankw("bank4w");
+	map(0xe000, 0xfeff).bankr("bank5r");
+	map(0xe000, 0xfeff).bankw("bank5w");
+	map(0xff00, 0xffff).bankr("bank6r");
+	map(0xff00, 0xffff).bankw("bank6w");
 }
 
 /***************************************************************************
