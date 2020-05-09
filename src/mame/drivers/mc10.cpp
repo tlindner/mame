@@ -4,6 +4,8 @@
 
     TRS-80 Radio Shack MicroColor Computer
 
+	May 2020: Added emulation for Darren Atkinson's MCX128.
+
 ***************************************************************************/
 
 
@@ -41,9 +43,12 @@ public:
 	void alice32(machine_config &config);
 	void mc10(machine_config &config);
 
-private:
 	DECLARE_READ8_MEMBER(mc10_bfff_r);
 	DECLARE_WRITE8_MEMBER(mc10_bfff_w);
+
+protected:
+	required_device<m6803_cpu_device> m_maincpu;
+
 	DECLARE_READ8_MEMBER(mc10_port1_r);
 	DECLARE_WRITE8_MEMBER(mc10_port1_w);
 	DECLARE_READ8_MEMBER(mc10_port2_r);
@@ -54,12 +59,16 @@ private:
 	DECLARE_READ8_MEMBER(mc6847_videoram_r);
 	TIMER_DEVICE_CALLBACK_MEMBER(alice32_scanline);
 
+	// device-level overrides
+	virtual void driver_start() override;
+
+	required_device<ram_device> m_ram;
+
+private:
 	void alice32_mem(address_map &map);
 	void alice90_mem(address_map &map);
 	void mc10_mem(address_map &map);
 
-	// device-level overrides
-	virtual void driver_start() override;
 
 	//printer state
 	enum class printer_state : uint8_t
@@ -69,11 +78,9 @@ private:
 		DONE
 	};
 
-	required_device<m6803_cpu_device> m_maincpu;
 	optional_device<mc6847_base_device> m_mc6847;
 	optional_device<ef9345_device> m_ef9345;
 	required_device<dac_bit_interface> m_dac;
-	required_device<ram_device> m_ram;
 	required_device<cassette_image_device> m_cassette;
 	required_device<printer_image_device> m_printer;
 	required_ioport_array<8> m_pb;
@@ -93,6 +100,34 @@ private:
 	uint8_t read_keyboard_strobe(bool single_line);
 };
 
+class mcx128_state : public mc10_state
+{
+public:
+	mcx128_state(const machine_config &mconfig, device_type type, const char *tag);
+	void mcx128(machine_config &config);
+
+private:
+	DECLARE_READ8_MEMBER(mcx128_bf00_r);
+	DECLARE_WRITE8_MEMBER(mcx128_bf00_w);
+	DECLARE_READ8_MEMBER(mcx128_bf01_r);
+	DECLARE_WRITE8_MEMBER(mcx128_bf01_w);
+
+	void mcx128_mem(address_map &map);
+
+	// device-level overrides
+	virtual void driver_start() override;
+	virtual void driver_reset() override;
+
+	required_device<ram_device> m_mcx_ram;
+	required_memory_bank m_bank3;
+	required_memory_bank m_bank4;
+
+	uint8_t *m_mcx_ram_base;
+	uint32_t m_mcx_ram_size;
+
+	uint8_t m_bank_control;
+	uint8_t m_map_control;
+};
 
 /***************************************************************************
     MEMORY MAPPED I/O
@@ -143,6 +178,47 @@ WRITE8_MEMBER( mc10_state::alice32_bfff_w )
 {
 	// bit 7, dac output
 	m_dac->write(BIT(data, 7));
+}
+
+/***************************************************************************
+    mcx128_bf00: RAM Bank Control Register
+
+    7 6 5 4 3 2 1 0
+    | | | | | | | |
+    | | | | | | | +- Bank Selection for Page 0
+    | | | | | | +--- Bank Selection for Page 1
+    +-+-+-+-+-+----- N/C
+***************************************************************************/
+
+READ8_MEMBER( mcx128_state::mcx128_bf00_r )
+{
+	return m_bank_control;
+}
+
+WRITE8_MEMBER( mcx128_state::mcx128_bf00_w )
+{
+	m_bank_control = data;
+}
+
+/***************************************************************************
+    mcx128_bf00: ROM Map Control Register
+
+    7 6 5 4 3 2 1 0
+    | | | | | | | |    0 0 - 16K External ROM
+    | | | | | | | +-\_ 0 1 - 8K RAM / 8K External ROM
+    | | | | | | +---/  1 0 - 8K RAM / 8K Internal ROM
+    | | | | | |        1 1 - 16K RAM
+    +-+-+-+-+-+--------N/C
+***************************************************************************/
+
+READ8_MEMBER( mcx128_state::mcx128_bf01_r)
+{
+	return m_map_control;
+}
+
+WRITE8_MEMBER( mcx128_state::mcx128_bf01_w)
+{
+	m_map_control = data;
 }
 
 
@@ -239,15 +315,24 @@ TIMER_DEVICE_CALLBACK_MEMBER(mc10_state::alice32_scanline)
 mc10_state::mc10_state(const machine_config &mconfig, device_type type, const char *tag)
 	: driver_device(mconfig, type, tag)
 	, m_maincpu(*this, "maincpu")
+	, m_ram(*this, RAM_TAG)
 	, m_mc6847(*this, "mc6847")
 	, m_ef9345(*this, "ef9345")
 	, m_dac(*this, "dac")
-	, m_ram(*this, RAM_TAG)
 	, m_cassette(*this, "cassette")
 	, m_printer(*this, "printer")
 	, m_pb(*this, "pb%u", 0)
 	, m_bank1(*this, "bank1")
 	, m_bank2(*this, "bank2")
+{
+}
+
+
+mcx128_state::mcx128_state(const machine_config &mconfig, device_type type, const char *tag)
+	: mc10_state(mconfig, type, tag)
+	, m_mcx_ram(*this, "mcx_ram")
+	, m_bank3(*this, "bank2")
+	, m_bank4(*this, "bank2")
 {
 }
 
@@ -290,6 +375,27 @@ void mc10_state::driver_start()
 		//m_maincpu->m6801_io_w(prg, 0x05, 0xff);
 }
 
+void mcx128_state::driver_start()
+{
+	// call base device_start
+	mc10_state::driver_start();
+
+	address_space &prg = m_maincpu->space(AS_PROGRAM);
+
+	m_mcx_ram_base = m_mcx_ram->pointer();
+	m_mcx_ram_size = m_mcx_ram->size();
+}
+
+
+void mcx128_state::driver_reset()
+{
+	// call base device_start
+	mc10_state::driver_reset();
+
+	m_bank_control = 0;
+	m_map_control = 0;;
+}
+
 
 /***************************************************************************
     ADDRESS MAPS
@@ -323,6 +429,17 @@ void mc10_state::alice90_mem(address_map &map)
 	map(0xbf20, 0xbf29).rw(m_ef9345, FUNC(ef9345_device::data_r), FUNC(ef9345_device::data_w));
 	map(0xbfff, 0xbfff).rw(FUNC(mc10_state::alice90_bfff_r), FUNC(mc10_state::alice32_bfff_w));
 	map(0xc000, 0xffff).rom().region("maincpu", 0x0000); /* ROM */
+}
+
+void mcx128_state::mcx128_mem(address_map &map)
+{
+	map(0x0000, 0x3fff).bankrw("bank1");
+	map(0x4000, 0xbeff).bankrw("bank2");
+	map(0xbf00, 0xbf00).rw(FUNC(mcx128_state::mcx128_bf00_r), FUNC(mcx128_state::mcx128_bf00_w));
+	map(0xbf01, 0xbf01).rw(FUNC(mcx128_state::mcx128_bf01_r), FUNC(mcx128_state::mcx128_bf01_w));
+	map(0xbf02, 0xbffe).bankrw("bank3");
+	map(0xbfff, 0xbfff).rw(FUNC(mc10_state::mc10_bfff_r), FUNC(mc10_state::mc10_bfff_w));
+	map(0xc000, 0xffff).bankrw("bank4");
 }
 
 /***************************************************************************
@@ -598,6 +715,19 @@ void mc10_state::alice90(machine_config &config)
 	config.device_remove("mc10_cass");
 }
 
+void mcx128_state::mcx128(machine_config &config)
+{
+	mc10(config);
+	m_maincpu->set_addrmap(AS_PROGRAM, &mcx128_state::mcx128_mem);
+
+	/* internal ram */
+	m_ram->set_default_size("4K");
+	RAM(config, m_mcx_ram).set_default_size("128K");
+
+	/* Software lists */
+	/* to do */
+}
+
 }
 
 
@@ -631,14 +761,22 @@ ROM_START( alice90 )
 	ROM_LOAD( "charset.rom", 0x0000, 0x2000, BAD_DUMP CRC(b2f49eb3) SHA1(d0ef530be33bfc296314e7152302d95fdf9520fc) )            // from dcvg5k
 ROM_END
 
+ROM_START( mcx128 )
+	ROM_REGION(0x2000, "maincpu", 0)
+	ROM_LOAD("mc10.rom", 0x0000, 0x2000, CRC(11fda97e) SHA1(4afff2b4c120334481aab7b02c3552bf76f1bc43))
+	ROM_REGION(0x4000, "cart", 0)
+	ROM_LOAD("mcx128bas.rom", 0x0000, 0x4000, CRC(11202e4b) SHA1(36c30d0f198a1bffee88ef29d92f2401447a91f4))
+ROM_END
+
 ALLOW_SAVE_TYPE(mc10_state::printer_state);
 
 /***************************************************************************
     GAME DRIVERS
 ***************************************************************************/
 
-//    YEAR  NAME     PARENT   COMPAT  MACHINE  INPUT  CLASS       INIT        COMPANY              FULLNAME     FLAGS
-COMP( 1983, mc10,    0,       0,      mc10,    mc10,  mc10_state, empty_init, "Tandy Radio Shack", "MC-10",     MACHINE_SUPPORTS_SAVE )
-COMP( 1983, alice,   mc10,    0,      mc10,    alice, mc10_state, empty_init, "Matra & Hachette",  "Alice",     MACHINE_SUPPORTS_SAVE )
-COMP( 1984, alice32, 0,       0,      alice32, alice, mc10_state, empty_init, "Matra & Hachette",  "Alice 32",  MACHINE_IMPERFECT_GRAPHICS | MACHINE_SUPPORTS_SAVE )
-COMP( 1985, alice90, alice32, 0,      alice90, alice, mc10_state, empty_init, "Matra & Hachette",  "Alice 90",  MACHINE_IMPERFECT_GRAPHICS | MACHINE_SUPPORTS_SAVE )
+//    YEAR  NAME     PARENT   COMPAT  MACHINE  INPUT  CLASS         INIT        COMPANY              FULLNAME     FLAGS
+COMP( 1983, mc10,    0,       0,      mc10,    mc10,  mc10_state,   empty_init, "Tandy Radio Shack",   "MC-10",     MACHINE_SUPPORTS_SAVE )
+COMP( 1983, alice,   mc10,    0,      mc10,    alice, mc10_state,   empty_init, "Matra & Hachette",    "Alice",     MACHINE_SUPPORTS_SAVE )
+COMP( 1984, alice32, 0,       0,      alice32, alice, mc10_state,   empty_init, "Matra & Hachette",    "Alice 32",  MACHINE_IMPERFECT_GRAPHICS | MACHINE_SUPPORTS_SAVE )
+COMP( 1985, alice90, alice32, 0,      alice90, alice, mc10_state,   empty_init, "Matra & Hachette",    "Alice 90",  MACHINE_IMPERFECT_GRAPHICS | MACHINE_SUPPORTS_SAVE )
+COMP( 2011, mcx128,  mc10,    0,      mcx128,  mc10,  mcx128_state, empty_init, "Tandy Radio Shack",   "MCX-128",   MACHINE_SUPPORTS_SAVE | MACHINE_UNOFFICIAL )
