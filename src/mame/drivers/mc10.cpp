@@ -63,6 +63,8 @@ protected:
 	virtual void driver_start() override;
 
 	required_device<ram_device> m_ram;
+	required_memory_bank m_bank1;
+	optional_memory_bank m_bank2;
 
 private:
 	void alice32_mem(address_map &map);
@@ -84,8 +86,6 @@ private:
 	required_device<cassette_image_device> m_cassette;
 	required_device<printer_image_device> m_printer;
 	required_ioport_array<8> m_pb;
-	required_memory_bank m_bank1;
-	optional_memory_bank m_bank2;
 
 	uint8_t *m_ram_base;
 	uint32_t m_ram_size;
@@ -197,7 +197,14 @@ READ8_MEMBER( mcx128_state::mcx128_bf00_r )
 
 WRITE8_MEMBER( mcx128_state::mcx128_bf00_w )
 {
-	m_bank_control = data;
+	m_bank_control = data & 3;
+	int page0_select = BIT(m_bank_control,0);
+	int page1_select = BIT(m_bank_control,1);
+
+	m_bank1->set_base(m_mcx_ram_base + (page0_select * 64 * 1024));
+	m_bank2->set_base(m_mcx_ram_base + (8 * 1024) + (page1_select * 64 * 1024));
+
+	mcx128_bf01_w(space,0,m_map_control);
 }
 
 /***************************************************************************
@@ -218,7 +225,35 @@ READ8_MEMBER( mcx128_state::mcx128_bf01_r)
 
 WRITE8_MEMBER( mcx128_state::mcx128_bf01_w)
 {
-	m_map_control = data;
+	m_map_control = data & 3;
+	memory_region *cart_rom = memregion("cart");
+	memory_region *internal_rom = memregion("maincpu");
+	int page1_select = BIT(m_bank_control,1);
+
+	switch( m_map_control )
+	{
+		case 0:
+			m_bank3->set_base(cart_rom->base());
+			m_bank4->set_base(cart_rom->base() + (8 * 1024));
+
+			break;
+
+		case 1:
+			m_bank3->set_base(m_mcx_ram_base + (16 * 1024) + (page1_select * 64 * 1024));
+			m_bank4->set_base(cart_rom->base() + (8 * 1024));
+
+			break;
+
+		case 2:
+			m_bank3->set_base(m_mcx_ram_base + (16 * 1024) + (page1_select * 64 * 1024));
+			m_bank4->set_base(internal_rom->base() + (8 * 1024));
+			break;
+
+		case 3:
+			m_bank3->set_base(m_mcx_ram_base + (16 * 1024) + (m_bank_control * 64 * 1024));
+			m_bank4->set_base(m_mcx_ram_base + ((16 + 8) * 1024) + (m_bank_control * 64 * 1024));
+			break;
+	}
 }
 
 
@@ -316,14 +351,14 @@ mc10_state::mc10_state(const machine_config &mconfig, device_type type, const ch
 	: driver_device(mconfig, type, tag)
 	, m_maincpu(*this, "maincpu")
 	, m_ram(*this, RAM_TAG)
+	, m_bank1(*this, "bank1")
+	, m_bank2(*this, "bank2")
 	, m_mc6847(*this, "mc6847")
 	, m_ef9345(*this, "ef9345")
 	, m_dac(*this, "dac")
 	, m_cassette(*this, "cassette")
 	, m_printer(*this, "printer")
 	, m_pb(*this, "pb%u", 0)
-	, m_bank1(*this, "bank1")
-	, m_bank2(*this, "bank2")
 {
 }
 
@@ -331,8 +366,8 @@ mc10_state::mc10_state(const machine_config &mconfig, device_type type, const ch
 mcx128_state::mcx128_state(const machine_config &mconfig, device_type type, const char *tag)
 	: mc10_state(mconfig, type, tag)
 	, m_mcx_ram(*this, "mcx_ram")
-	, m_bank3(*this, "bank2")
-	, m_bank4(*this, "bank2")
+	, m_bank3(*this, "bank3")
+	, m_bank4(*this, "bank4")
 {
 }
 
@@ -384,6 +419,13 @@ void mcx128_state::driver_start()
 
 	m_mcx_ram_base = m_mcx_ram->pointer();
 	m_mcx_ram_size = m_mcx_ram->size();
+
+	m_bank1->set_base(m_mcx_ram_base + (0 * 64 * 1024));
+	m_bank2->set_base(m_mcx_ram_base + (8 * 1024) + (0 * 64 * 1024));
+
+	memory_region *cart_rom = memregion("cart");
+	m_bank3->set_base(cart_rom->base());
+	m_bank4->set_base(cart_rom->base() + (8 * 1024));
 }
 
 
@@ -437,9 +479,11 @@ void mcx128_state::mcx128_mem(address_map &map)
 	map(0x4000, 0xbeff).bankrw("bank2");
 	map(0xbf00, 0xbf00).rw(FUNC(mcx128_state::mcx128_bf00_r), FUNC(mcx128_state::mcx128_bf00_w));
 	map(0xbf01, 0xbf01).rw(FUNC(mcx128_state::mcx128_bf01_r), FUNC(mcx128_state::mcx128_bf01_w));
-	map(0xbf02, 0xbffe).bankrw("bank3");
+	map(0xbf00, 0xbf7f).noprw(); /* unused */
+	map(0xbf80, 0xbffe).noprw(); /* unused */
 	map(0xbfff, 0xbfff).rw(FUNC(mc10_state::mc10_bfff_r), FUNC(mc10_state::mc10_bfff_w));
-	map(0xc000, 0xffff).bankrw("bank4");
+	map(0xc000, 0xdfff).bankrw("bank3");
+	map(0xe000, 0xffff).bankrw("bank4");
 }
 
 /***************************************************************************
