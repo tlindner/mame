@@ -212,8 +212,6 @@ void mcx128_state::update_mcx128_banking()
 	int32_t bank_offset_page_0 = 0x10000 * BIT(m_bank_control,0);
 	int32_t bank_offset_page_1 = 0x10000 * BIT(m_bank_control,1);
 
-	fprintf( stderr, "ub: bank page 0: %d, bank page 1: %d, map control: %d\n", bank_offset_page_0, bank_offset_page_1, m_map_control );
-
 	m_bank1->set_base(m_mcx_ram_base + bank_offset_page_0 + 0);
 
 	if( bank_offset_page_1 == 0)
@@ -258,8 +256,6 @@ void mcx128_state::update_mcx128_banking()
 
 READ8_MEMBER( mcx128_state::mcx128_bf00_r )
 {
-	fprintf( stderr, "bf00 ready: offset: %d\n", offset );
-
 	if( (offset & 1) == 0 ) return m_bank_control;
 
 	return m_map_control;
