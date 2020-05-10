@@ -72,7 +72,7 @@
 #define SLOT4_TAG           "slot4"
 
 #define SWITCH_CONFIG_TAG   "switch"
-
+#define TIE_CARTS_TOGETHER	"carts"
 
 //**************************************************************************
 //  MACROS / CONSTANTS
@@ -98,6 +98,7 @@ namespace
 		coco_multipak_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
 		INPUT_CHANGED_MEMBER( switch_changed );
+		INPUT_CHANGED_MEMBER( tie_cart_changed );
 
 	protected:
 		// device-level overrides
@@ -125,6 +126,7 @@ namespace
 		// internal state
 		uint8_t m_select;
 		uint8_t m_block;
+		uint8_t m_propagate_cart;
 
 		// internal accessors
 		int active_scs_slot_number() const;
@@ -213,6 +215,10 @@ INPUT_PORTS_START( coco_multipack )
 		PORT_CONFSETTING( 0x01, "Slot 2" )
 		PORT_CONFSETTING( 0x02, "Slot 3" )
 		PORT_CONFSETTING( 0x03, "Slot 4" )
+	PORT_START( TIE_CARTS_TOGETHER )
+	PORT_CONFNAME( 0x01, 0x00, "Multi-Pak *CART interrupt" ) PORT_CHANGED_MEMBER(DEVICE_SELF, coco_multipak_device, tie_cart_changed, 0)
+		PORT_CONFSETTING( 0x00, "Isolate" )
+		PORT_CONFSETTING( 0x01, "Tie" )
 INPUT_PORTS_END
 
 //**************************************************************************
@@ -243,7 +249,7 @@ ioport_constructor coco_multipak_device::device_input_ports() const
 coco_multipak_device::coco_multipak_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock)
 	: device_t(mconfig, COCO_MULTIPAK, tag, owner, clock)
 	, device_cococart_interface(mconfig, *this)
-	, m_slots(*this, "slot%u", 1), m_select(0), m_block(0)
+	, m_slots(*this, "slot%u", 1), m_select(0), m_block(0), m_propagate_cart(0)
 {
 }
 
@@ -264,6 +270,7 @@ void coco_multipak_device::device_start()
 	// save state
 	save_item(NAME(m_select));
 	save_item(NAME(m_block));
+	save_item(NAME(m_propagate_cart));
 }
 
 
@@ -286,6 +293,16 @@ INPUT_CHANGED_MEMBER( coco_multipak_device::switch_changed )
 {
 	if (m_block == 0)
 		set_select(MULTI_SLOT_LOOKUP[newval]);
+}
+
+
+//-------------------------------------------------
+//  tie_cart_changed - tie *CART switch changed
+//-------------------------------------------------
+
+INPUT_CHANGED_MEMBER( coco_multipak_device::tie_cart_changed )
+{
+	m_propagate_cart = newval;
 }
 
 
@@ -356,13 +373,13 @@ cococart_slot_device &coco_multipak_device::active_cts_slot()
 
 void coco_multipak_device::set_select(uint8_t new_select)
 {
-	// identify old value for CART, in case this needs to change
+	// identify old value for *CART, in case this needs to change
 	cococart_slot_device::line_value old_cart = active_cts_slot().get_line_value(line::CART);
 
 	// change value
 	m_select = new_select;
 
-	// did the CART line change?
+	// did the *CART line change?
 	line_value new_cart = active_cts_slot().get_line_value(line::CART);
 	if (new_cart != old_cart)
 		update_line(active_cts_slot_number(), line::CART);
@@ -404,7 +421,15 @@ void coco_multipak_device::update_line(int slot_number, line ln)
 	{
 	case line::CART:
 		// only propagate if this is coming from the slot specified
-		propagate = slot_number == active_cts_slot_number();
+		// or if the *CART lines are ties together
+		if (m_propagate_cart)
+		{
+			propagate = true;
+		}
+		else
+		{
+			propagate = slot_number == active_cts_slot_number();
+		}
 		break;
 
 	case line::NMI:
