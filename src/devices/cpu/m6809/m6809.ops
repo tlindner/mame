@@ -266,7 +266,7 @@ MAIN:
 		case 0xFD:				set_regop16(m_q.p.d);	%EXTENDED;	%ST16;		return;
 		case 0xFE:				set_regop16(m_u);		%EXTENDED;	%LD16;		return;
 		case 0xFF:				set_regop16(m_u);		%EXTENDED;	%ST16;		return;
-		default:													%ILLEGAL;	return;			
+		default:													%ILLEGAL;	return;
 	}
 	return;
 
@@ -319,7 +319,7 @@ DISPATCH10:
 		case 0xFE:				set_regop16(m_s);	%EXTENDED;		%LD16;		return;
 		case 0xFF:				set_regop16(m_s);	%EXTENDED;		%ST16;		return;
 
-		default:													%ILLEGAL;	return;			
+		default:													%ILLEGAL;	return;
 	}
 	return;
 
@@ -327,6 +327,7 @@ DISPATCH11:
 	@m_opcode = read_opcode();
 	switch(m_opcode)
 	{
+		case 0x3E:				machine().debugger().debug_break(); 			return;
 		case 0x3F:													%SWI3;		return;
 		case 0x83:				set_regop16(m_u);	set_imm();		%CMP16;		return;
 		case 0x8C:				set_regop16(m_s);	set_imm();		%CMP16;		return;
@@ -336,10 +337,10 @@ DISPATCH11:
 		case 0xAC:				set_regop16(m_s);	%INDEXED;		%CMP16;		return;
 		case 0xB3:				set_regop16(m_u);	%EXTENDED;		%CMP16;		return;
 		case 0xBC:				set_regop16(m_s);	%EXTENDED;		%CMP16;		return;
-		default:													%ILLEGAL;	return;			
+		default:													%ILLEGAL;	return;
 	}
 	return;
-	
+
 #include "base6x09.ops"
 
 PUSH_REGISTERS:

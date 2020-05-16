@@ -710,6 +710,7 @@ const m6x09_base_disassembler::opcodeinfo m6x09_disassembler::m6x09_opcodes[] =
 	{ 0x113C, 3, "BITMD", IMM,  HD6309_EXCLUSIVE },
 	{ 0x113D, 3, "LDMD",  IMM,  HD6309_EXCLUSIVE },
 
+	{ 0x113E, 2, "BREAK", INH,  M6x09_GENERAL }, // MILLILUK
 	{ 0x113F, 2, "SWI3",  INH,  M6x09_GENERAL },
 
 	{ 0x1143, 2, "COME",  INH,  HD6309_EXCLUSIVE },
