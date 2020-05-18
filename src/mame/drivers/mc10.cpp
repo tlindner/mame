@@ -1,5 +1,5 @@
 // license:BSD-3-Clause
-// copyright-holders:Nathan Woods, Dirk Best
+// copyright-holders:Nathan Woods, Dirk Best, tim lindner
 /***************************************************************************
 
     TRS-80 Radio Shack MicroColor Computer
@@ -14,6 +14,7 @@
 #include "cpu/m6800/m6801.h"
 #include "imagedev/cassette.h"
 #include "imagedev/printer.h"
+#include "bus/rs232/rs232.h"
 #include "machine/ram.h"
 #include "machine/timer.h"
 #include "sound/dac.h"
@@ -25,7 +26,6 @@
 #include "speaker.h"
 
 #include "formats/coco_cas.h"
-
 
 namespace
 {
@@ -61,6 +61,7 @@ protected:
 
 	// device-level overrides
 	virtual void driver_start() override;
+	virtual void driver_reset() override;
 
 	required_device<ram_device> m_ram;
 	required_memory_bank m_bank1;
@@ -73,30 +74,16 @@ private:
 	void alice90_mem(address_map &map);
 	void mc10_mem(address_map &map);
 
-
-	//printer state
-	enum class printer_state : uint8_t
-	{
-		WAIT,
-		REC,
-		DONE
-	};
-
 	optional_device<mc6847_base_device> m_mc6847;
 	optional_device<ef9345_device> m_ef9345;
 	required_device<dac_bit_interface> m_dac;
 	required_device<cassette_image_device> m_cassette;
-	required_device<printer_image_device> m_printer;
+	required_device<rs232_port_device> m_rs232;
 	required_ioport_array<8> m_pb;
 
 	uint32_t m_ram_size;
 	uint8_t m_keyboard_strobe;
 	uint8_t m_port2;
-
-	// printer
-	uint8_t m_pr_buffer;
-	uint8_t m_pr_counter;
-	printer_state m_pr_state;
 
 	uint8_t read_keyboard_strobe(bool single_line);
 };
@@ -253,7 +240,6 @@ void mcx128_state::update_mcx128_banking()
 	}
 }
 
-
 READ8_MEMBER( mcx128_state::mcx128_bf00_r )
 {
 	if( (offset & 1) == 0 ) return m_bank_control;
@@ -290,17 +276,18 @@ WRITE8_MEMBER( mc10_state::mc10_port1_w )
 
 READ8_MEMBER( mc10_state::mc10_port2_r )
 {
-	uint8_t result = 0xeb;
+ 	uint8_t result = 0xeb;
 
 	// bit 1, keyboard line pa6
 	if (!BIT(m_keyboard_strobe, 0)) result &= m_pb[0]->read() >> 5;
 	if (!BIT(m_keyboard_strobe, 2)) result &= m_pb[2]->read() >> 5;
 	if (!BIT(m_keyboard_strobe, 7)) result &= m_pb[7]->read() >> 5;
 
-	// bit 2, printer ots input
-	result |= (m_printer->is_ready() ? 1 : 0) << 2;
+	// bit 2, rs232 input
+	result |= (m_rs232->rxd_r() ? 1 : 0) << 2;
 
-	// bit 3, rs232 input
+	// bit 3, printer ots input
+	result |= (m_rs232->cts_r() ? 1 : 0) << 3;
 
 	// bit 4, cassette input
 	result |= (m_cassette->input() >= 0 ? 1 : 0) << 4;
@@ -313,32 +300,10 @@ WRITE8_MEMBER( mc10_state::mc10_port2_w )
 	// bit 0, cassette & printer output
 	m_cassette->output( BIT(data, 0) ? +1.0 : -1.0);
 
-	switch (m_pr_state)
-	{
-		case printer_state::WAIT:
-			if (BIT(m_port2, 0) && !BIT(data, 0))
-			{
-				m_pr_state = printer_state::REC;
-				m_pr_counter = 8;
-				m_pr_buffer = 0;
-			}
-			break;
-		case printer_state::REC:
-			if (m_pr_counter--)
-				m_pr_buffer |= (BIT(data,0)<<(7-m_pr_counter));
-			else
-				m_pr_state = printer_state::DONE;
-			break;
-		case printer_state::DONE:
-			if (BIT(data,0))
-				m_printer->output(m_pr_buffer);
-			m_pr_state = printer_state::WAIT;
-			break;
-	}
+	m_rs232->write_txd(BIT(data, 0) ? 1 : 0);
 
 	m_port2 = data;
 }
-
 
 /***************************************************************************
     VIDEO EMULATION
@@ -372,7 +337,7 @@ mc10_state::mc10_state(const machine_config &mconfig, device_type type, const ch
 	, m_ef9345(*this, "ef9345")
 	, m_dac(*this, "dac")
 	, m_cassette(*this, "cassette")
-	, m_printer(*this, "printer")
+	, m_rs232(*this, "rs232")
 	, m_pb(*this, "pb%u", 0)
 {
 }
@@ -399,14 +364,9 @@ void mc10_state::driver_start()
 
 	address_space &prg = m_maincpu->space(AS_PROGRAM);
 
-	/* initialize keyboard strobe */
-	m_keyboard_strobe = 0x00;
-
 	/* initialize memory */
 	m_ram_base = m_ram->pointer();
 	m_ram_size = m_ram->size();
-	m_pr_state = printer_state::WAIT;
-
 	m_bank1->set_base(m_ram_base);
 
 	/* initialize memory expansion */
@@ -422,12 +382,16 @@ void mc10_state::driver_start()
 
 	/* register for state saving */
 	save_item(NAME(m_keyboard_strobe));
-	save_item(NAME(m_pr_state));
-	save_item(NAME(m_pr_counter));
 
 	//for alice32 force port4 DDR to 0xff at startup
 	//if (!strcmp(machine().system().name, "alice32") || !strcmp(machine().system().name, "alice90"))
 		//m_maincpu->m6801_io_w(prg, 0x05, 0xff);
+}
+
+void mc10_state::driver_reset()
+{
+	/* initialize keyboard strobe */
+	m_keyboard_strobe = 0x00;
 }
 
 void mcx128_state::driver_start()
@@ -680,6 +644,14 @@ INPUT_PORTS_START( alice )
 	PORT_BIT(0x80, IP_ACTIVE_LOW, IPT_UNUSED)
 INPUT_PORTS_END
 
+static DEVICE_INPUT_DEFAULTS_START( printer )
+	DEVICE_INPUT_DEFAULTS( "RS232_RXBAUD", 0xff, RS232_BAUD_600 )
+	DEVICE_INPUT_DEFAULTS( "RS232_STARTBITS", 0xff, RS232_STARTBITS_1 )
+	DEVICE_INPUT_DEFAULTS( "RS232_DATABITS", 0xff, RS232_DATABITS_8 )
+	DEVICE_INPUT_DEFAULTS( "RS232_PARITY", 0xff, RS232_PARITY_NONE )
+	DEVICE_INPUT_DEFAULTS( "RS232_STOPBITS", 0xff, RS232_STOPBITS_1 )
+DEVICE_INPUT_DEFAULTS_END
+
 /***************************************************************************
     MACHINE DRIVERS
 ***************************************************************************/
@@ -714,7 +686,8 @@ void mc10_state::mc10(machine_config &config)
 	m_cassette->set_interface("mc10_cass");
 
 	/* printer */
-	PRINTER(config, m_printer, 0);
+	rs232_port_device &rs232(RS232_PORT(config, "rs232", default_rs232_devices, "printer"));
+	rs232.set_option_device_input_defaults("printer", DEVICE_INPUT_DEFAULTS_NAME(printer));
 
 	/* internal ram */
 	RAM(config, m_ram).set_default_size("20K").set_extra_options("4K");
@@ -757,7 +730,8 @@ void mc10_state::alice32(machine_config &config)
 	m_cassette->set_interface("mc10_cass");
 
 	/* printer */
-	PRINTER(config, m_printer, 0);
+	rs232_port_device &rs232(RS232_PORT(config, "rs232", default_rs232_devices, "printer"));
+	rs232.set_option_device_input_defaults("printer", DEVICE_INPUT_DEFAULTS_NAME(printer));
 
 	/* internal ram */
 	RAM(config, m_ram).set_default_size("24K").set_extra_options("8K");
@@ -794,7 +768,6 @@ void mcx128_state::mcx128(machine_config &config)
 }
 
 }
-
 
 /***************************************************************************
     ROM DEFINITIONS
@@ -833,7 +806,12 @@ ROM_START( mcx128 )
 	ROM_LOAD("mcx128bas.rom", 0x0000, 0x4000, CRC(11202e4b) SHA1(36c30d0f198a1bffee88ef29d92f2401447a91f4))
 ROM_END
 
-ALLOW_SAVE_TYPE(mc10_state::printer_state);
+ROM_START( alice128 )
+	ROM_REGION(0x2000, "maincpu", 0)
+	ROM_LOAD("alice.rom", 0x0000, 0x2000, CRC(f876abe9) SHA1(c2166b91e6396a311f486832012aa43e0d2b19f8))
+	ROM_REGION(0x4000, "cart", 0)
+	ROM_LOAD("alice128bas.rom", 0x0000, 0x4000, CRC(a737544a) SHA1(c8fd92705fc42deb6a0ffac6274e27fd61ecd4cc))
+ROM_END
 
 /***************************************************************************
     GAME DRIVERS
@@ -845,3 +823,4 @@ COMP( 1983, alice,   mc10,    0,      mc10,    alice, mc10_state,   empty_init, 
 COMP( 1984, alice32, 0,       0,      alice32, alice, mc10_state,   empty_init, "Matra & Hachette",    "Alice 32",  MACHINE_IMPERFECT_GRAPHICS | MACHINE_SUPPORTS_SAVE )
 COMP( 1985, alice90, alice32, 0,      alice90, alice, mc10_state,   empty_init, "Matra & Hachette",    "Alice 90",  MACHINE_IMPERFECT_GRAPHICS | MACHINE_SUPPORTS_SAVE )
 COMP( 2011, mcx128,  mc10,    0,      mcx128,  mc10,  mcx128_state, empty_init, "Tandy Radio Shack",   "MCX-128",   MACHINE_SUPPORTS_SAVE | MACHINE_UNOFFICIAL )
+COMP( 2011, alice128,mc10,    0,      mcx128,  alice, mcx128_state, empty_init, "Matra & Hachette",    "Alice with MCX-128", MACHINE_SUPPORTS_SAVE | MACHINE_UNOFFICIAL )
