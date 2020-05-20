@@ -69,6 +69,12 @@ protected:
 
 	uint8_t *m_ram_base;
 
+	uint32_t m_ram_size;
+	uint8_t m_keyboard_strobe;
+	uint8_t m_port2;
+
+	uint8_t read_keyboard_strobe(bool single_line);
+
 private:
 	void alice32_mem(address_map &map);
 	void alice90_mem(address_map &map);
@@ -80,12 +86,6 @@ private:
 	required_device<cassette_image_device> m_cassette;
 	required_device<rs232_port_device> m_rs232;
 	required_ioport_array<8> m_pb;
-
-	uint32_t m_ram_size;
-	uint8_t m_keyboard_strobe;
-	uint8_t m_port2;
-
-	uint8_t read_keyboard_strobe(bool single_line);
 };
 
 class mcx128_state : public mc10_state
@@ -396,8 +396,10 @@ void mc10_state::driver_reset()
 
 void mcx128_state::driver_start()
 {
-	// call base device_start
-	mc10_state::driver_start();
+	/* initialize memory */
+	m_ram_base = m_ram->pointer();
+	m_ram_size = m_ram->size();
+	m_bank1->set_base(m_ram_base);
 
 	m_mcx_ram_base = m_mcx_ram->pointer();
 	m_mcx_cart_rom_base = memregion("cart")->base();
@@ -405,10 +407,7 @@ void mcx128_state::driver_start()
 
 	save_item(NAME(m_bank_control));
 	save_item(NAME(m_map_control));
-
-	update_mcx128_banking();
 }
-
 
 void mcx128_state::driver_reset()
 {
@@ -417,8 +416,9 @@ void mcx128_state::driver_reset()
 
 	m_bank_control = 0;
 	m_map_control = 0;
-}
 
+	update_mcx128_banking();
+}
 
 /***************************************************************************
     ADDRESS MAPS
