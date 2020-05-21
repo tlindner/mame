@@ -68,7 +68,6 @@ protected:
 	optional_memory_bank m_bank2;
 
 	uint8_t *m_ram_base;
-
 	uint32_t m_ram_size;
 	uint8_t m_keyboard_strobe;
 	uint8_t m_port2;
@@ -142,7 +141,6 @@ uint8_t mc10_state::read_keyboard_strobe(bool single_line)
 	return result;
 }
 
-
 READ8_MEMBER( mc10_state::mc10_bfff_r )
 {
 	return read_keyboard_strobe(false);
@@ -199,17 +197,25 @@ void mcx128_state::update_mcx128_banking()
 	int32_t bank_offset_page_0 = 0x10000 * BIT(m_bank_control,0);
 	int32_t bank_offset_page_1 = 0x10000 * BIT(m_bank_control,1);
 
+	// 0x0000 - 0x3fff
 	m_bank1->set_base(m_mcx_ram_base + bank_offset_page_0 + 0);
 
+	// 0x4000 - 0x4fff
 	if( bank_offset_page_1 == 0)
 		m_bank2->set_base(m_ram_base); /* internal 4K when page is 0 */
 	else
 		m_bank2->set_base(m_mcx_ram_base + bank_offset_page_1 + 0x8000);
 
+	// 0x5000 - 0xbeff
 	m_bank3->set_base(m_mcx_ram_base + bank_offset_page_1 + 0x8000 + 0x1000);
 
+	// 0xc000 - 0xdfff
 	m_bank4w->set_base(m_mcx_ram_base + bank_offset_page_0 + 0x4000);
+
+	// 0xe000 - 0xfeff
 	m_bank5w->set_base(m_mcx_ram_base + bank_offset_page_0 + 0x6000);
+
+	// 0xff00 - 0xffff
 	m_bank6w->set_base(m_mcx_ram_base + 0 + 0x7f00); /* always bank 0 */
 
 	switch( m_map_control )
@@ -236,6 +242,10 @@ void mcx128_state::update_mcx128_banking()
 			m_bank4r->set_base(m_mcx_ram_base + bank_offset_page_0 + 0x4000);
 			m_bank5r->set_base(m_mcx_ram_base + bank_offset_page_0 + 0x6000);
 			m_bank6r->set_base(m_mcx_ram_base + 0 + 0x7f00); /* always bank 0 */
+			break;
+
+		default:
+			// can't get here
 			break;
 	}
 }
@@ -342,7 +352,6 @@ mc10_state::mc10_state(const machine_config &mconfig, device_type type, const ch
 {
 }
 
-
 mcx128_state::mcx128_state(const machine_config &mconfig, device_type type, const char *tag)
 	: mc10_state(mconfig, type, tag)
 	, m_mcx_ram(*this, "mcx_ram")
@@ -355,7 +364,6 @@ mcx128_state::mcx128_state(const machine_config &mconfig, device_type type, cons
 	, m_bank6w(*this, "bank6w")
 {
 }
-
 
 void mc10_state::driver_start()
 {
@@ -396,10 +404,12 @@ void mc10_state::driver_reset()
 
 void mcx128_state::driver_start()
 {
+	// call base device_start
+	driver_device::driver_start();
+
 	/* initialize memory */
 	m_ram_base = m_ram->pointer();
 	m_ram_size = m_ram->size();
-	m_bank1->set_base(m_ram_base);
 
 	m_mcx_ram_base = m_mcx_ram->pointer();
 	m_mcx_cart_rom_base = memregion("cart")->base();
