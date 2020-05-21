@@ -38,6 +38,7 @@
 #include "bus/coco/coco_ssc.h"
 #include "bus/coco/coco_ram.h"
 #include "bus/coco/coco_t4426.h"
+#include "bus/coco/dragon_mooh.h"
 
 #include "cpu/m6809/m6809.h"
 #include "cpu/m6809/hd6309.h"
@@ -422,6 +423,7 @@ void coco_cart(device_slot_interface &device)
 	device.option_add("pak", COCO_PAK);
 	device.option_add("multi", COCO_MULTIPAK);
 	device.option_add("ccpsg", COCO_PSG);
+	device.option_add("mooh", DRAGON_MOOH);
 }
 
 //-------------------------------------------------

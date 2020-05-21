@@ -3334,6 +3334,12 @@ if (BUSES["COCO"]~=null) then
 		MAME_DIR .. "src/devices/bus/coco/dragon_jcbspch.h",
 		MAME_DIR .. "src/devices/bus/coco/dragon_sprites.cpp",
 		MAME_DIR .. "src/devices/bus/coco/dragon_sprites.h",
+		MAME_DIR .. "src/devices/bus/coco/dragon_mooh.cpp",
+		MAME_DIR .. "src/devices/bus/coco/dragon_mooh.h",
+		MAME_DIR .. "src/devices/bus/spi/spi65b.cpp",
+		MAME_DIR .. "src/devices/bus/spi/spi65b.h",
+		MAME_DIR .. "src/devices/bus/spi/spi65b_sdcard.cpp",
+		MAME_DIR .. "src/devices/bus/spi/spi65b_sdcard.h",
 	}
 end
 
