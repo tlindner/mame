@@ -32,42 +32,27 @@
 class spi65b_bus_device;
 
 // ======================> spi65b_bus_slot_device
-class spi65b_bus_slot_device final : public device_t, public device_slot_interface
+class spi65b_bus_slot_device final : public device_t,
+									public device_slot_interface
 {
 	public:
-
-	// construction/destruction
-	template <typename T>
-	spi65b_bus_slot_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock, T &&opts, const char *dflt)
-		: spi65b_bus_slot_device(mconfig, tag, owner, clock)
-	{
-		option_reset();
-		opts(*this);
-		set_default_option(dflt);
-		set_fixed(false);
-	}
-
-
-
-
-
-
 		// construction/destruction
-// 	template <typename T, typename U>
-// 		spi65b_bus_slot_device(const machine_config &mconfig, const char *tag, device_t *owner, T &&spi65b_bus_tag, U &&opts, const char *dflt)
-// 			: spi65b_bus_slot_device(mconfig, tag, owner, DERIVED_CLOCK(1, 1), std::forward<T>(spi65b_bus_tag), std::forward<U>(opts), dflt)
-// 		{
-// 		}
-// 		template <typename T, typename U>
-// 		spi65b_bus_slot_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock, T &&spi65b_bus_tag, U &&opts, const char *dflt)
-// 			: spi65b_bus_slot_device(mconfig, tag, owner, clock)
-// 		{
-// 			option_reset();
-// 			opts(*this);
-// 			set_default_option(dflt);
-// 			set_fixed(false);
-// 			m_spi65b_bus.set_tag(std::forward<T>(spi65b_bus_tag));
-// 		}
+		template <typename T, typename U>
+		spi65b_bus_slot_device(const machine_config &mconfig, const char *tag, device_t *owner, T &&spi65b_bus_tag, U &&opts, const char *dflt)
+		: spi65b_bus_slot_device(mconfig, tag, owner, DERIVED_CLOCK(1, 1), std::forward<T>(spi65b_bus_tag), std::forward<U>(opts), dflt)
+		{
+		}
+
+		template <typename T, typename U>
+		spi65b_bus_slot_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock, T &&spi65b_bus_tag, U &&opts, const char *dflt)
+		: spi65b_bus_slot_device(mconfig, tag, owner, clock)
+		{
+			option_reset();
+			opts(*this);
+			set_default_option(dflt);
+			set_fixed(false);
+			m_spi65b_bus.set_tag(std::forward<T>(spi65b_bus_tag));
+		}
 
 		spi65b_bus_slot_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
@@ -88,8 +73,7 @@ DECLARE_DEVICE_TYPE(SPI65BBUS_SLOT, spi65b_bus_slot_device)
 class device_spi65b_bus_interface;
 
 class spi65b_bus_device : public device_t,
-								public device_single_card_slot_interface<device_spi65b_bus_interface>,
-								public device_image_interface
+						  public device_single_card_slot_interface<device_spi65b_bus_interface>
 {
 	public:
 		// construction/destruction
@@ -109,13 +93,14 @@ class spi65b_bus_device : public device_t,
 		DECLARE_READ8_MEMBER(spi65b_bus_read);
 		DECLARE_WRITE8_MEMBER(spi65b_bus_write);
 
-	protected:
-		spi65b_bus_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock);
-
 		// device-level overrides
 		virtual void device_resolve_objects() override;
 		virtual void device_start() override;
 		virtual void device_reset() override;
+
+	protected:
+		spi65b_bus_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock);
+
 
 		// internal state
 		devcb_write_line            m_out_irq_cb;
@@ -143,6 +128,7 @@ class device_spi65b_bus_interface : public device_interface
 	friend class spi65b_bus_device;
 	public:
 		// construction/destruction
+		device_spi65b_bus_interface(const machine_config &mconfig, device_t *device);
 		virtual ~device_spi65b_bus_interface();
 
 		device_spi65b_bus_interface *next() const { return m_next; }

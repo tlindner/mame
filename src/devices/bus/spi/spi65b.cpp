@@ -114,6 +114,7 @@ spi65b_bus_device::spi65b_bus_device(const machine_config &mconfig, const char *
 
 spi65b_bus_device::spi65b_bus_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock)
 	: device_t(mconfig, type, tag, owner, clock)
+	, device_single_card_slot_interface(mconfig, *this)
  	, m_out_irq_cb(*this)
 {
 }
@@ -312,7 +313,7 @@ template class device_finder<device_spi65b_bus_interface, true>;
 //-------------------------------------------------
 
 device_spi65b_bus_interface::device_spi65b_bus_interface(const machine_config &mconfig, device_t &device)
-	: device_slot_card_interface(mconfig, device)
+	: device_interface(device, "spi65b")
 	, m_spi65b_bus_finder(device, finder_base::DUMMY_TAG)
 	, m_spi65b_bus(nullptr)
 	, m_spi65b_bus_slottag(nullptr)
@@ -337,7 +338,7 @@ void device_spi65b_bus_interface::interface_validity_check(validity_checker &val
 
 void device_spi65b_bus_interface::interface_pre_start()
 {
-	device_slot_card_interface::interface_pre_start();
+	device_interface::interface_pre_start();
 
 	if (!m_spi65b_bus)
 	{

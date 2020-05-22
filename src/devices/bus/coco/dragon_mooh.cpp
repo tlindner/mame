@@ -63,14 +63,14 @@ void dragon_mooh_device::device_add_mconfig(machine_config &config)
 {
 	RAM(config, "staticram").set_default_size("512K").set_default_value(0);
 
-// 	SPI65BBUS(config, m_spi65b, 0);
+	SPI65BBUS(config, m_spi65b, 0);
 
 	m_spi65b->irq_w().set(FUNC(dragon_mooh_device::irq_w));
 
-	SPI65BBUS_SLOT(config, "slave0", m_spi65b, DERIVED_CLOCK(1, 1), spi65b_slaves, "sdcard");
-	SPI65BBUS_SLOT(config, "slave1", m_spi65b, DERIVED_CLOCK(1, 1), spi65b_slaves, nullptr);
-	SPI65BBUS_SLOT(config, "slave2", m_spi65b, DERIVED_CLOCK(1, 1), spi65b_slaves, nullptr);
-	SPI65BBUS_SLOT(config, "slave3", m_spi65b, DERIVED_CLOCK(1, 1), spi65b_slaves, nullptr);
+	SPI65BBUS_SLOT(config, "slave0", m_spi65b, spi65b_slaves, "sdcard");
+	SPI65BBUS_SLOT(config, "slave1", m_spi65b, spi65b_slaves, nullptr);
+	SPI65BBUS_SLOT(config, "slave2", m_spi65b, spi65b_slaves, nullptr);
+	SPI65BBUS_SLOT(config, "slave3", m_spi65b, spi65b_slaves, nullptr);
 }
 
 ROM_START(dragon_mooh)
