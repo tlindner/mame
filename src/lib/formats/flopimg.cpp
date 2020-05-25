@@ -2354,6 +2354,13 @@ void floppy_image_format_t::generate_bitstream_from_track(int track, int head, i
 	track_size = cur_bit;
 }
 
+uint8_t floppy_image_format_t::sbyte_mfm_rv( uint16_t value )
+{
+	return ((value >> 7) & 0x80) | ((value >> 6) & 0x40) | ((value >> 5) & 0x20) |
+			((value >> 4) & 0x10) | ((value >> 3) & 0x08) | ((value >> 2) & 0x04) |
+			((value >> 1) & 0x02) | ((value >> 0) & 0x01);
+}
+
 int floppy_image_format_t::sbit_r(const uint8_t *bitstream, int pos)
 {
 	return (bitstream[pos >> 3] & (0x80 >> (pos & 7))) != 0;
@@ -2388,6 +2395,73 @@ uint8_t floppy_image_format_t::sbyte_gcr5_r(const uint8_t *bitstream, int &pos, 
 	}
 
 	return (gcr5bw_tb[gcr >> 5] << 4) | gcr5bw_tb[gcr & 0x1f];
+}
+
+void floppy_image_format_t::extract_track_from_bitstream_mfm_pc(const uint8_t *bitstream, int bitstream_size, uint8_t *track, int track_size, int *address_marks, int am_size)
+{
+	// flag all block indexes as invalid
+	for( int i=0; i<am_size; i++) address_marks[i] = -1;
+
+	int am_index = 0;
+	int track_index = 0;
+	int count_up = 0;
+
+	// Don't bother if it's just too small
+	if(bitstream_size < 100)
+		return;
+
+	// Precharge the shift register to detect over-the-index stuff
+	uint16_t shift_reg = 0;
+	for(int i=0; i<16; i++)
+		if(sbit_r(bitstream, bitstream_size-16+i))
+			shift_reg |= 0x8000 >> i;
+
+	// Scan the bitstream for sync marks and follow them to check for
+	// blocks
+	for(int i=0; i<bitstream_size; i++) {
+		shift_reg = (shift_reg << 1) | sbit_r(bitstream, i);
+
+		if(shift_reg == 0x4489) {
+
+			if( track_index < track_size ) track[track_index++] = sbyte_mfm_rv(shift_reg);
+
+			uint16_t header;
+			int pos = i+1;
+			do {
+				header = 0;
+				for(int j=0; j<16; j++)
+					if(sbit_rp(bitstream, pos, bitstream_size))
+						header |= 0x8000 >> j;
+				// Accept strings of sync marks as long and they're not wrapping
+
+				// Wrapping ones have already been take into account
+				// thanks to the precharging
+
+				if( track_index < track_size ) track[track_index++] = sbyte_mfm_rv(header);
+				count_up = 0;
+			} while(header == 0x4489 && pos > i);
+
+
+			// fe, ff
+			if(header == 0x5554 || header == 0x5555) {
+				if( am_index < am_size ) address_marks[am_index++] = track_index-1;
+				i = pos-1;
+			}
+			// f8, f9, fa, fb
+			if(header == 0x554a || header == 0x5549 || header == 0x5544 || header == 0x5545) {
+				if( am_index < am_size ) address_marks[am_index++] = track_index-1;
+				i = pos-1;
+			}
+		}
+		else
+		{
+			if( count_up++ == 15 )
+			{
+				if( track_index < track_size ) track[track_index++] = sbyte_mfm_rv(shift_reg);
+				count_up = 0;
+			}
+		}
+	}
 }
 
 void floppy_image_format_t::extract_sectors_from_bitstream_mfm_pc(const uint8_t *bitstream, int track_size, desc_xs *sectors, uint8_t *sectdata, int sectdata_size)
@@ -2538,6 +2612,60 @@ void floppy_image_format_t::get_track_data_mfm_pc(int track, int head, floppy_im
 	}
 }
 
+
+void floppy_image_format_t::extract_track_from_bitstream_fm_pc(const uint8_t *bitstream, int bitstream_size, uint8_t *track, int track_size, int *address_marks, int am_size)
+{
+	// flag all block indexes as invalid
+	for( int i=0; i<am_size; i++) address_marks[i] = -1;
+
+	int am_index = 0;
+	int track_index = 0;
+	int count_up = 0;
+
+	// Don't bother if it's just too small
+	if(bitstream_size < 100)
+		return;
+
+	// Start by detecting all id and data address marks
+
+	// If 100 is not enough, that track is too funky to be worth
+	// bothering anyway
+
+	// Precharge the shift register to detect over-the-index stuff
+	uint16_t shift_reg = 0;
+	for(int i=0; i<16; i++)
+		if(sbit_r(bitstream, bitstream_size-16+i))
+			shift_reg |= 0x8000 >> i;
+
+	// Scan the bitstream for sync marks and follow them to check for
+	// address marks
+	// We scan for address marks only, as index marks are not mandatory,
+	// and many formats actually do not use them
+
+	for(int i=0; i<bitstream_size; i++)
+	{
+		shift_reg = (shift_reg << 1) | sbit_r(bitstream, i);
+
+		// fe
+		if(shift_reg == 0xf57e)
+		{       // address mark
+			if( am_index < am_size ) address_marks[am_index++] = track_index;
+			count_up = 15;
+		}
+		// f8, f9, fa, fb
+		if(shift_reg == 0xf56a || shift_reg == 0xf56b || shift_reg == 0xf56e || shift_reg == 0xf56f)
+		{       // data mark
+			if( am_index < am_size ) address_marks[am_index++] = track_index;
+			count_up = 15;
+		}
+
+		if( count_up++ == 15 )
+		{
+			if( track_index < track_size ) track[track_index++] = sbyte_mfm_rv(shift_reg);
+			count_up = 0;
+		}
+	}
+}
 
 void floppy_image_format_t::extract_sectors_from_bitstream_fm_pc(const uint8_t *bitstream, int track_size, desc_xs *sectors, uint8_t *sectdata, int sectdata_size)
 {

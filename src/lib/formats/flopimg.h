@@ -533,11 +533,26 @@ protected:
 	void extract_sectors_from_bitstream_mfm_pc(const uint8_t *bitstream, int track_size, desc_xs *sectors, uint8_t *sectdata, int sectdata_size);
 	//! PC-type sectors with FM encoding
 	void extract_sectors_from_bitstream_fm_pc(const uint8_t *bitstream, int track_size, desc_xs *sectors, uint8_t *sectdata, int sectdata_size);
+
 	//! Commodore type sectors with GCR5 encoding
 	void extract_sectors_from_bitstream_gcr5(const uint8_t *bitstream, int track_size, desc_xs *sectors, uint8_t *sectdata, int sectdata_size, int head, int tracks);
 	//! Victor 9000 type sectors with GCR5 encoding
 	void extract_sectors_from_bitstream_victor_gcr5(const uint8_t *bitstream, int track_size, desc_xs *sectors, uint8_t *sectdata, int sectdata_size);
 
+	//! @brief Extract standard tracks from a regenerated bitstream.
+	//! Sectors must point to an array of am_size ints.
+
+	//! An existing sector is recognizable by having ->data non-null.
+	//! Sector data is written in the track buffer. The list of address
+	//! mark pointers is in address_marks
+
+	//! The ones implemented here are the ones used by multiple
+	//! systems.
+
+	//! PC-type tracks with MFM encoding
+	void extract_track_from_bitstream_mfm_pc(const uint8_t *bitstream, int bitstream_size, uint8_t *track, int track_size, int *address_marks, int am_size);
+	//! PC-type tracks with FM encoding
+	void extract_track_from_bitstream_fm_pc(const uint8_t *bitstream, int bitstream_size, uint8_t *track, int track_size, int *address_marks, int am_size);
 
 	//! @brief Get a geometry (including sectors) from an image.
 
@@ -590,6 +605,7 @@ protected:
 	void gcr6_decode(uint8_t e0, uint8_t e1, uint8_t e2, uint8_t e3, uint8_t &va, uint8_t &vb, uint8_t &vc);
 
 	uint8_t sbyte_mfm_r(const uint8_t *bitstream, int &pos, int track_size);
+	uint8_t sbyte_mfm_rv( uint16_t value );
 	uint8_t sbyte_gcr5_r(const uint8_t *bitstream, int &pos, int track_size);
 
 	//! Max number of excess tracks to be discarded from disk image to fit floppy drive
