@@ -89,13 +89,14 @@ void sdf_format::sdf_count_sectors( std::vector<uint8_t>track_data, int *mfm_sec
 		}
 		else
 		{
-			*fm_sector_count += 1;
+			*mfm_sector_count += 1;
 		}
 	}
 }
 
 bool sdf_format::load(io_generic *io, uint32_t form_factor, floppy_image *image)
 {
+	bool sd_track = false, dd_track = false;
 	uint8_t header[HEADER_SIZE];
 	std::vector<uint8_t> track_data(TOTAL_TRACK_SIZE);
 	std::vector<uint32_t> raw_track_data;
@@ -104,15 +105,6 @@ bool sdf_format::load(io_generic *io, uint32_t form_factor, floppy_image *image)
 
 	const int tracks = header[4];
 	const int heads = header[5];
-
-	if (heads == 2)
-	{
-		image->set_variant(floppy_image::DSDD);
-	}
-	else
-	{
-		image->set_variant(floppy_image::SSDD);
-	}
 
 	for (int track = 0; track < tracks; track++)
 	{
@@ -149,13 +141,15 @@ bool sdf_format::load(io_generic *io, uint32_t form_factor, floppy_image *image)
 				}
 			}
 
-			if( fm_sector_count > 0 )
+			if( fm_sector_count > 0 ) // single density track
 			{
+				sd_track = true;
+
 				// remove double bytes from track buffer
-				for( int i=0; i<6250; i += 2)
-				{
-					track_data[256+(i/2)] = track_data[256 + i];
-				}
+// 				for( int i=0; i<TRACK_SIZE; i += 2)
+// 				{
+// 					track_data[256+(i/2)] = track_data[256 + i];
+// 				}
 
 				// Transfer IDAM and DAM locations to table
 				for (int i = 0; i < SECTOR_SLOT_COUNT+1; i++)
@@ -165,17 +159,17 @@ bool sdf_format::load(io_generic *io, uint32_t form_factor, floppy_image *image)
 						idam_location[i] = (((track_data[ 8 * (i+1) + 1] << 8 | track_data[ 8 * (i+1)]) & 0x3FFF));
 						dam_location[i] = (((track_data[ 8 * (i+1) + 1 + 2] << 8 | track_data[ 8 * (i+1) + 2]) & 0x3FFF));
 
-						idam_location[i] -= 256;
-						idam_location[i] /= 2;
-						idam_location[i] += 256;
+// 						idam_location[i] -= 256;
+// 						idam_location[i] /= 2;
+// 						idam_location[i] += 256;
+//
+// 						dam_location[i] -= 256;
+// 						dam_location[i] /= 2;
+// 						dam_location[i] += 256;
 
-						dam_location[i] -= 256;
-						dam_location[i] /= 2;
-						dam_location[i] += 256;
 
-
-						if (idam_location[i] > TOTAL_TRACK_SIZE/2) return false;
-						if (dam_location[i] > TOTAL_TRACK_SIZE/2) return false;
+						if (idam_location[i] > TOTAL_TRACK_SIZE) return false;
+						if (dam_location[i] > TOTAL_TRACK_SIZE) return false;
 					}
 					else
 					{
@@ -185,10 +179,10 @@ bool sdf_format::load(io_generic *io, uint32_t form_factor, floppy_image *image)
 				}
 
 				// Find IAM location
-				for (int i = idam_location[0] - 1; i >= (TRACK_HEADER_SIZE/2) + 3; i--)
+				for (int i = idam_location[0] - 1; i >= (TRACK_HEADER_SIZE) + 3; i -= 2)
 				{
 					// It's usually 3 bytes but several dumped tracks seem to contain only 2 bytes
-					if (track_data[i] == 0xfc && track_data[i-1] == 0x00 && track_data[i-2] == 0x00)
+					if (track_data[i] == 0xfc && track_data[i-2] == 0x00 && track_data[i-4] == 0x00)
 					{
 						iam_location = i;
 						break;
@@ -197,7 +191,7 @@ bool sdf_format::load(io_generic *io, uint32_t form_factor, floppy_image *image)
 
 				int idam_index = 0;
 				int dam_index = 0;
-				for (int offset = TRACK_HEADER_SIZE; offset < TRACK_HEADER_SIZE + (TRACK_SIZE/2); offset++)
+				for (int offset = TRACK_HEADER_SIZE; offset < TRACK_HEADER_SIZE + TRACK_SIZE; offset += 2)
 				{
 					if (offset == iam_location)
 					{
@@ -205,7 +199,7 @@ bool sdf_format::load(io_generic *io, uint32_t form_factor, floppy_image *image)
 						{
 							// Write IAM
 							raw_w(raw_track_data, 16, 0xf57a);
-							offset += 1;
+							offset += 2;
 						}
 					}
 
@@ -214,7 +208,7 @@ bool sdf_format::load(io_generic *io, uint32_t form_factor, floppy_image *image)
 						if( track_data[offset] == 0xfe )
 						{
 							raw_w(raw_track_data, 16, 0xf57e);
-							offset += 1;
+							offset += 2;
 							idam_index += 1;
 						}
 					}
@@ -224,26 +218,26 @@ bool sdf_format::load(io_generic *io, uint32_t form_factor, floppy_image *image)
 						if( track_data[offset] == 0xf8 )
 						{
 							raw_w(raw_track_data, 16, 0xf56a);
-							offset += 1;
+							offset += 2;
 							dam_index += 1;
 						}
 						else if( track_data[offset] == 0xf9 )
 						{
 							raw_w(raw_track_data, 16, 0xf56b);
 							dam_index += 1;
-							offset += 1;
+							offset += 2;
 						}
 						else if( track_data[offset] == 0xfa )
 						{
 							raw_w(raw_track_data, 16, 0xf56e);
 							dam_index += 1;
-							offset += 1;
+							offset += 2;
 						}
 						else if( track_data[offset] == 0xfb )
 						{
 							raw_w(raw_track_data, 16, 0xf56f);
 							dam_index += 1;
-							offset += 1;
+							offset += 2;
 						}
 					}
 
@@ -252,8 +246,10 @@ bool sdf_format::load(io_generic *io, uint32_t form_factor, floppy_image *image)
 
 				generate_track_from_levels(track, head, raw_track_data, 0, image);
 			}
-			else
+			else // double density track
 			{
+				dd_track = true;
+
 				// Transfer IDAM and DAM locations to table
 				for (int i = 0; i < SECTOR_SLOT_COUNT+1; i++)
 				{
@@ -322,6 +318,29 @@ bool sdf_format::load(io_generic *io, uint32_t form_factor, floppy_image *image)
 		}
 	}
 
+	if (heads == 2)
+	{
+		if( sd_track == true && dd_track == false)
+		{
+			image->set_variant(floppy_image::DSSD);
+		}
+		else
+		{
+			image->set_variant(floppy_image::DSDD);
+		}
+	}
+	else
+	{
+		if( sd_track == true && dd_track == false)
+		{
+			image->set_variant(floppy_image::SSSD);
+		}
+		else
+		{
+			image->set_variant(floppy_image::SSDD);
+		}
+	}
+
 	return true;
 }
 
@@ -384,6 +403,7 @@ bool sdf_format::save(io_generic *io, floppy_image *image)
 	uint64_t offset = 0;
 	int mfm_act_track_size = 0, fm_act_track_size = 0;
 	uint8_t mfm_bitstream[500000/8], fm_bitstream[500000/8], track_buffer[TRACK_SIZE];
+	unsigned int value;
 
 	int track_count, head_count;
 	image->get_maximal_geometry(track_count, head_count);
@@ -395,9 +415,9 @@ bool sdf_format::save(io_generic *io, floppy_image *image)
 	offset = sdf_write(io, "SDF1", offset, 4);
 	offset = sdf_write_uint8(io, track_count, offset);
 	offset = sdf_write_uint8(io, head_count, offset);
-	offset = sdf_write_uint8(io, 0, offset);
-	offset = sdf_write_uint8(io, 0, offset);
-	offset = sdf_write_filler(io, 0, offset, 504);
+	offset = sdf_write_uint8(io, 0, offset); // write permission
+	offset = sdf_write_uint8(io, 0, offset); // nested sectors
+	offset = sdf_write_filler(io, 0, offset, 504); // reserved
 
 	for (int track = 0; track < track_count; track++)
 	{
@@ -452,8 +472,9 @@ bool sdf_format::save(io_generic *io, floppy_image *image)
 							// we found a idam
 							int disk_crc = (track_buffer[pos+5] << 8) | track_buffer[pos+6];
 							int calc_crc = ccitt_crc16(0xffff, &(track_buffer[pos-3]), 8);
-
-							offset = sdf_write_le_uint16(io, (pos + 256) | (disk_crc != calc_crc ? BAD_CRC_FLAG : 0 ), offset);
+							value = pos + 256 + 1;
+							value |= (disk_crc != calc_crc ? BAD_CRC_FLAG : 0 );
+							offset = sdf_write_le_uint16(io, value, offset);
 
 							int data_pos = blocks[i];
 							int delta = data_pos - pos;
@@ -465,23 +486,28 @@ bool sdf_format::save(io_generic *io, floppy_image *image)
 								if( sector_length > 1024) sector_length == 1024;
 								disk_crc = (track_buffer[data_pos + sector_length + 1] << 8) | track_buffer[data_pos + sector_length + 2];
 								calc_crc = ccitt_crc16(0xffff, &(track_buffer[data_pos-3]), sector_length+4);
-
-								offset = sdf_write_le_uint16(io, (data_pos + 256) | (disk_crc != calc_crc ? BAD_CRC_FLAG : 0 ) | (track_buffer[data_pos] == 0xf8 ? DELETED_DATA_FLAG : 0), offset);
+								value = data_pos + 256 + 1;
+								value |= (disk_crc != calc_crc ? BAD_CRC_FLAG : 0 ) | (track_buffer[data_pos] == 0xf8 ? DELETED_DATA_FLAG : 0);
+								offset = sdf_write_le_uint16(io, value, offset);
+								offset = sdf_write_uint8(io, track_buffer[pos+1], offset);
+								offset = sdf_write_uint8(io, track_buffer[pos+2], offset);
+								offset = sdf_write_uint8(io, track_buffer[pos+3], offset);
+								offset = sdf_write_uint8(io, track_buffer[pos+4], offset);
 								i++;
 							}
 							else
 							{
-								offset = sdf_write_le_uint16(io, 0, offset);
+								offset = sdf_write_filler(io, 0, offset, 6);
 							}
-
-							offset = sdf_write_uint8(io, track_buffer[pos+1], offset);
-							offset = sdf_write_uint8(io, track_buffer[pos+2], offset);
-							offset = sdf_write_uint8(io, track_buffer[pos+3], offset);
-							offset = sdf_write_uint8(io, track_buffer[pos+4], offset);
 						}
 					}
 
 					j++;
+				}
+
+				for( ; j < SECTOR_SLOT_COUNT; j++ )
+				{
+					offset = sdf_write_filler(io, 0, offset, 8);
 				}
 
 				offset = sdf_write(io, track_buffer, offset, TRACK_SIZE);
@@ -512,8 +538,9 @@ bool sdf_format::save(io_generic *io, floppy_image *image)
 							// we found a idam
 							int disk_crc = (track_buffer[pos+5] << 8) | track_buffer[pos+6];
 							int calc_crc = ccitt_crc16(0xffff, &(track_buffer[pos]), 5);
-
-							offset = sdf_write_le_uint16(io, ((pos * 2) + 257) | (disk_crc != calc_crc ? BAD_CRC_FLAG : 0 ) | (SINGLE_DENSITY_FLAG), offset);
+							value = (pos * 2) + 256 + 1;
+							value |= (disk_crc != calc_crc ? BAD_CRC_FLAG : 0 ) | (SINGLE_DENSITY_FLAG);
+							offset = sdf_write_le_uint16(io, value, offset);
 
 							int data_pos = blocks[i];
 							int delta = data_pos - pos;
@@ -525,23 +552,28 @@ bool sdf_format::save(io_generic *io, floppy_image *image)
 								if( sector_length > 1024) sector_length == 1024;
 								disk_crc = (track_buffer[data_pos + sector_length + 1] << 8) | track_buffer[data_pos + sector_length + 2];
 								calc_crc = ccitt_crc16(0xffff, &(track_buffer[data_pos]), sector_length+1);
-
-								offset = sdf_write_le_uint16(io, ((data_pos * 2) + 257) | (disk_crc != calc_crc ? BAD_CRC_FLAG : 0 ) | (track_buffer[data_pos] == 0xf8 ? DELETED_DATA_FLAG : 0), offset);
+								value = (data_pos * 2) + 256 + 1;
+								value |= (disk_crc != calc_crc ? BAD_CRC_FLAG : 0 ) | (track_buffer[data_pos] == 0xf8 ? DELETED_DATA_FLAG : 0);
+								offset = sdf_write_le_uint16(io, value, offset);
+								offset = sdf_write_uint8(io, track_buffer[pos+1], offset);
+								offset = sdf_write_uint8(io, track_buffer[pos+2], offset);
+								offset = sdf_write_uint8(io, track_buffer[pos+3], offset);
+								offset = sdf_write_uint8(io, track_buffer[pos+4], offset);
 								i++;
 							}
 							else
 							{
-								offset = sdf_write_le_uint16(io, 0, offset);
+								offset = sdf_write_filler(io, 0, offset, 6);
 							}
-
-							offset = sdf_write_uint8(io, track_buffer[pos+1], offset);
-							offset = sdf_write_uint8(io, track_buffer[pos+2], offset);
-							offset = sdf_write_uint8(io, track_buffer[pos+3], offset);
-							offset = sdf_write_uint8(io, track_buffer[pos+4], offset);
 						}
 					}
 
 					j++;
+				}
+
+				for( ; j < SECTOR_SLOT_COUNT; j++ )
+				{
+					offset = sdf_write_filler(io, 0, offset, 8);
 				}
 
 				offset = sdf_sd_write(io, track_buffer, offset, TRACK_SIZE/2);

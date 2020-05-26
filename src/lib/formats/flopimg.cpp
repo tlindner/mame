@@ -2404,7 +2404,7 @@ void floppy_image_format_t::extract_track_from_bitstream_mfm_pc(const uint8_t *b
 
 	int am_index = 0;
 	int track_index = 0;
-	int count_up = 0;
+	int count_down = 15;
 
 	// Don't bother if it's just too small
 	if(bitstream_size < 100)
@@ -2438,7 +2438,7 @@ void floppy_image_format_t::extract_track_from_bitstream_mfm_pc(const uint8_t *b
 				// thanks to the precharging
 
 				if( track_index < track_size ) track[track_index++] = sbyte_mfm_rv(header);
-				count_up = 0;
+				count_down = 16;
 			} while(header == 0x4489 && pos > i);
 
 
@@ -2453,13 +2453,11 @@ void floppy_image_format_t::extract_track_from_bitstream_mfm_pc(const uint8_t *b
 				i = pos-1;
 			}
 		}
-		else
+
+		if( count_down-- == 0 )
 		{
-			if( count_up++ == 15 )
-			{
-				if( track_index < track_size ) track[track_index++] = sbyte_mfm_rv(shift_reg);
-				count_up = 0;
-			}
+			if( track_index < track_size ) track[track_index++] = sbyte_mfm_rv(shift_reg);
+			count_down = 15;
 		}
 	}
 }
