@@ -398,15 +398,23 @@ uint64_t sdf_format::sdf_write_uint8(struct io_generic *genio, uint8_t value, ui
 	return offset + 1;
 }
 
+unsigned short sdf_format::sdf_ccitt_crc16(unsigned short crc, const unsigned char *buffer, size_t buffer_len)
+{
+	// same as the utility function but does every other byte
+	for( int i=0; i<buffer_len; i += 2 )
+	{
+		crc = ccitt_crc16_one( crc, buffer[i] );
+	}
+
+	return crc;
+}
+
 bool sdf_format::save(io_generic *io, floppy_image *image)
 {
 	uint64_t offset = 0;
-	int mfm_act_track_size = 0, fm_act_track_size = 0;
-	uint8_t mfm_bitstream[500000/8], fm_bitstream[500000/8], track_buffer[TRACK_SIZE];
-	unsigned int value;
 
 	int track_count, head_count;
-	image->get_maximal_geometry(track_count, head_count);
+	image->get_actual_geometry(track_count, head_count);
 
 	if (track_count > 80) track_count = 80;
 	if( head_count > 2) head_count = 2;
@@ -423,167 +431,277 @@ bool sdf_format::save(io_generic *io, floppy_image *image)
 	{
 		for ( int head = 0; head < head_count; head++ )
 		{
-			int mfm_sector_count, fm_sector_count;
+			printf( "doing track: %d, head: %d\n", track, head );
+			bool last_sector_mfm = true;
+			uint8_t mfm_bitstream[500000/8], fm_bitstream[500000/8], mfm_track_buffer[TRACK_SIZE], fm_track_buffer[TRACK_SIZE], track_buffer[TRACK_SIZE];
+			int mfm_act_track_size = 0, fm_act_track_size = 0;
+			int mfm_blocks[BLOCKS_COUNT], fm_blocks[BLOCKS_COUNT];
+			unsigned int value;
 
  			generate_bitstream_from_track(track, head, 2000, mfm_bitstream, mfm_act_track_size, image);
- 			get_geometry_mfm_pc(mfm_bitstream, mfm_act_track_size, mfm_sector_count);
-
  			generate_bitstream_from_track(track, head, 4000, fm_bitstream, fm_act_track_size, image);
- 			get_geometry_fm_pc(fm_bitstream, fm_act_track_size, fm_sector_count);
+			extract_track_from_bitstream_mfm_pc(mfm_bitstream, mfm_act_track_size, mfm_track_buffer, TRACK_SIZE, mfm_blocks, BLOCKS_COUNT);
+			extract_track_from_bitstream_fm_pc(fm_bitstream, fm_act_track_size, fm_track_buffer, TRACK_SIZE, fm_blocks, BLOCKS_COUNT);
 
-			if( mfm_sector_count > 0 && fm_sector_count > 0 )
-			{
-				osd_printf_error("sdf: writing mixed density tracks not supported. Choosing %s. track: %d, side: %d. Dropping %d sectors.\n",
-							mfm_sector_count >= fm_sector_count ? "double density" : "single density", track, head,
-							mfm_sector_count >= fm_sector_count ? fm_sector_count : mfm_sector_count);
+			int sector_count;
+			get_geometry_mfm_pc(mfm_bitstream, mfm_act_track_size, sector_count);
+			printf( "mfm sector count: %d\n", sector_count );
+			get_geometry_fm_pc(fm_bitstream, fm_act_track_size, sector_count);
+			printf( "fm sector count: %d\n", sector_count );
 
-				if( mfm_sector_count >= fm_sector_count )
-				{
-					fm_sector_count = 0;
-				}
-				else
-				{
-					mfm_sector_count = 0;
-				}
-			}
+			int mfm_index = 0, fm_index = 0, header_index = 0, track_index = 0;
 
-			if( mfm_sector_count > 0 && fm_sector_count == 0)
-			{
-				// writing mfm track
-				int blocks[BLOCKS_COUNT];
-				extract_track_from_bitstream_mfm_pc(mfm_bitstream, mfm_act_track_size, track_buffer, TRACK_SIZE, blocks, BLOCKS_COUNT);
-				offset = sdf_write_uint8(io, mfm_sector_count, offset);
-				offset = sdf_write_filler(io, 0, offset, 7);
-
-				int i=0, j=0;
-
-				while( i < BLOCKS_COUNT-1 && j < SECTOR_SLOT_COUNT )
-				{
-					if( blocks[i] == -1 )
-					{
-						offset = sdf_write_filler(io, 0, offset, 8);
-					}
-					else
-					{
-						int pos = blocks[i++];
-
-						if( track_buffer[pos] == 0xfe || track_buffer[pos] == 0xff )
-						{
-							// we found a idam
-							int disk_crc = (track_buffer[pos+5] << 8) | track_buffer[pos+6];
-							int calc_crc = ccitt_crc16(0xffff, &(track_buffer[pos-3]), 8);
-							value = pos + 256 + 1;
-							value |= (disk_crc != calc_crc ? BAD_CRC_FLAG : 0 );
-							offset = sdf_write_le_uint16(io, value, offset);
-
-							int data_pos = blocks[i];
-							int delta = data_pos - pos;
-
-							if( (delta > 36) && (delta < 71) && (track_buffer[data_pos] == 0xf8 || track_buffer[data_pos] == 0xf9 || track_buffer[data_pos] == 0xfa || track_buffer[data_pos] == 0xfb))
-							{
-								// we found a dam
-								int sector_length = 128 << track_buffer[pos+4];
-								if( sector_length > 1024) sector_length == 1024;
-								disk_crc = (track_buffer[data_pos + sector_length + 1] << 8) | track_buffer[data_pos + sector_length + 2];
-								calc_crc = ccitt_crc16(0xffff, &(track_buffer[data_pos-3]), sector_length+4);
-								value = data_pos + 256 + 1;
-								value |= (disk_crc != calc_crc ? BAD_CRC_FLAG : 0 ) | (track_buffer[data_pos] == 0xf8 ? DELETED_DATA_FLAG : 0);
-								offset = sdf_write_le_uint16(io, value, offset);
-								offset = sdf_write_uint8(io, track_buffer[pos+1], offset);
-								offset = sdf_write_uint8(io, track_buffer[pos+2], offset);
-								offset = sdf_write_uint8(io, track_buffer[pos+3], offset);
-								offset = sdf_write_uint8(io, track_buffer[pos+4], offset);
-								i++;
-							}
-							else
-							{
-								offset = sdf_write_filler(io, 0, offset, 6);
-							}
-						}
-					}
-
-					j++;
-				}
-
-				for( ; j < SECTOR_SLOT_COUNT; j++ )
-				{
-					offset = sdf_write_filler(io, 0, offset, 8);
-				}
-
-				offset = sdf_write(io, track_buffer, offset, TRACK_SIZE);
-				offset = sdf_write_filler(io, 0, offset, TRACK_PADDING);
-			}
-			else if(mfm_sector_count == 0 && fm_sector_count > 0)
-			{
-				// writing fm track
-				int blocks[BLOCKS_COUNT];
-				extract_track_from_bitstream_fm_pc(fm_bitstream, fm_act_track_size, track_buffer, TRACK_SIZE/2, blocks, BLOCKS_COUNT);
-				offset = sdf_write_uint8(io, fm_sector_count, offset);
-				offset = sdf_write_filler(io, 0, offset, 7);
-
-				int i=0, j=0;
-
-				while( i < BLOCKS_COUNT-1 && j < SECTOR_SLOT_COUNT )
-				{
-					if( blocks[i] == -1 )
-					{
-						offset = sdf_write_filler(io, 0, offset, 8);
-					}
-					else
-					{
-						int pos = blocks[i++];
-
-						if( track_buffer[pos] == 0xfe )
-						{
-							// we found a idam
-							int disk_crc = (track_buffer[pos+5] << 8) | track_buffer[pos+6];
-							int calc_crc = ccitt_crc16(0xffff, &(track_buffer[pos]), 5);
-							value = (pos * 2) + 256 + 1;
-							value |= (disk_crc != calc_crc ? BAD_CRC_FLAG : 0 ) | (SINGLE_DENSITY_FLAG);
-							offset = sdf_write_le_uint16(io, value, offset);
-
-							int data_pos = blocks[i];
-							int delta = data_pos - pos;
-
-							if( (delta > 16) && (delta < 32) && (track_buffer[data_pos] == 0xf8 || track_buffer[data_pos] == 0xf9 || track_buffer[data_pos] == 0xfa || track_buffer[data_pos] == 0xfb))
-							{
-								// we found a dam
-								int sector_length = 128 << track_buffer[pos+4];
-								if( sector_length > 1024) sector_length == 1024;
-								disk_crc = (track_buffer[data_pos + sector_length + 1] << 8) | track_buffer[data_pos + sector_length + 2];
-								calc_crc = ccitt_crc16(0xffff, &(track_buffer[data_pos]), sector_length+1);
-								value = (data_pos * 2) + 256 + 1;
-								value |= (disk_crc != calc_crc ? BAD_CRC_FLAG : 0 ) | (track_buffer[data_pos] == 0xf8 ? DELETED_DATA_FLAG : 0);
-								offset = sdf_write_le_uint16(io, value, offset);
-								offset = sdf_write_uint8(io, track_buffer[pos+1], offset);
-								offset = sdf_write_uint8(io, track_buffer[pos+2], offset);
-								offset = sdf_write_uint8(io, track_buffer[pos+3], offset);
-								offset = sdf_write_uint8(io, track_buffer[pos+4], offset);
-								i++;
-							}
-							else
-							{
-								offset = sdf_write_filler(io, 0, offset, 6);
-							}
-						}
-					}
-
-					j++;
-				}
-
-				for( ; j < SECTOR_SLOT_COUNT; j++ )
-				{
-					offset = sdf_write_filler(io, 0, offset, 8);
-				}
-
-				offset = sdf_sd_write(io, track_buffer, offset, TRACK_SIZE/2);
-				offset = sdf_write_filler(io, 0, offset, TRACK_PADDING);
-			}
-			else
+			if( (fm_blocks[0] == INT_MAX) && (mfm_blocks[0] == INT_MAX) )
 			{
 				// no sectors found
 				offset = sdf_write_filler(io, 0, offset, TOTAL_TRACK_SIZE);
+				continue;
 			}
+
+			while( header_index < SECTOR_SLOT_COUNT )
+			{
+				if( (fm_index == BLOCKS_COUNT) && (mfm_index == BLOCKS_COUNT) ) break;
+
+				if( fm_blocks[fm_index] < mfm_blocks[mfm_index] )
+				{
+					do_fm:
+					// write fm sector
+					if( fm_index == BLOCKS_COUNT ) continue;
+
+					if( fm_blocks[fm_index] < TRACK_SIZE )
+					{
+						int pos = fm_blocks[fm_index++];
+
+						if( pos < TRACK_SIZE && fm_track_buffer[pos] == 0xfe )
+						{
+							printf( "doing sd sector\n" );
+							// we found a idam
+							last_sector_mfm = false;
+
+							int disk_crc;
+							int calc_crc;
+
+							if( pos + 12 < TRACK_SIZE )
+							{
+								disk_crc = (track_buffer[pos+(5*2)] << 8) | track_buffer[pos+(6*2)];
+								calc_crc = sdf_ccitt_crc16(0xffff, &(track_buffer[pos]), (5*2));
+							}
+							else
+							{
+								disk_crc = 0;
+								calc_crc = 1;
+							}
+
+							value = pos + 256 + 1;
+
+							if( value < TRACK_HEADER_SIZE + TRACK_SIZE )
+								value |= (disk_crc != calc_crc ? BAD_CRC_FLAG : 0 ) | (SINGLE_DENSITY_FLAG);
+							else
+								value = 0;
+
+							offset = sdf_write_le_uint16(io, value, offset);
+
+							while( track_index < pos + 12 )
+							{
+								if( track_index < TRACK_SIZE )
+								{
+									track_buffer[track_index] = fm_track_buffer[track_index];
+									track_index++;
+								}
+							}
+
+							int data_pos = fm_blocks[fm_index];
+							int delta = data_pos - pos;
+
+							if( (delta > 36) && (delta < 71) && (fm_track_buffer[data_pos] == 0xf8 || fm_track_buffer[data_pos] == 0xf9 || fm_track_buffer[data_pos] == 0xfa || fm_track_buffer[data_pos] == 0xfb))
+							{
+								// we found a dam
+								int sector_length = 128 << track_buffer[pos+(4*2)];
+								if( sector_length > 1024) sector_length == 1024;
+
+								if( data_pos + sector_length + 4 < TRACK_SIZE )
+								{
+									disk_crc = (track_buffer[data_pos + sector_length + 1] << 8) | track_buffer[data_pos + sector_length + 2];
+									calc_crc = sdf_ccitt_crc16(0xffff, &(fm_track_buffer[data_pos]), (sector_length+1)*2);
+								}
+								else
+								{
+									disk_crc = 0;
+									calc_crc = 1;
+								}
+
+								value = data_pos + 256 + 1;
+
+								if( value < TRACK_HEADER_SIZE + TRACK_SIZE )
+									value |= (disk_crc != calc_crc ? BAD_CRC_FLAG : 0 ) | (track_buffer[data_pos] == 0xf8 ? DELETED_DATA_FLAG : 0);
+								else
+									value = 0;
+
+								offset = sdf_write_le_uint16(io, value, offset);
+								offset = sdf_write_uint8(io, track_buffer[pos+1], offset);
+								offset = sdf_write_uint8(io, track_buffer[pos+2], offset);
+								offset = sdf_write_uint8(io, track_buffer[pos+3], offset);
+								offset = sdf_write_uint8(io, track_buffer[pos+4], offset);
+
+								while( track_index < data_pos + (sector_length + 2)*2 )
+								{
+									if( track_index < TRACK_SIZE )
+									{
+										track_buffer[track_index] = fm_track_buffer[track_index];
+										track_index++;
+									}
+								}
+
+								fm_index++;
+							}
+							else
+							{
+								offset = sdf_write_filler(io, 0, offset, 6);
+							}
+						}
+					}
+					else
+					{
+						fm_index++;
+					}
+				}
+				else
+				{
+					// write mfm sector
+					if( mfm_index == BLOCKS_COUNT ) goto do_fm;
+
+					if( mfm_blocks[mfm_index] < TRACK_SIZE )
+					{
+						int pos = mfm_blocks[mfm_index++];
+
+						if( pos < TRACK_SIZE && (mfm_track_buffer[pos] == 0xfe || mfm_track_buffer[pos] == 0xff) )
+						{
+							printf( "doing dd sector\n" );
+							// we found a idam
+							last_sector_mfm = true;
+
+							int disk_crc, calc_crc;
+
+							if( pos + 6 < TRACK_SIZE )
+							{
+								disk_crc = (mfm_track_buffer[pos+5] << 8) | mfm_track_buffer[pos+6];
+								calc_crc = ccitt_crc16(0xffff, &(mfm_track_buffer[pos-3]), 8);
+							}
+							else
+							{
+								disk_crc = 0;
+								calc_crc = 1;
+							}
+
+							value = pos + 256 + 1;
+
+							if( value < TRACK_HEADER_SIZE + TRACK_SIZE )
+								value |= (disk_crc != calc_crc ? BAD_CRC_FLAG : 0 );
+							else
+								value = 0;
+
+							offset = sdf_write_le_uint16(io, value, offset);
+
+							while( track_index < pos + 6 )
+							{
+								if( track_index < TRACK_SIZE )
+								{
+									track_buffer[track_index] = mfm_track_buffer[track_index];
+									track_index++;
+								}
+							}
+
+							int data_pos = mfm_blocks[mfm_index];
+
+							if( data_pos == INT_MAX )
+							{
+								offset = sdf_write_filler(io, 0, offset, 6);
+								mfm_index++;
+							}
+							else
+							{
+								int delta = data_pos - pos;
+
+								if( (delta > 36) && (delta < 71) && (mfm_track_buffer[data_pos] == 0xf8 || mfm_track_buffer[data_pos] == 0xf9 || mfm_track_buffer[data_pos] == 0xfa || mfm_track_buffer[data_pos] == 0xfb))
+								{
+									// we found a dam
+									int sector_length = 128 << mfm_track_buffer[pos+4];
+									if( sector_length > 1024) sector_length == 1024;
+
+									if( data_pos + sector_length + 2 < TRACK_SIZE )
+									{
+										disk_crc = (mfm_track_buffer[data_pos + sector_length + 1] << 8) | mfm_track_buffer[data_pos + sector_length + 2];
+										calc_crc = ccitt_crc16(0xffff, &(mfm_track_buffer[data_pos-3]), sector_length+4);
+									}
+									else
+									{
+										disk_crc = 0;
+										calc_crc = 1;
+									}
+
+									value = data_pos + 256 + 1;
+
+									if( value < TRACK_HEADER_SIZE + TRACK_SIZE )
+										value |= (disk_crc != calc_crc ? BAD_CRC_FLAG : 0 ) | (mfm_track_buffer[data_pos] == 0xf8 ? DELETED_DATA_FLAG : 0);
+									else
+										value = 0;
+
+									offset = sdf_write_le_uint16(io, value, offset);
+									offset = sdf_write_uint8(io, mfm_track_buffer[pos+1], offset);
+									offset = sdf_write_uint8(io, mfm_track_buffer[pos+2], offset);
+									offset = sdf_write_uint8(io, mfm_track_buffer[pos+3], offset);
+									offset = sdf_write_uint8(io, mfm_track_buffer[pos+4], offset);
+
+									while( track_index < data_pos + sector_length + 2 )
+									{
+										if( track_index < TRACK_SIZE )
+										{
+											track_buffer[track_index] = mfm_track_buffer[track_index];
+											track_index++;
+										}
+									}
+
+									mfm_index++;
+								}
+								else
+								{
+									offset = sdf_write_filler(io, 0, offset, 6);
+								}
+							}
+						}
+					}
+					else
+					{
+						mfm_index++;
+					}
+				}
+				header_index++;
+			}
+
+			while( header_index < SECTOR_SLOT_COUNT )
+			{
+				offset = sdf_write_filler(io, 0, offset, 8);
+			}
+
+			if( last_sector_mfm )
+			{
+				while( track_index < TRACK_SIZE )
+				{
+					track_buffer[track_index] = mfm_track_buffer[track_index];
+					track_index++;
+				}
+			}
+			else
+			{
+				while( track_index < TRACK_SIZE )
+				{
+					track_buffer[track_index] = fm_track_buffer[track_index];
+					track_index++;
+				}
+			}
+
+			offset = sdf_write(io, track_buffer, offset, TRACK_SIZE);
+			offset = sdf_write_filler(io, 0, offset, TRACK_PADDING);
 		}
 	}
 

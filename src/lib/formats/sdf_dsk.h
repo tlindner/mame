@@ -47,6 +47,7 @@ protected:
 	void get_geometry_mfm_pc(const uint8_t *bitstream, int track_size, int &sector_count);
 	void get_geometry_fm_pc(const uint8_t *bitstream, int track_size, int &sector_count);
 	void sdf_count_sectors( std::vector<uint8_t>track_data, int *mfm_sector_count, int *fm_sector_count );
+	unsigned short sdf_ccitt_crc16(unsigned short crc, const unsigned char *buffer, size_t buffer_len);
 
 	uint64_t sdf_write_filler(struct io_generic *genio, uint8_t filler, uint64_t offset, size_t length);
 	uint64_t sdf_write(struct io_generic *genio, const void *buffer, uint64_t offset, size_t length);
@@ -62,7 +63,7 @@ protected:
 	static constexpr int SINGLE_DENSITY_FLAG = 0x4000;
 	static constexpr int DELETED_DATA_FLAG = 0x4000;
 	static constexpr int BAD_CRC_FLAG = 0x8000;
-	static constexpr int BLOCKS_COUNT = 200;
+	static constexpr int BLOCKS_COUNT = 144;
 
 	static constexpr int SECTOR_SLOT_COUNT  = 31;
 };

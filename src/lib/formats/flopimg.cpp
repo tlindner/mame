@@ -2400,7 +2400,7 @@ uint8_t floppy_image_format_t::sbyte_gcr5_r(const uint8_t *bitstream, int &pos, 
 void floppy_image_format_t::extract_track_from_bitstream_mfm_pc(const uint8_t *bitstream, int bitstream_size, uint8_t *track, int track_size, int *address_marks, int am_size)
 {
 	// flag all block indexes as invalid
-	for( int i=0; i<am_size; i++) address_marks[i] = -1;
+	for( int i=0; i<am_size; i++) address_marks[i] = INT_MAX;
 
 	int am_index = 0;
 	int track_index = 0;
@@ -2614,7 +2614,7 @@ void floppy_image_format_t::get_track_data_mfm_pc(int track, int head, floppy_im
 void floppy_image_format_t::extract_track_from_bitstream_fm_pc(const uint8_t *bitstream, int bitstream_size, uint8_t *track, int track_size, int *address_marks, int am_size)
 {
 	// flag all block indexes as invalid
-	for( int i=0; i<am_size; i++) address_marks[i] = -1;
+	for( int i=0; i<am_size; i++) address_marks[i] = INT_MAX;
 
 	int am_index = 0;
 	int track_index = 0;
@@ -2647,18 +2647,21 @@ void floppy_image_format_t::extract_track_from_bitstream_fm_pc(const uint8_t *bi
 		// fe
 		if(shift_reg == 0xf57e)
 		{       // address mark
+			printf( "extract_track_from_bitstream_fm_pc found sd index address mark\n" );
 			if( am_index < am_size ) address_marks[am_index++] = track_index;
 			count_up = 15;
 		}
 		// f8, f9, fa, fb
 		if(shift_reg == 0xf56a || shift_reg == 0xf56b || shift_reg == 0xf56e || shift_reg == 0xf56f)
 		{       // data mark
+			printf( "extract_track_from_bitstream_fm_pc found sd data address mark\n" );
 			if( am_index < am_size ) address_marks[am_index++] = track_index;
 			count_up = 15;
 		}
 
 		if( count_up++ == 15 )
 		{
+			if( track_index < track_size ) track[track_index++] = sbyte_mfm_rv(shift_reg);
 			if( track_index < track_size ) track[track_index++] = sbyte_mfm_rv(shift_reg);
 			count_up = 0;
 		}
@@ -2697,12 +2700,14 @@ void floppy_image_format_t::extract_sectors_from_bitstream_fm_pc(const uint8_t *
 
 		// fe
 		if(shift_reg == 0xf57e) {       // address mark
+			printf( "extract_sectors_from_bitstream_fm_pc found sd index address mark\n" );
 			if(idblk_count < 100)
 				idblk[idblk_count++] = i+1;
 		}
 		// f8, f9, fa, fb
 		if(shift_reg == 0xf56a || shift_reg == 0xf56b ||
 			shift_reg == 0xf56e || shift_reg == 0xf56f) {       // data mark
+			printf( "extract_sectors_from_bitstream_fm_pc found sd data address mark\n" );
 			if(dblk_count < 100)
 				dblk[dblk_count++] = i+1;
 		}
