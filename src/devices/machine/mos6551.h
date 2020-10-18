@@ -54,6 +54,8 @@ public:
 	void set_xtal(uint32_t clock);
 	void set_xtal(const XTAL &clock) { set_xtal(clock.value()); }
 
+	int irq_state() const { return m_irq_state; }
+
 protected:
 	virtual void device_start() override;
 	virtual void device_reset() override;

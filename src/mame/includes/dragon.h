@@ -69,8 +69,8 @@ public:
 	void dragon64(machine_config &config);
 	void tanodr64h(machine_config &config);
 	void dragon64h(machine_config &config);
-	DECLARE_WRITE_LINE_MEMBER( acia_irq );
 protected:
+	virtual bool irq_get_line(void) override;
 	void d64_rom0(address_map &map);
 	void d64_rom1(address_map &map);
 	void d64_io0(address_map &map);
@@ -79,6 +79,7 @@ protected:
 	virtual void device_reset() override;
 	virtual void pia1_pb_changed(uint8_t data) override;
 	void page_rom(bool romswitch);
+	DECLARE_WRITE_LINE_MEMBER( acia_irq );
 
 private:
 	required_device<mos6551_device> m_acia;

@@ -566,7 +566,7 @@ WRITE_LINE_MEMBER( coco_state::pia1_firq_b )
 ***************************************************************************/
 
 //-------------------------------------------------
-//  irq_get_line - gets the value of the FIRQ line
+//  irq_get_line - gets the value of the IRQ line
 //  passed into the CPU
 //-------------------------------------------------
 

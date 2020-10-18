@@ -365,7 +365,8 @@ void dragon64_state::dragon64(machine_config &config)
 
 WRITE_LINE_MEMBER( dragon64_state::acia_irq )
 {
-	m_maincpu->set_input_line(M6809_IRQ_LINE, state ? ASSERT_LINE : CLEAR_LINE);
+	//m_maincpu->set_input_line(M6809_IRQ_LINE, state ? ASSERT_LINE : CLEAR_LINE);
+	recalculate_irq();
 }
 
 void dragon64_state::dragon64h(machine_config &config)

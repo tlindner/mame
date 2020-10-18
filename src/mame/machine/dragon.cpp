@@ -114,6 +114,17 @@ void dragon64_state::pia1_pb_changed(uint8_t data)
 	}
 }
 
+//-------------------------------------------------
+//  irq_get_line - gets the value of the IRQ line
+//  passed into the CPU
+//-------------------------------------------------
+
+bool dragon64_state::irq_get_line(void)
+{
+	fprintf( stderr, "Called dragon64_state::irq_get_line like a boss\n");
+
+	return dragon_state::irq_get_line() || m_acia->irq_state();
+}
 
 //-------------------------------------------------
 //  page_rom - Controls rom paging in Dragon 64,
