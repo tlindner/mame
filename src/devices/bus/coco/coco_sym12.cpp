@@ -42,10 +42,10 @@ namespace
 		{
 		}
 
+	protected:
 		// optional information overrides
 		virtual void device_add_mconfig(machine_config &config) override;
 
-	protected:
 		// device-level overrides
 		virtual void device_start() override
 		{
@@ -63,113 +63,112 @@ namespace
 		required_device<pia6821_device> m_pia;
 		required_device_array<ay8910_device, 4> m_ay8910;
 	};
-};
 
-//**************************************************************************
-//  SYMPHONY_TWELVE MACHINE DECLARATIONS
-//**************************************************************************
+	//**************************************************************************
+	//  SYMPHONY_TWELVE MACHINE DECLARATIONS
+	//**************************************************************************
 
-void coco_symphony_twelve_device::device_add_mconfig(machine_config &config)
-{
-	pia6821_device &pia(PIA6821(config, "s12_pia", 0));
-	pia.writepa_handler().set(*this, FUNC(coco_symphony_twelve_device::write_porta));
-	pia.readpa_handler().set(*this, FUNC(coco_symphony_twelve_device::read_porta));
-	pia.writepb_handler().set(*this, FUNC(coco_symphony_twelve_device::write_portb));
-// 	pia.readpb_handler().set(*this, FUNC(coco_symphony_twelve_device::read_psg));
+	void coco_symphony_twelve_device::device_add_mconfig(machine_config &config)
+	{
+		pia6821_device &pia(PIA6821(config, "s12_pia", 0));
+		pia.writepa_handler().set(*this, FUNC(coco_symphony_twelve_device::write_porta));
+		pia.readpa_handler().set(*this, FUNC(coco_symphony_twelve_device::read_porta));
+		pia.writepb_handler().set(*this, FUNC(coco_symphony_twelve_device::write_portb));
+	// 	pia.readpb_handler().set(*this, FUNC(coco_symphony_twelve_device::read_psg));
 
-	SPEAKER(config, "s12_l").front_left();
-	SPEAKER(config, "s12_r").front_right();
-	AY8910(config, m_ay8910[0], DERIVED_CLOCK(1, 1));
-	m_ay8910[0]->set_flags(AY8910_SINGLE_OUTPUT);
-	m_ay8910[0]->add_route(ALL_OUTPUTS, "s12_l", 0.50);
+		SPEAKER(config, "s12_l").front_left();
+		SPEAKER(config, "s12_r").front_right();
+		AY8910(config, m_ay8910[0], DERIVED_CLOCK(1, 1));
+		m_ay8910[0]->set_flags(AY8910_SINGLE_OUTPUT);
+		m_ay8910[0]->add_route(ALL_OUTPUTS, "s12_l", 0.50);
 
-	AY8910(config, m_ay8910[1], DERIVED_CLOCK(1, 1));
-	m_ay8910[1]->set_flags(AY8910_SINGLE_OUTPUT);
-	m_ay8910[1]->add_route(ALL_OUTPUTS, "s12_l", 0.50);
+		AY8910(config, m_ay8910[1], DERIVED_CLOCK(1, 1));
+		m_ay8910[1]->set_flags(AY8910_SINGLE_OUTPUT);
+		m_ay8910[1]->add_route(ALL_OUTPUTS, "s12_l", 0.50);
 
-	AY8910(config, m_ay8910[2], DERIVED_CLOCK(1, 1));
-	m_ay8910[2]->set_flags(AY8910_SINGLE_OUTPUT);
-	m_ay8910[2]->add_route(ALL_OUTPUTS, "s12_r", 0.50);
+		AY8910(config, m_ay8910[2], DERIVED_CLOCK(1, 1));
+		m_ay8910[2]->set_flags(AY8910_SINGLE_OUTPUT);
+		m_ay8910[2]->add_route(ALL_OUTPUTS, "s12_r", 0.50);
 
-	AY8910(config, m_ay8910[3], DERIVED_CLOCK(1, 1));
-	m_ay8910[3]->set_flags(AY8910_SINGLE_OUTPUT);
-	m_ay8910[3]->add_route(ALL_OUTPUTS, "s12_r", 0.50);
+		AY8910(config, m_ay8910[3], DERIVED_CLOCK(1, 1));
+		m_ay8910[3]->set_flags(AY8910_SINGLE_OUTPUT);
+		m_ay8910[3]->add_route(ALL_OUTPUTS, "s12_r", 0.50);
 
+	}
+
+	//**************************************************************************
+	//  SYMPHONY_TWELVE PSG I/O
+	//**************************************************************************
+
+	u8 coco_symphony_twelve_device::read_porta()
+	{
+		uint8_t b_output = m_pia->b_output();
+		u8 result = 0;
+
+		if( (b_output & 0x03) == 0x01) {
+			result |= m_ay8910[0]->data_r();
+		}
+
+		if( (b_output & 0x0c) == 0x04) {
+			result |= m_ay8910[1]->data_r();
+		}
+
+		if( (b_output & 0x30) == 0x10) {
+			result |= m_ay8910[2]->data_r();
+		}
+
+		if( (b_output & 0xc0) == 0x40) {
+			result |= m_ay8910[3]->data_r();
+		}
+
+		return result;
+	}
+
+	void coco_symphony_twelve_device::write_porta(u8 data)
+	{
+		write_psg(m_pia->b_output(), data);
+	}
+
+	void coco_symphony_twelve_device::write_portb(u8 data)
+	{
+		write_psg(data, m_pia->a_output());
+	}
+
+	void coco_symphony_twelve_device::write_psg(u8 bus, u8 data)
+	{
+		if( (bus & 0x03) == 0x03) {
+			m_ay8910[0]->address_w(data);
+		}
+
+		if( (bus & 0x03) == 0x02) {
+			m_ay8910[0]->data_w(data);
+		}
+
+		if( (bus & 0x0c) == 0x0c) {
+			m_ay8910[1]->address_w(data);
+		}
+
+		if( (bus & 0x0c) == 0x08) {
+			m_ay8910[1]->data_w(data);
+		}
+
+		if( (bus & 0x30) == 0x30) {
+			m_ay8910[2]->address_w(data);
+		}
+
+		if( (bus & 0x30) == 0x20) {
+			m_ay8910[2]->data_w(data);
+		}
+
+		if( (bus & 0xc0) == 0xc0) {
+			m_ay8910[3]->address_w(data);
+		}
+
+		if( (bus & 0xc0) == 0x80) {
+			m_ay8910[3]->data_w(data);
+		}
+	}
 }
-
-//**************************************************************************
-//  SYMPHONY_TWELVE PSG I/O
-//**************************************************************************
-
-u8 coco_symphony_twelve_device::read_porta()
-{
-	uint8_t b_output = m_pia->b_output();
-	u8 result = 0;
-
-	if( (b_output & 0x03) == 0x01) {
-		result |= m_ay8910[0]->data_r();
-	}
-
-	if( (b_output & 0x0c) == 0x04) {
-		result |= m_ay8910[1]->data_r();
-	}
-
-	if( (b_output & 0x30) == 0x10) {
-		result |= m_ay8910[2]->data_r();
-	}
-
-	if( (b_output & 0xc0) == 0x40) {
-		result |= m_ay8910[3]->data_r();
-	}
-
-	return result;
-}
-
-void coco_symphony_twelve_device::write_porta(u8 data)
-{
-	write_psg(m_pia->b_output(), data);
-}
-
-void coco_symphony_twelve_device::write_portb(u8 data)
-{
-	write_psg(data, m_pia->a_output());
-}
-
-void coco_symphony_twelve_device::write_psg(u8 bus, u8 data)
-{
-	if( (bus & 0x03) == 0x03) {
-		m_ay8910[0]->address_w(data);
-	}
-
-	if( (bus & 0x03) == 0x02) {
-		m_ay8910[0]->data_w(data);
-	}
-
-	if( (bus & 0x0c) == 0x0c) {
-		m_ay8910[1]->address_w(data);
-	}
-
-	if( (bus & 0x0c) == 0x08) {
-		m_ay8910[1]->data_w(data);
-	}
-
-	if( (bus & 0x30) == 0x30) {
-		m_ay8910[2]->address_w(data);
-	}
-
-	if( (bus & 0x30) == 0x20) {
-		m_ay8910[2]->data_w(data);
-	}
-
-	if( (bus & 0xc0) == 0xc0) {
-		m_ay8910[3]->address_w(data);
-	}
-
-	if( (bus & 0xc0) == 0x80) {
-		m_ay8910[3]->data_w(data);
-	}
-}
-
 
 
 //**************************************************************************
