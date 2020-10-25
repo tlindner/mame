@@ -12,7 +12,8 @@ serial_printer_device::serial_printer_device(const machine_config &mconfig, cons
 	m_rs232_startbits(*this, "RS232_STARTBITS"),
 	m_rs232_databits(*this, "RS232_DATABITS"),
 	m_rs232_parity(*this, "RS232_PARITY"),
-	m_rs232_stopbits(*this, "RS232_STOPBITS")
+	m_rs232_stopbits(*this, "RS232_STOPBITS"),
+	m_rs232_rxbit(*this, "RS232_RXBIT")
 {
 }
 
@@ -28,6 +29,7 @@ static INPUT_PORTS_START(serial_printer)
 	PORT_RS232_DATABITS("RS232_DATABITS", RS232_DATABITS_8, "Data Bits", serial_printer_device, update_serial)
 	PORT_RS232_PARITY("RS232_PARITY", RS232_PARITY_NONE, "Parity", serial_printer_device, update_serial)
 	PORT_RS232_STOPBITS("RS232_STOPBITS", RS232_STOPBITS_1, "Stop Bits", serial_printer_device, update_serial)
+	PORT_RS232_RXBIT("RS232_RXBIT", RS232_RXBIT_1, "Recieve Default Bit", serial_printer_device, update_serial)
 INPUT_PORTS_END
 
 ioport_constructor serial_printer_device::device_input_ports() const
@@ -51,8 +53,9 @@ WRITE_LINE_MEMBER(serial_printer_device::update_serial)
 	int rxbaud = convert_baud(m_rs232_rxbaud->read());
 	set_rcv_rate(rxbaud);
 
+	output_rxd(convert_rxbit(m_rs232_rxbit->read()));
+
 	// TODO: make this configurable
-	output_rxd(1);
 	output_dcd(0);
 	output_dsr(0);
 	output_cts(0);

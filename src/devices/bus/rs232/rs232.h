@@ -91,6 +91,15 @@
 	PORT_CONFSETTING( RS232_STOPBITS_1_5, "1.5") \
 	PORT_CONFSETTING( RS232_STOPBITS_2, "2")
 
+#define RS232_RXBIT_0 (0x00)
+#define RS232_RXBIT_1 (0x01)
+
+#define PORT_RS232_RXBIT(_tag, _default_rxbit, _description, _class, _write_line) \
+	PORT_START(_tag) \
+	PORT_CONFNAME(0xff, 0x01, _description) PORT_WRITE_LINE_DEVICE_MEMBER(DEVICE_SELF, _class, _write_line) \
+	PORT_CONFSETTING( RS232_RXBIT_0, "0") \
+	PORT_CONFSETTING( RS232_RXBIT_1, "1")
+
 class device_rs232_port_interface;
 
 class rs232_port_device : public device_t, public device_single_card_slot_interface<device_rs232_port_interface>
@@ -264,6 +273,13 @@ protected:
 		};
 
 		return values[stopbits];
+	}
+
+	static int convert_rxbit(uint8_t rxbit)
+	{
+		static const int values[] = {0, 1};
+
+		return values[rxbit];
 	}
 };
 

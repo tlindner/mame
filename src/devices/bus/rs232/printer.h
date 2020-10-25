@@ -38,6 +38,7 @@ private:
 	required_ioport m_rs232_databits;
 	required_ioport m_rs232_parity;
 	required_ioport m_rs232_stopbits;
+	required_ioport m_rs232_rxbit;
 };
 
 DECLARE_DEVICE_TYPE(SERIAL_PRINTER, serial_printer_device)
