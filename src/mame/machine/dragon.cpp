@@ -42,28 +42,6 @@ easier to manage.
 
 
 /***************************************************************************
-  DRAGON32
-***************************************************************************/
-
-//-------------------------------------------------
-//  pia1_pa_changed - called when PIA1 PA changes
-//-------------------------------------------------
-
-void dragon_state::pia1_pa_changed(uint8_t data)
-{
-	/* call inherited function */
-	coco12_state::pia1_pa_changed(data);
-
-	/* if strobe bit is high send data from pia0 port b to dragon parallel printer */
-	if (data & 0x02)
-	{
-		uint8_t output = pia_1().b_output();
-		m_printer->output(output);
-	}
-}
-
-
-/***************************************************************************
   DRAGON64
 ***************************************************************************/
 

@@ -272,6 +272,7 @@ void dragon_state::dragon_base(machine_config &config)
 	pia1.readpa_handler().set(FUNC(coco_state::pia1_pa_r));
 	pia1.readpb_handler().set(FUNC(coco_state::pia1_pb_r));
 	pia1.writepa_handler().set(FUNC(coco_state::pia1_pa_w));
+	pia1.writepa_handler().append(PRINTER_TAG, FUNC(centronics_device::write_strobe)).bit(1);
 	pia1.writepb_handler().set(FUNC(coco_state::pia1_pb_w));
 	pia1.ca2_handler().set(FUNC(coco_state::pia1_ca2_w));
 	pia1.cb2_handler().set(FUNC(coco_state::pia1_cb2_w));
@@ -293,7 +294,13 @@ void dragon_state::dragon_base(machine_config &config)
 	m_cassette->set_default_state(CASSETTE_PLAY | CASSETTE_MOTOR_DISABLED | CASSETTE_SPEAKER_ENABLED);
 	m_cassette->set_interface("dragon_cass");
 
-	PRINTER(config, m_printer, 0);
+	CENTRONICS(config, m_printer, centronics_devices, PRINTER_TAG);
+	m_printer->ack_handler().set(PIA1_TAG, FUNC(pia6821_device::ca1_w));
+// 	m_printer->busy_handler().append(FUNC(dragon_state::busy_handler));
+
+	OUTPUT_LATCH(config, m_printer_out);
+	m_printer->set_output_latch(*m_printer_out);
+	pia0.writepb_handler().append(m_printer_out, FUNC(output_latch_device::write));
 
 	// video hardware
 	SCREEN(config, SCREEN_TAG, SCREEN_TYPE_RASTER);

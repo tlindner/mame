@@ -15,7 +15,8 @@
 
 
 #include "includes/coco12.h"
-#include "imagedev/printer.h"
+#include "bus/centronics/ctronics.h"
+
 #include "machine/mos6551.h"
 #include "video/mc6845.h"
 #include "emupal.h"
@@ -25,8 +26,9 @@
 //  MACROS / CONSTANTS
 //**************************************************************************
 
-#define PRINTER_TAG     "printer"
-#define ACIA_TAG        "acia"
+#define PRINTER_TAG			"printer"
+#define PRINTER_LATCH_TAG	"printer_latch"
+#define ACIA_TAG			"acia"
 
 
 
@@ -40,6 +42,7 @@ public:
 	dragon_state(const machine_config &mconfig, device_type type, const char *tag)
 		: coco12_state(mconfig, type, tag)
 		, m_printer(*this, PRINTER_TAG)
+		, m_printer_out(*this, PRINTER_LATCH_TAG)
 	{
 	}
 
@@ -47,10 +50,10 @@ public:
 	void dragon32(machine_config &config);
 	void dragon_mem(address_map &map);
 protected:
-	virtual void pia1_pa_changed(uint8_t data) override;
 
 private:
-	required_device<printer_image_device> m_printer;
+	required_device<centronics_device> m_printer;
+	required_device<output_latch_device> m_printer_out;
 };
 
 
