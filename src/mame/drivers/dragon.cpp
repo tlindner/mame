@@ -29,6 +29,7 @@
 #include "bus/coco/coco_psg.h"
 #include "bus/coco/coco_ram.h"
 #include "bus/coco/coco_ssc.h"
+#include "bus/coco/coco_ssc6809.h"
 #include "bus/coco/coco_stecomp.h"
 #include "bus/coco/dragon_amtor.h"
 #include "bus/coco/dragon_fdc.h"
@@ -219,6 +220,7 @@ void dragon_cart(device_slot_interface &device)
 	device.option_add("sdtandy_fdc", SDTANDY_FDC);
 	device.option_add("sprites", DRAGON_SPRITES);
 	device.option_add("ssc", COCO_SSC);
+	device.option_add("ssc6809", COCO_SSC_6809);
 	device.option_add("stecomp", COCO_STEREO_COMPOSER);
 }
 
