@@ -11,9 +11,9 @@
 	CoCo Address 0xFF7D is soft reset
 	CoCo Address 0xFF7E is read status, write to device
 
-	Allophone is 6809 NMI (TMS7040 INT1)
+	Allophone is 6809 IRQ (TMS7040 INT1)
 	TIMER is 6809 FIRQ (TMS7040 INT2)
-	Host byte is 6809 IRQ (TMS7040 INT3)
+	Host byte is 6809 NMI (TMS7040 INT3)
 
 	6809 RAM - $0000-$00ff
 
@@ -76,10 +76,11 @@
 #include "machine/ram.h"
 #include "sound/ay8910.h"
 #include "sound/sp0256.h"
+#include "machine/input_merger.h"
 
 #include "speaker.h"
 
-#define LOG_SSC 0
+#define LOG_SSC 1
 #define PIC_TAG "pic7040_6809"
 #define AY_TAG "cocossc_6809_ay"
 #define SP0256_TAG "sp0256_6809"
@@ -153,6 +154,7 @@ namespace
 		u8										pf_T1DATA;
 		u8										pf_T1DATA_RELOAD;
 		u8										pf_T1CTL;
+		u8										pf_CAP_LATCH;
 		u8										pf_CDDR;
 		u8										pf_DDDR;
 
@@ -163,6 +165,9 @@ namespace
 		required_device<ay8910_device>          m_ay;
 		required_device<sp0256_device>          m_spo;
 		required_device<cocossc_6809_sac_device> m_sac;
+		required_device<input_merger_device>	m_im_int1;
+		required_device<input_merger_device>	m_im_int2;
+		required_device<input_merger_device>	m_im_int3;
 	};
 
 	// ======================> Color Computer Sound Activity Circuit filter
@@ -188,7 +193,6 @@ namespace
 		int m_index;
 	};
 };
-
 
 //**************************************************************************
 //  GLOBAL VARIABLES
@@ -218,9 +222,14 @@ void coco_ssc_6809_device::device_add_mconfig(machine_config &config)
 
 	SPEAKER(config, "ssc_6809_audio").front_center();
 
+	INPUT_MERGER_ALL_HIGH(config, m_im_int1).output_handler().set_inputline(m_m6809, M6809_IRQ_LINE);
+	INPUT_MERGER_ALL_HIGH(config, m_im_int2).output_handler().set_inputline(m_m6809, M6809_FIRQ_LINE);
+	INPUT_MERGER_ALL_HIGH(config, m_im_int3).output_handler().set_inputline(m_m6809, INPUT_LINE_NMI);
+
 	SP0256(config, m_spo, XTAL(3'120'000));
 	m_spo->add_route(ALL_OUTPUTS, "ssc_6809_audio", SP0256_GAIN);
-	m_spo->data_request_callback().set_inputline(m_m6809, INPUT_LINE_NMI);
+
+	m_spo->data_request_callback().set(m_im_int1, FUNC(input_merger_device::in_w<1>));
 
 	AY8913(config, m_ay, DERIVED_CLOCK(2, 1));
 	m_ay->set_flags(AY8910_SINGLE_OUTPUT);
@@ -252,7 +261,10 @@ coco_ssc_6809_device::coco_ssc_6809_device(const machine_config &mconfig, const 
 		m_staticram(*this, "staticram"),
 		m_ay(*this, AY_TAG),
 		m_spo(*this, SP0256_TAG),
-		m_sac(*this, "coco_sac_tag")
+		m_sac(*this, "coco_sac_tag"),
+		m_im_int1(*this, "im_int1"),
+		m_im_int2(*this, "im_int2"),
+		m_im_int3(*this, "im_int3")
 {
 }
 
@@ -293,7 +305,7 @@ void coco_ssc_6809_device::device_start()
 void coco_ssc_6809_device::device_reset()
 {
 	m_reset_line = 0;
-	m_tms7000_busy = false;
+	m_tms7000_busy = true;
 	pf_IOCNT0 = 0;
 	pf_T1DATA = 0;
 	pf_T1DATA_RELOAD = 0;
@@ -314,20 +326,21 @@ void coco_ssc_6809_device::device_timer(emu_timer &timer, device_timer_id id, in
 		case BUSY_TIMER_ID:
 			m_tms7000_busy = false;
 			m_tms7000_busy_timer->adjust(attotime::never);
+			m_im_int3->in_w<1>(0);
 			break;
 
 		case PF_TIMER_ID:
 			pf_T1DATA--;
 
-			if( pf_T1DATA == 0) {
-				pf_IOCNT0 = pf_IOCNT0 | 0x02;
+			if( pf_T1DATA == UCHAR_MAX) {
+				pf_IOCNT0 = pf_IOCNT0 | 0x08;
 
 				if( (pf_IOCNT0 & 0x04) == 0x04) {
-					m_m6809->set_input_line(M6809_FIRQ_LINE, ASSERT_LINE);
+// 					m_m6809->set_input_line(M6809_FIRQ_LINE, ASSERT_LINE);
+					m_im_int2->in_w<1>(1);
 				}
 
 				pf_T1DATA = pf_T1DATA_RELOAD;
-
 			}
 
 			break;
@@ -387,7 +400,7 @@ u8 coco_ssc_6809_device::pf_r(offs_t offset)
 			break;
 
 		case 0x03:
-			result = pf_T1CTL;
+			result = pf_CAP_LATCH;
 			break;
 
 		case 0x04:
@@ -429,18 +442,26 @@ void coco_ssc_6809_device::pf_w(offs_t offset, uint8_t data)
 		case 0x00:
 			if( (data & 0x02) == 0x02) {
 				pf_IOCNT0 = pf_IOCNT0 & ~0x02;
-				m_m6809->set_input_line(INPUT_LINE_NMI, CLEAR_LINE);
+// 				m_im_int1->in_w<1>(0);
+// 				m_m6809->set_input_line(M6809_IRQ_LINE, CLEAR_LINE);
+
 			}
 
 			if( (data & 0x08) == 0x08) {
 				pf_IOCNT0 = pf_IOCNT0 & ~0x08;
-				m_m6809->set_input_line(M6809_FIRQ_LINE, CLEAR_LINE);
+				m_im_int2->in_w<1>(0);
+// 				m_m6809->set_input_line(M6809_FIRQ_LINE, CLEAR_LINE);
 			}
 
 			if( (data & 0x20) == 0x20) {
 				pf_IOCNT0 = pf_IOCNT0 & ~0x20;
-				m_m6809->set_input_line(M6809_IRQ_LINE, CLEAR_LINE);
+// 				m_im_int3->in_w<1>(0);
+// 				m_m6809->set_input_line(INPUT_LINE_NMI, CLEAR_LINE);
 			}
+
+			m_im_int1->in_w<0>((data & 0x01) ? 1 : 0);
+			m_im_int2->in_w<0>((data & 0x04) ? 1 : 0);
+			m_im_int3->in_w<0>((data & 0x10) ? 1 : 0);
 
 			pf_IOCNT0 = pf_IOCNT0 | (data & ~0x2a);
 			break;
@@ -452,12 +473,14 @@ void coco_ssc_6809_device::pf_w(offs_t offset, uint8_t data)
 		case 0x03:
 			{
 				pf_T1CTL = data;
-				// fOSC/16 - fOSC is freq _before_ internal clockdivider
-				attotime period = attotime::from_hz(clock()) * 16 * ((pf_T1CTL & 0x0f) + 1);
-				m_pf_timer->adjust(period);
 
 				if( (data & 0x80) == 0) {
 					m_pf_timer->adjust(attotime::never);
+				}
+				else {
+					// fOSC/16 - fOSC is freq _before_ internal clockdivider
+					attotime period = attotime::from_hz(clock()) * 16 * ((pf_T1CTL & 0x0f) + 1);
+					m_pf_timer->adjust(period);
 				}
 			}
 			break;
@@ -585,7 +608,8 @@ void coco_ssc_6809_device::ff7d_write(offs_t offset, u8 data)
 
 			m_tms7000_porta = data;
 			m_tms7000_busy = true;
-			m_m6809->set_input_line(M6809_IRQ_LINE, ASSERT_LINE);
+			m_im_int3->in_w<1>(1);
+			pf_CAP_LATCH = pf_T1DATA;
 			break;
 	}
 }
