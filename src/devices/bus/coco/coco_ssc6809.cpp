@@ -11,8 +11,8 @@
 	CoCo Address 0xFF7D is soft reset
 	CoCo Address 0xFF7E is read status, write to device
 
-	Allophone is 6809 IRQ (TMS7040 INT1)
-	TIMER is 6809 FIRQ (TMS7040 INT2)
+	Load allophone is 6809 IRQ (TMS7040 INT1)
+	Timer is 6809 FIRQ (TMS7040 INT2)
 	Host byte is 6809 NMI (TMS7040 INT3)
 
 	6809 RAM - $0000-$00ff
@@ -33,7 +33,7 @@
 
 		$103 Timer 1 Control
 				bit		write
-				0-4		Pres-cale reload register
+				0-4		Pre-scale reload register
 				6		Counting source: 0 internal, 1 external
 				7		Hold: 0, Run :1
 
@@ -81,7 +81,7 @@
 #include "speaker.h"
 
 #define LOG_SSC 1
-#define PIC_TAG "pic7040_6809"
+#define PIC_TAG "pic6809"
 #define AY_TAG "cocossc_6809_ay"
 #define SP0256_TAG "sp0256_6809"
 
@@ -151,9 +151,9 @@ namespace
 		u8                                      m_tms7000_portc;
 		u8                                      m_tms7000_portd;
 		u8										pf_IOCNT0;
-		u8										pf_T1DATA;
-		u8										pf_T1DATA_RELOAD;
 		u8										pf_T1CTL;
+		u8										pf_T1_DECREMENTER;
+		u8										pf_T1_RELOAD;
 		u8										pf_CAP_LATCH;
 		u8										pf_CDDR;
 		u8										pf_DDDR;
@@ -287,8 +287,9 @@ void coco_ssc_6809_device::device_start()
 	save_item(NAME(m_tms7000_portd));
 
 	save_item(NAME(pf_IOCNT0));
-	save_item(NAME(pf_T1DATA));
-	save_item(NAME(pf_T1DATA_RELOAD));
+	save_item(NAME(pf_T1_DECREMENTER));
+	save_item(NAME(pf_T1_RELOAD));
+	save_item(NAME(pf_CAP_LATCH));
 	save_item(NAME(pf_T1CTL));
 	save_item(NAME(pf_CDDR));
 	save_item(NAME(pf_DDDR));
@@ -307,9 +308,10 @@ void coco_ssc_6809_device::device_reset()
 	m_reset_line = 0;
 	m_tms7000_busy = true;
 	pf_IOCNT0 = 0;
-	pf_T1DATA = 0;
-	pf_T1DATA_RELOAD = 0;
 	pf_T1CTL = 0;
+	pf_T1_DECREMENTER = 0;
+	pf_T1_RELOAD = 0;
+	pf_CAP_LATCH = 0;
 	pf_CDDR = 0;
 	pf_DDDR = 0;
 }
@@ -330,17 +332,16 @@ void coco_ssc_6809_device::device_timer(emu_timer &timer, device_timer_id id, in
 			break;
 
 		case PF_TIMER_ID:
-			pf_T1DATA--;
+			pf_T1_DECREMENTER--;
 
-			if( pf_T1DATA == UCHAR_MAX) {
+			if( pf_T1_DECREMENTER == UCHAR_MAX) {
 				pf_IOCNT0 = pf_IOCNT0 | 0x08;
 
 				if( (pf_IOCNT0 & 0x04) == 0x04) {
-// 					m_m6809->set_input_line(M6809_FIRQ_LINE, ASSERT_LINE);
 					m_im_int2->in_w<1>(1);
 				}
 
-				pf_T1DATA = pf_T1DATA_RELOAD;
+				pf_T1_DECREMENTER = pf_T1_RELOAD;
 			}
 
 			break;
@@ -396,7 +397,7 @@ u8 coco_ssc_6809_device::pf_r(offs_t offset)
 			break;
 
 		case 0x02:
-			result = pf_T1DATA;
+			result = pf_T1_DECREMENTER;
 			break;
 
 		case 0x03:
@@ -405,9 +406,6 @@ u8 coco_ssc_6809_device::pf_r(offs_t offset)
 
 		case 0x04:
 			result = ssc_port_a_r();
-			break;
-
-		case 0x06:
 			break;
 
 		case 0x08:
@@ -437,26 +435,22 @@ u8 coco_ssc_6809_device::pf_r(offs_t offset)
 
 void coco_ssc_6809_device::pf_w(offs_t offset, uint8_t data)
 {
+	attotime period;
+
 	switch( offset )
 	{
 		case 0x00:
 			if( (data & 0x02) == 0x02) {
 				pf_IOCNT0 = pf_IOCNT0 & ~0x02;
-// 				m_im_int1->in_w<1>(0);
-// 				m_m6809->set_input_line(M6809_IRQ_LINE, CLEAR_LINE);
-
 			}
 
 			if( (data & 0x08) == 0x08) {
 				pf_IOCNT0 = pf_IOCNT0 & ~0x08;
 				m_im_int2->in_w<1>(0);
-// 				m_m6809->set_input_line(M6809_FIRQ_LINE, CLEAR_LINE);
 			}
 
 			if( (data & 0x20) == 0x20) {
 				pf_IOCNT0 = pf_IOCNT0 & ~0x20;
-// 				m_im_int3->in_w<1>(0);
-// 				m_m6809->set_input_line(INPUT_LINE_NMI, CLEAR_LINE);
 			}
 
 			m_im_int1->in_w<0>((data & 0x01) ? 1 : 0);
@@ -467,21 +461,22 @@ void coco_ssc_6809_device::pf_w(offs_t offset, uint8_t data)
 			break;
 
 		case 0x02:
-			pf_T1DATA_RELOAD = data;
+			pf_T1_RELOAD = data;
 			break;
 
 		case 0x03:
-			{
-				pf_T1CTL = data;
+			pf_T1CTL = data;
 
-				if( (data & 0x80) == 0) {
-					m_pf_timer->adjust(attotime::never);
-				}
-				else {
-					// fOSC/16 - fOSC is freq _before_ internal clockdivider
-					attotime period = attotime::from_hz(clock()) * 16 * ((pf_T1CTL & 0x0f) + 1);
-					m_pf_timer->adjust(period);
-				}
+			if( (data & 0x80) == 0) {
+				m_pf_timer->adjust(attotime::never);
+				pf_T1CTL = pf_T1CTL & ~0x08;
+				m_im_int2->in_w<1>(0);
+			}
+			else {
+				// fOSC/16 - fOSC is freq _before_ internal clockdivider
+				period = attotime::from_hz(clock()) * 16 * ((pf_T1CTL & 0x1f) + 1);
+				pf_T1_DECREMENTER = pf_T1_RELOAD;
+				m_pf_timer->adjust(period);
 			}
 			break;
 
@@ -609,7 +604,7 @@ void coco_ssc_6809_device::ff7d_write(offs_t offset, u8 data)
 			m_tms7000_porta = data;
 			m_tms7000_busy = true;
 			m_im_int3->in_w<1>(1);
-			pf_CAP_LATCH = pf_T1DATA;
+			pf_CAP_LATCH = pf_T1_DECREMENTER;
 			break;
 	}
 }
