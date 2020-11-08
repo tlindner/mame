@@ -621,7 +621,7 @@ u8 coco_ssc_6809_device::ssc_port_a_r()
 		logerror( "[%s] port a read: %02x\n", machine().describe_context(), m_tms7000_porta );
 	}
 
-	m_m6809->set_input_line(M6809_IRQ_LINE, CLEAR_LINE);
+	m_im_int3->in_w<1>(0);
 
 	return m_tms7000_porta;
 }
