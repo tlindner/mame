@@ -47,7 +47,7 @@
 		$10a Port D data
 		$10b Port D data direction (1: output, 0: input)
 
-    All four ports of the 6809 are under software control.
+    All four ports of the I/O are under software control.
 
     Port A is input from the host CPU.
     Port B is A0-A7 for the 2k of RAM.
@@ -231,7 +231,6 @@ void coco_ssc_6809_device::device_add_mconfig(machine_config &config)
 	SP0256(config, m_spo, XTAL(3'120'000));
 	m_spo->add_route(ALL_OUTPUTS, "ssc_6809_audio", SP0256_GAIN);
 
-// 	m_spo->data_request_callback().set(m_im_int1, FUNC(input_merger_device::in_w<1>));
 	m_spo->data_request_callback().set(FUNC(coco_ssc_6809_device::load_allophone));
 
 	AY8913(config, m_ay, DERIVED_CLOCK(2, 1));
