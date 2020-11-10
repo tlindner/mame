@@ -336,7 +336,7 @@ void coco_ssc_6809_device::device_timer(emu_timer &timer, device_timer_id id, in
 		case PF_TIMER_ID:
 			pf_T1_DECREMENTER--;
 
-			if( pf_T1_DECREMENTER == UCHAR_MAX) {
+			if( pf_T1_DECREMENTER == std::numeric_limits<u8>::max()) {
 				pf_IOCNT0 = pf_IOCNT0 | 0x08;
 
 				if( (pf_IOCNT0 & 0x04) == 0x04) {
