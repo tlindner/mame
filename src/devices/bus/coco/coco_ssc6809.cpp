@@ -142,6 +142,8 @@ namespace
 		static constexpr device_timer_id BUSY_TIMER_ID  = 0;
 		static constexpr device_timer_id PF_TIMER_ID  = 1;
 
+		DECLARE_WRITE_LINE_MEMBER(load_allophone);
+
 	private:
 		void m6809_mem(address_map &map);
 		u8                                      m_reset_line;
@@ -229,7 +231,8 @@ void coco_ssc_6809_device::device_add_mconfig(machine_config &config)
 	SP0256(config, m_spo, XTAL(3'120'000));
 	m_spo->add_route(ALL_OUTPUTS, "ssc_6809_audio", SP0256_GAIN);
 
-	m_spo->data_request_callback().set(m_im_int1, FUNC(input_merger_device::in_w<1>));
+// 	m_spo->data_request_callback().set(m_im_int1, FUNC(input_merger_device::in_w<1>));
+	m_spo->data_request_callback().set(FUNC(coco_ssc_6809_device::load_allophone));
 
 	AY8913(config, m_ay, DERIVED_CLOCK(2, 1));
 	m_ay->set_flags(AY8910_SINGLE_OUTPUT);
@@ -362,6 +365,18 @@ const tiny_rom_entry *coco_ssc_6809_device::device_rom_region() const
 	return ROM_NAME( coco_ssc_6809 );
 }
 
+//-------------------------------------------------
+//  load_allophone
+//-------------------------------------------------
+
+WRITE_LINE_MEMBER(coco_ssc_6809_device::load_allophone)
+{
+	if( state == 1 ) {
+		pf_IOCNT0 = pf_IOCNT0 | 0x02;
+	}
+
+	m_im_int1->in_w<1>(state);
+}
 
 //-------------------------------------------------
 //  set_sound_enable
@@ -601,6 +616,7 @@ void coco_ssc_6809_device::ff7d_write(offs_t offset, u8 data)
 				logerror( "[%s] ff7e write: %02x\n", machine().describe_context(), data );
 			}
 
+			pf_IOCNT0 = pf_IOCNT0 | 0x20;
 			m_tms7000_porta = data;
 			m_tms7000_busy = true;
 			m_im_int3->in_w<1>(1);
@@ -621,7 +637,8 @@ u8 coco_ssc_6809_device::ssc_port_a_r()
 		logerror( "[%s] port a read: %02x\n", machine().describe_context(), m_tms7000_porta );
 	}
 
-	m_im_int3->in_w<1>(0);
+	if (!machine().side_effects_disabled())
+		m_im_int3->in_w<1>(0);
 
 	return m_tms7000_porta;
 }
