@@ -1262,10 +1262,10 @@ void render_target::compute_minimum_size(s32 &minwidth, s32 &minheight)
 	// scan the current view for all screens
 	for (layout_view::item &curitem : current_view().items())
 	{
-		if (curitem.screen())
+		screen_device *const screen = curitem.screen();
+		if (screen)
 		{
 			// use a hard-coded default visible area for vector screens
-			screen_device *const screen = curitem.screen();
 			const rectangle vectorvis(0, 639, 0, 479);
 			const rectangle &visarea = (screen->screen_type() == SCREEN_TYPE_VECTOR) ? vectorvis : screen->visible_area();
 
@@ -1364,7 +1364,7 @@ render_primitive_list &render_target::get_primitives()
 			if (curitem.screen())
 				add_container_primitives(list, root_xform, item_xform, curitem.screen()->container(), curitem.blend_mode());
 			else
-				add_element_primitives(list, item_xform, *curitem.element(), curitem.state(), curitem.blend_mode());
+				add_element_primitives(list, item_xform, *curitem.element(), curitem.element_state(), curitem.blend_mode());
 		}
 	}
 	else

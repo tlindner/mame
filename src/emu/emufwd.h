@@ -56,7 +56,7 @@ namespace util { class archive_file; }
 struct wav_file;
 
 // declared in xmlfile.h
-namespace util { namespace xml { class data_node; } }
+namespace util::xml { class data_node; }
 
 
 
@@ -146,7 +146,6 @@ class driver_device;
 // declared in emumem.h
 class address_space;
 class memory_bank;
-class memory_block;
 class memory_manager;
 class memory_region;
 class memory_share;
@@ -182,7 +181,7 @@ struct ioport_port_live;
 class running_machine;
 
 // declared in mconfig.h
-namespace emu { namespace detail { class machine_config_replace; } }
+namespace emu::detail { class machine_config_replace; }
 class machine_config;
 
 // declared in natkeyboard.h

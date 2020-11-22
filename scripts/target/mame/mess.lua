@@ -366,6 +366,7 @@ VIDEOS["I82730"] = true
 VIDEOS["I8275"] = true
 VIDEOS["IMS_CVC"] = true
 VIDEOS["LC7582"] = true
+VIDEOS["LC7985"] = true
 --VIDEOS["M50458"] = true
 --VIDEOS["MB90082"] = true
 --VIDEOS["MB_VCU"] = true
@@ -1644,6 +1645,8 @@ createMESSProjects(_target, _subtarget, "agat")
 files {
 	MAME_DIR .. "src/mame/drivers/agat.cpp",
 	MAME_DIR .. "src/mame/includes/apple2.h",
+	MAME_DIR .. "src/mame/machine/agatkeyb.cpp",
+	MAME_DIR .. "src/mame/machine/agatkeyb.h",
 	MAME_DIR .. "src/mame/video/agat7.cpp",
 	MAME_DIR .. "src/mame/video/agat7.h",
 	MAME_DIR .. "src/mame/video/agat9.cpp",
@@ -1652,6 +1655,8 @@ files {
 
 createMESSProjects(_target, _subtarget, "akai")
 files {
+	MAME_DIR .. "src/mame/drivers/akaiax80.cpp",
+	MAME_DIR .. "src/mame/drivers/akaivx600.cpp",
 	MAME_DIR .. "src/mame/drivers/mpc3000.cpp",
 }
 
@@ -3587,6 +3592,7 @@ files {
 	MAME_DIR .. "src/mame/video/mz80.cpp",
 	MAME_DIR .. "src/mame/machine/mz80.cpp",
 	MAME_DIR .. "src/mame/drivers/mz2000.cpp",
+	MAME_DIR .. "src/mame/drivers/wizard.cpp",
 	MAME_DIR .. "src/mame/drivers/x1.cpp",
 	MAME_DIR .. "src/mame/includes/x1.h",
 	MAME_DIR .. "src/mame/machine/x1.cpp",
@@ -3761,11 +3767,12 @@ files {
 
 createMESSProjects(_target, _subtarget, "tangerin")
 files {
+	MAME_DIR .. "src/mame/drivers/alphatan.cpp",
+	MAME_DIR .. "src/mame/drivers/hhtiger.cpp",
 	MAME_DIR .. "src/mame/drivers/microtan.cpp",
 	MAME_DIR .. "src/mame/includes/microtan.h",
 	MAME_DIR .. "src/mame/machine/microtan.cpp",
 	MAME_DIR .. "src/mame/video/microtan.cpp",
-	MAME_DIR .. "src/mame/drivers/hhtiger.cpp",
 	MAME_DIR .. "src/mame/drivers/oric.cpp",
 }
 
@@ -4219,6 +4226,7 @@ files {
 	MAME_DIR .. "src/mame/drivers/vsmileb.cpp",
 	MAME_DIR .. "src/mame/drivers/clickstart.cpp",
 	MAME_DIR .. "src/mame/drivers/storio.cpp",
+	MAME_DIR .. "src/mame/drivers/innotv_innotabmax.cpp",
 }
 
 createMESSProjects(_target, _subtarget, "wang")
@@ -4281,6 +4289,7 @@ createMESSProjects(_target, _subtarget, "yamaha")
 files {
 	MAME_DIR .. "src/mame/machine/mulcd.cpp",
 	MAME_DIR .. "src/mame/drivers/ymdx11.cpp",
+	MAME_DIR .. "src/mame/drivers/ymmu5.cpp",
 	MAME_DIR .. "src/mame/drivers/ymmu50.cpp",
 	MAME_DIR .. "src/mame/drivers/ymmu80.cpp",
 	MAME_DIR .. "src/mame/drivers/ymmu100.cpp",
@@ -4318,7 +4327,6 @@ files {
 	MAME_DIR .. "src/mame/drivers/aceex.cpp",
 	MAME_DIR .. "src/mame/drivers/adacp150.cpp",
 	MAME_DIR .. "src/mame/drivers/aid80f.cpp",
-	MAME_DIR .. "src/mame/drivers/akaiax80.cpp",
 	MAME_DIR .. "src/mame/drivers/alcat7100.cpp",
 	MAME_DIR .. "src/mame/drivers/alesis_qs.cpp",
 	MAME_DIR .. "src/mame/drivers/alfaskop41xx.cpp",

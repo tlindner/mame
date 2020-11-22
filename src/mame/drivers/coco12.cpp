@@ -39,6 +39,7 @@
 #include "bus/coco/coco_ssc.h"
 #include "bus/coco/coco_ssc6809.h"
 #include "bus/coco/coco_stecomp.h"
+#include "bus/coco/coco_sym12.h"
 #include "bus/coco/coco_t4426.h"
 
 #include "cpu/m6809/m6809.h"
@@ -150,13 +151,13 @@ INPUT_PORTS_END
 
 INPUT_PORTS_START( coco_joystick )
 	PORT_START(JOYSTICK_RX_TAG)
-	PORT_BIT( 0xff, 0x80,  IPT_AD_STICK_X) PORT_NAME("Right Joystick X") PORT_SENSITIVITY(JOYSTICK_SENSITIVITY) PORT_KEYDELTA(JOYSTICK_DELTA) PORT_MINMAX(0x00,0xFF) PORT_CODE_DEC(KEYCODE_4_PAD) PORT_CODE_INC(KEYCODE_6_PAD) PORT_CODE_DEC(JOYCODE_X_LEFT_SWITCH) PORT_CODE_INC(JOYCODE_X_RIGHT_SWITCH) PORT_PLAYER(1) PORT_CONDITION(CTRL_SEL_TAG, 0x0f, EQUALS, 0x01)
+	PORT_BIT( 0x3ff, 0x140,  IPT_AD_STICK_X) PORT_NAME("Right Joystick X") PORT_SENSITIVITY(JOYSTICK_SENSITIVITY) PORT_KEYDELTA(JOYSTICK_DELTA) PORT_MINMAX(0x00,0x280) PORT_CODE_DEC(KEYCODE_4_PAD) PORT_CODE_INC(KEYCODE_6_PAD) PORT_CODE_DEC(JOYCODE_X_LEFT_SWITCH) PORT_CODE_INC(JOYCODE_X_RIGHT_SWITCH) PORT_PLAYER(1) PORT_CONDITION(CTRL_SEL_TAG, 0x0f, EQUALS, 0x01)
 	PORT_START(JOYSTICK_RY_TAG)
-	PORT_BIT( 0xff, 0x80,  IPT_AD_STICK_Y) PORT_NAME("Right Joystick Y") PORT_SENSITIVITY(JOYSTICK_SENSITIVITY) PORT_KEYDELTA(JOYSTICK_DELTA) PORT_MINMAX(0x00,0xFF) PORT_CODE_DEC(KEYCODE_8_PAD) PORT_CODE_INC(KEYCODE_2_PAD) PORT_CODE_DEC(JOYCODE_Y_UP_SWITCH)   PORT_CODE_INC(JOYCODE_Y_DOWN_SWITCH)  PORT_PLAYER(1) PORT_CONDITION(CTRL_SEL_TAG, 0x0f, EQUALS, 0x01)
+	PORT_BIT( 0x3ff, 0x140,  IPT_AD_STICK_Y) PORT_NAME("Right Joystick Y") PORT_SENSITIVITY(JOYSTICK_SENSITIVITY) PORT_KEYDELTA(JOYSTICK_DELTA) PORT_MINMAX(0x00,0x280) PORT_CODE_DEC(KEYCODE_8_PAD) PORT_CODE_INC(KEYCODE_2_PAD) PORT_CODE_DEC(JOYCODE_Y_UP_SWITCH)   PORT_CODE_INC(JOYCODE_Y_DOWN_SWITCH)  PORT_PLAYER(1) PORT_CONDITION(CTRL_SEL_TAG, 0x0f, EQUALS, 0x01)
 	PORT_START(JOYSTICK_LX_TAG)
-	PORT_BIT( 0xff, 0x80,  IPT_AD_STICK_X) PORT_NAME("Left Joystick X") PORT_SENSITIVITY(JOYSTICK_SENSITIVITY) PORT_KEYDELTA(JOYSTICK_DELTA) PORT_MINMAX(0x00,0xFF) PORT_CODE_DEC(KEYCODE_4_PAD) PORT_CODE_INC(KEYCODE_6_PAD) PORT_CODE_DEC(JOYCODE_X_LEFT_SWITCH) PORT_CODE_INC(JOYCODE_X_RIGHT_SWITCH) PORT_PLAYER(2) PORT_CONDITION(CTRL_SEL_TAG, 0xf0, EQUALS, 0x10)
+	PORT_BIT( 0x3ff, 0x140,  IPT_AD_STICK_X) PORT_NAME("Left Joystick X") PORT_SENSITIVITY(JOYSTICK_SENSITIVITY) PORT_KEYDELTA(JOYSTICK_DELTA) PORT_MINMAX(0x00,0x280) PORT_CODE_DEC(KEYCODE_4_PAD) PORT_CODE_INC(KEYCODE_6_PAD) PORT_CODE_DEC(JOYCODE_X_LEFT_SWITCH) PORT_CODE_INC(JOYCODE_X_RIGHT_SWITCH) PORT_PLAYER(2) PORT_CONDITION(CTRL_SEL_TAG, 0xf0, EQUALS, 0x10)
 	PORT_START(JOYSTICK_LY_TAG)
-	PORT_BIT( 0xff, 0x80,  IPT_AD_STICK_Y) PORT_NAME("Left Joystick Y") PORT_SENSITIVITY(JOYSTICK_SENSITIVITY) PORT_KEYDELTA(JOYSTICK_DELTA) PORT_MINMAX(0x00,0xFF) PORT_CODE_DEC(KEYCODE_8_PAD) PORT_CODE_INC(KEYCODE_2_PAD) PORT_CODE_DEC(JOYCODE_Y_UP_SWITCH)   PORT_CODE_INC(JOYCODE_Y_DOWN_SWITCH)  PORT_PLAYER(2) PORT_CONDITION(CTRL_SEL_TAG, 0xf0, EQUALS, 0x10)
+	PORT_BIT( 0x3ff, 0x140,  IPT_AD_STICK_Y) PORT_NAME("Left Joystick Y") PORT_SENSITIVITY(JOYSTICK_SENSITIVITY) PORT_KEYDELTA(JOYSTICK_DELTA) PORT_MINMAX(0x00,0x280) PORT_CODE_DEC(KEYCODE_8_PAD) PORT_CODE_INC(KEYCODE_2_PAD) PORT_CODE_DEC(JOYCODE_Y_UP_SWITCH)   PORT_CODE_INC(JOYCODE_Y_DOWN_SWITCH)  PORT_PLAYER(2) PORT_CONDITION(CTRL_SEL_TAG, 0xf0, EQUALS, 0x10)
 	PORT_START(JOYSTICK_BUTTONS_TAG)
 	PORT_BIT( 0x01, IP_ACTIVE_HIGH, IPT_BUTTON1) PORT_NAME("Right Button") PORT_CHANGED_MEMBER(DEVICE_SELF, coco12_state, coco_state::keyboard_changed, 0) PORT_CODE(KEYCODE_0_PAD) PORT_CODE(JOYCODE_BUTTON1) PORT_CODE(MOUSECODE_BUTTON1) PORT_PLAYER(1) PORT_CONDITION(CTRL_SEL_TAG, 0x0f, EQUALS, 0x01)
 	PORT_BIT( 0x02, IP_ACTIVE_HIGH, IPT_BUTTON1) PORT_NAME("Left Button")  PORT_CHANGED_MEMBER(DEVICE_SELF, coco12_state, coco_state::keyboard_changed, 0) PORT_CODE(KEYCODE_0_PAD) PORT_CODE(JOYCODE_BUTTON1) PORT_CODE(MOUSECODE_BUTTON1) PORT_PLAYER(2) PORT_CONDITION(CTRL_SEL_TAG, 0xf0, EQUALS, 0x10)
@@ -425,6 +426,7 @@ void coco_cart(device_slot_interface &device)
 	device.option_add("ssc", COCO_SSC);
 	device.option_add("ssc6809", COCO_SSC_6809);
 	device.option_add("stecomp", COCO_STEREO_COMPOSER);
+	device.option_add("sym12", COCO_SYM12);
 }
 
 //-------------------------------------------------
@@ -494,13 +496,16 @@ void coco12_state::coco(machine_config &config)
 	m_maincpu->set_dasm_override(FUNC(coco_state::dasm_override));
 
 	// devices
+	INPUT_MERGER_ANY_HIGH(config, m_irqs).output_handler().set_inputline(m_maincpu, M6809_IRQ_LINE);
+	INPUT_MERGER_ANY_HIGH(config, m_firqs).output_handler().set_inputline(m_maincpu, M6809_FIRQ_LINE);
+
 	pia6821_device &pia0(PIA6821(config, PIA0_TAG, 0));
 	pia0.writepa_handler().set(FUNC(coco_state::pia0_pa_w));
 	pia0.writepb_handler().set(FUNC(coco_state::pia0_pb_w));
 	pia0.ca2_handler().set(FUNC(coco_state::pia0_ca2_w));
 	pia0.cb2_handler().set(FUNC(coco_state::pia0_cb2_w));
-	pia0.irqa_handler().set(FUNC(coco_state::pia0_irq_a));
-	pia0.irqb_handler().set(FUNC(coco_state::pia0_irq_b));
+	pia0.irqa_handler().set(m_irqs, FUNC(input_merger_device::in_w<0>));
+	pia0.irqb_handler().set(m_irqs, FUNC(input_merger_device::in_w<1>));
 
 	pia6821_device &pia1(PIA6821(config, PIA1_TAG, 0));
 	pia1.readpa_handler().set(FUNC(coco_state::pia1_pa_r));
@@ -509,8 +514,8 @@ void coco12_state::coco(machine_config &config)
 	pia1.writepb_handler().set(FUNC(coco_state::pia1_pb_w));
 	pia1.ca2_handler().set(FUNC(coco_state::pia1_ca2_w));
 	pia1.cb2_handler().set(FUNC(coco_state::pia1_cb2_w));
-	pia1.irqa_handler().set(FUNC(coco_state::pia1_firq_a));
-	pia1.irqb_handler().set(FUNC(coco_state::pia1_firq_b));
+	pia1.irqa_handler().set(m_firqs, FUNC(input_merger_device::in_w<0>));
+	pia1.irqb_handler().set(m_firqs, FUNC(input_merger_device::in_w<1>));
 
 	SAM6883(config, m_sam, XTAL(14'318'181), m_maincpu);
 	m_sam->set_addrmap(0, &coco12_state::coco_ram);
