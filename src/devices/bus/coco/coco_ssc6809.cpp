@@ -20,12 +20,12 @@
 	6809 Peripheral file:
 		$100 IO Control
 				bit		read		write
-				0		INT1 Enable	INT1 Enable
-				1		INT1 Flag	INT1 Clear
-				2		INT2 Enable	INT2 Enable
-				3		INT2 Flag	INT2 Clear
-				4		INT3 Enable	INT3 Enable
-				5		INT3 Flag	INT3 Clear
+				0		INT1 Enable	INT1 Enable   $01
+				1		INT1 Flag	INT1 Clear    $02
+				2		INT2 Enable	INT2 Enable   $04
+				3		INT2 Flag	INT2 Clear    $08
+				4		INT3 Enable	INT3 Enable   $10
+				5		INT3 Flag	INT3 Clear    $20
 
 		$102 Timer 1 Data
 			Read: current decremented value
@@ -79,11 +79,11 @@
 
 #include "speaker.h"
 
-#define LOG_INTERFACE   (1U <<  0)
-#define LOG_INTERNAL    (1U <<  1)
-#define VERBOSE (0)
-// #define VERBOSE (LOG_INTERFACE)
-// #define VERBOSE (LOG_INTERFACE | LOG_INTERNAL)
+#define LOG_INTERFACE   (1U <<  1)
+#define LOG_INTERNAL    (1U <<  2)
+// #define VERBOSE (0)
+#define VERBOSE (LOG_INTERFACE)
+//#define VERBOSE (LOG_INTERFACE | LOG_INTERNAL)
 
 #include "logmacro.h"
 
@@ -196,9 +196,11 @@ namespace
 		// sound stream update overrides
 		virtual void sound_stream_update(sound_stream &stream, std::vector<read_stream_view> const &inputs, std::vector<write_stream_view> &outputs) override;
 
+		// Power of 2
+		static constexpr int BUFFER_SIZE = 4;
 	private:
 		sound_stream* m_stream;
-		float m_rms[16];
+		double m_rms[BUFFER_SIZE];
 		int m_index;
 	};
 };
@@ -283,8 +285,8 @@ coco_ssc_6809_device::coco_ssc_6809_device(const machine_config &mconfig, const 
 
 void coco_ssc_6809_device::device_start()
 {
-	// install $FF7D-E handler
-	install_readwrite_handler(0xFF7D, 0xFF7E,
+	// install $ff7d-e handler
+	install_readwrite_handler(0xff7d, 0xff7e,
 			read8sm_delegate(*this, FUNC(coco_ssc_6809_device::ff7d_read)),
 			write8sm_delegate(*this, FUNC(coco_ssc_6809_device::ff7d_write)));
 
@@ -296,10 +298,10 @@ void coco_ssc_6809_device::device_start()
 	save_item(NAME(m_tms7000_portd));
 
 	save_item(NAME(pf_IOCNT0));
+	save_item(NAME(pf_T1CTL));
 	save_item(NAME(pf_T1_DECREMENTER));
 	save_item(NAME(pf_T1_RELOAD));
 	save_item(NAME(pf_CAP_LATCH));
-	save_item(NAME(pf_T1CTL));
 	save_item(NAME(pf_CDDR));
 	save_item(NAME(pf_DDDR));
 
@@ -449,8 +451,6 @@ u8 coco_ssc_6809_device::pf_r(offs_t offset)
 
 void coco_ssc_6809_device::pf_w(offs_t offset, uint8_t data)
 {
-	attotime period;
-
 	switch( offset )
 	{
 		case 0x00:
@@ -467,11 +467,11 @@ void coco_ssc_6809_device::pf_w(offs_t offset, uint8_t data)
 				pf_IOCNT0 = pf_IOCNT0 & ~0x20;
 			}
 
-			m_im_int1->in_w<0>((data & 0x01) ? 1 : 0);
-			m_im_int2->in_w<0>((data & 0x04) ? 1 : 0);
-			m_im_int3->in_w<0>((data & 0x10) ? 1 : 0);
-
 			pf_IOCNT0 = pf_IOCNT0 | (data & ~0x2a);
+			m_im_int1->in_w<0>((pf_IOCNT0 & 0x01) ? 1 : 0);
+			m_im_int2->in_w<0>((pf_IOCNT0 & 0x04) ? 1 : 0);
+			m_im_int3->in_w<0>((pf_IOCNT0 & 0x10) ? 1 : 0);
+
 			break;
 
 		case 0x02:
@@ -488,9 +488,8 @@ void coco_ssc_6809_device::pf_w(offs_t offset, uint8_t data)
 			}
 			else {
 				// fOSC/16 - fOSC is freq _before_ internal clockdivider
-				period = attotime::from_hz(clock()) * 16 * ((pf_T1CTL & 0x1f) + 1);
 				pf_T1_DECREMENTER = pf_T1_RELOAD;
-				m_pf_timer->adjust(period);
+				m_pf_timer->adjust(attotime::from_hz(clock()) * 16 * ((pf_T1CTL & 0x1f) + 1));
 			}
 			break;
 
@@ -738,10 +737,7 @@ cocossc_6809_sac_device::cocossc_6809_sac_device(const machine_config &mconfig, 
 		m_stream(nullptr),
 		m_index(0)
 {
-	for( int i=0; i<16; i++ )
-	{
-		m_rms[i] = 0.0;
-	}
+ 	std::fill(std::begin(m_rms), std::end(m_rms), 0);
 }
 
 
@@ -764,21 +760,25 @@ void cocossc_6809_sac_device::sound_stream_update(sound_stream &stream, std::vec
 	auto &src = inputs[0];
 	auto &dst = outputs[0];
 
-	double n = dst.samples();
+	int count = dst.samples();
+	m_rms[m_index] = 0;
 
-	if( n > 0 ) {
-		for (int sampindex = 0; sampindex < n; sampindex++)
+	if( count > 0 )
 		{
+		for (int sampindex = 0; sampindex < count; sampindex++)
+		{
+			// sum the squares
 			m_rms[m_index] += src.get(sampindex) * src.get(sampindex);
+			// copy from source to destination
 			dst.put(sampindex, src.get(sampindex));
 		}
 
-		m_rms[m_index] = m_rms[m_index] / n;
+		m_rms[m_index] = m_rms[m_index] / count;
 		m_rms[m_index] = sqrt(m_rms[m_index]);
-
-		m_index++;
-		m_index &= 0x0f;
 	}
+
+	m_index++;
+	m_index &= BUFFER_SIZE;
 }
 
 
@@ -788,9 +788,8 @@ void cocossc_6809_sac_device::sound_stream_update(sound_stream &stream, std::vec
 
 bool cocossc_6809_sac_device::sound_activity_circuit_output()
 {
-  float average = m_rms[0] + m_rms[1] + m_rms[2] + m_rms[3] + m_rms[4] +
-	m_rms[5] + m_rms[6] + m_rms[7] + m_rms[8] + m_rms[9] + m_rms[10] +
-	m_rms[11] + m_rms[12] + m_rms[13] + m_rms[14] + m_rms[15];
+	double sum = m_rms[0] + m_rms[1] + m_rms[2] + m_rms[3];
+	double average = (sum / BUFFER_SIZE);
 
-	return (average / 16.0) < 0.3175 ;
+	return average < 0.08;
 }
