@@ -372,7 +372,8 @@ const tiny_rom_entry *coco_ssc_6809_device::device_rom_region() const
 
 WRITE_LINE_MEMBER(coco_ssc_6809_device::load_allophone)
 {
-	if( state == 1 ) {
+	if( state == 1 )
+	{
 		pf_IOCNT0 = pf_IOCNT0 | 0x02;
 	}
 
@@ -624,7 +625,9 @@ u8 coco_ssc_6809_device::ssc_port_a_r()
 	LOGINTERNAL( "[%s] port a read: %02x\n", machine().describe_context(), m_tms7000_porta );
 
 	if (!machine().side_effects_disabled())
+	{
 		m_im_int3->in_w<1>(0);
+	}
 
 	return m_tms7000_porta;
 }
