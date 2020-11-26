@@ -42,14 +42,17 @@
 
 #define LOG_INTERFACE   (1U <<  1)
 #define LOG_INTERNAL    (1U <<  2)
-#define VERBOSE (0)
+#define LOG_RAM         (1U <<  3)
+// #define VERBOSE (0)
 // #define VERBOSE (LOG_INTERFACE)
+#define VERBOSE (LOG_INTERFACE | LOG_RAM)
 // #define VERBOSE (LOG_INTERFACE | LOG_INTERNAL)
 
 #include "logmacro.h"
 
 #define LOGINTERFACE(...) LOGMASKED(LOG_INTERFACE, __VA_ARGS__)
 #define LOGINTERNAL(...) LOGMASKED(LOG_INTERNAL, __VA_ARGS__)
+#define LOGRAM(...) LOGMASKED(LOG_RAM, __VA_ARGS__)
 
 #define PIC_TAG "pic7040"
 #define AY_TAG "cocossc_ay"
@@ -400,6 +403,7 @@ void coco_ssc_device::ssc_port_c_w(u8 data)
 		address &= 0x7ff;
 
 		m_staticram->write(address, m_tms7000_portd);
+		LOGRAM( "[%s] write RAM address %04x\n", machine().describe_context(), address );
 	}
 
 	if( (data & C_ACS) == 0 ) /* chip select for AY-3-8913 */
@@ -452,6 +456,7 @@ u8 coco_ssc_device::ssc_port_d_r()
 		address &= 0x7ff;
 
 		m_tms7000_portd = m_staticram->read(address);
+		LOGRAM( "[%s] read RAM address %04x\n", machine().describe_context(), address );
 	}
 
 	if( (m_tms7000_portc & C_ACS) == 0 ) /* chip select for AY-3-8913 */
