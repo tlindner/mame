@@ -540,7 +540,7 @@ u8 coco_ssc_6809_device::ff7d_read(offs_t offset)
 	{
 		case 0x00:
 			data = 0xff;
-			LOGINTERFACE( "[%s] ff7d read: %02x\n", machine().describe_context(), data );
+			LOGINTERFACE( "ff7d read: %02x\n", data );
 			break;
 
 		case 0x01:
@@ -561,8 +561,7 @@ u8 coco_ssc_6809_device::ff7d_read(offs_t offset)
 				data |= 0x20;
 			}
 
-			LOGINTERFACE( "[%s] ff7e read: %c%c%c%c %c%c%c%c (%02x)\n",
-					machine().describe_context(),
+			LOGINTERFACE( "ff7e read: %c%c%c%c %c%c%c%c (%02x)\n",
 					data & 0x80 ? 'b' : 'B',
 					data & 0x40 ? 's' : 'S',
 					data & 0x20 ? 'p' : 'P',
@@ -589,7 +588,7 @@ void coco_ssc_6809_device::ff7d_write(offs_t offset, u8 data)
 	switch(offset)
 	{
 		case 0x00:
-			LOGINTERFACE( "[%s] ff7d write: %02x\n", machine().describe_context(), data );
+			LOGINTERFACE( "ff7d write: %02x\n", data );
 
 			if( (data & 1) == 1 )
 			{
@@ -610,7 +609,7 @@ void coco_ssc_6809_device::ff7d_write(offs_t offset, u8 data)
 			break;
 
 		case 0x01:
-			LOGINTERFACE( "[%s] ff7e write: %02x\n", machine().describe_context(), data );
+			LOGINTERFACE( "ff7e write: %02x\n", data );
 
 			pf_IOCNT0 = pf_IOCNT0 | 0x20;
 			m_tms7000_porta = data;
@@ -628,7 +627,7 @@ void coco_ssc_6809_device::ff7d_write(offs_t offset, u8 data)
 
 u8 coco_ssc_6809_device::ssc_port_a_r()
 {
-	LOGINTERNAL( "[%s] port a read: %02x\n", machine().describe_context(), m_tms7000_porta );
+	LOGINTERNAL( "port a read: %02x\n", m_tms7000_porta );
 
 	m_im_int3->in_w<1>(0);
 
@@ -637,14 +636,14 @@ u8 coco_ssc_6809_device::ssc_port_a_r()
 
 void coco_ssc_6809_device::ssc_port_b_w(u8 data)
 {
-	LOGINTERNAL( "[%s] port b write: %02x\n", machine().describe_context(), data );
+	LOGINTERNAL( "port b write: %02x\n", data );
 
 	m_tms7000_portb = data;
 }
 
 u8 coco_ssc_6809_device::ssc_port_c_r()
 {
-	LOGINTERNAL( "[%s] port c read: %02x\n", machine().describe_context(), m_tms7000_portc );
+	LOGINTERNAL( "port c read: %02x\n", m_tms7000_portc );
 
 	return m_tms7000_portc;
 }
@@ -658,8 +657,7 @@ void coco_ssc_6809_device::ssc_port_c_w(u8 data)
 		address &= 0x7ff;
 
 		m_staticram->write(address, m_tms7000_portd);
-		LOGRAM( "[%s] write RAM address %04x\n", machine().describe_context(), address );
-
+		LOGRAM( "[pc=%04x] write RAM address %04x\n", m_m6809->pc(), address );
 	}
 
 	if( (data & C_ACS) == 0 ) /* chip select for AY-3-8913 */
@@ -685,8 +683,7 @@ void coco_ssc_6809_device::ssc_port_c_w(u8 data)
 		m_tms7000_busy = false;
 	}
 
-	LOGINTERNAL( "[%s] port c write: %c%c%c%c %c%c%c%c (%02x)\n",
-			machine().describe_context(),
+	LOGINTERNAL( "port c write: %c%c%c%c %c%c%c%c (%02x)\n",
 			data & 0x80 ? '.' : 'B',
 			data & 0x40 ? '.' : 'P',
 			data & 0x20 ? '.' : 'V',
@@ -712,7 +709,7 @@ u8 coco_ssc_6809_device::ssc_port_d_r()
 		address &= 0x7ff;
 
 		m_tms7000_portd = m_staticram->read(address);
-		LOGRAM( "[%s] read RAM address %04x\n", machine().describe_context(), address );
+		LOGRAM( "[pc=%04x] read RAM address %04x\n", m_m6809->pc(), address );
 	}
 
 	if( (m_tms7000_portc & C_ACS) == 0 ) /* chip select for AY-3-8913 */
@@ -726,14 +723,14 @@ u8 coco_ssc_6809_device::ssc_port_d_r()
 	// pull hi output bits
 	m_tms7000_portd |= pf_CDDR;
 
-	LOGINTERNAL( "[%s] port d read: %02x\n", machine().describe_context(), m_tms7000_portd );
+	LOGINTERNAL( "[pc=%04x] port d read: %02x\n", m_m6809->pc(), m_tms7000_portd );
 
 	return m_tms7000_portd;
 }
 
 void coco_ssc_6809_device::ssc_port_d_w(u8 data)
 {
-	LOGINTERNAL( "[%s] port d write: %02x\n", machine().describe_context(), data );
+	LOGINTERNAL( "port d write: %02x\n", data );
 
 	m_tms7000_portd = data;
 }
