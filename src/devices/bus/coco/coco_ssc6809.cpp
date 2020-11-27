@@ -81,16 +81,16 @@
 
 #define LOG_INTERFACE   (1U <<  1)
 #define LOG_INTERNAL    (1U <<  2)
-#define LOG_RAM         (1U <<  3)
+#define LOG_RAMADDRESS  (1U <<  3)
 // #define VERBOSE (0)
-#define VERBOSE (LOG_INTERFACE | LOG_RAM)
-//#define VERBOSE (LOG_INTERFACE | LOG_INTERNAL)
+// #define VERBOSE (LOG_INTERFACE | LOG_RAMADDRESS)
+#define VERBOSE (LOG_INTERFACE | LOG_INTERNAL | LOG_RAMADDRESS)
 
 #include "logmacro.h"
 
 #define LOGINTERFACE(...) LOGMASKED(LOG_INTERFACE, __VA_ARGS__)
 #define LOGINTERNAL(...) LOGMASKED(LOG_INTERNAL, __VA_ARGS__)
-#define LOGRAM(...) LOGMASKED(LOG_RAM, __VA_ARGS__)
+#define LOGRAM(...) LOGMASKED(LOG_RAMADDRESS, __VA_ARGS__)
 
 #define PIC_TAG "pic6809"
 #define AY_TAG "cocossc_6809_ay"
@@ -341,7 +341,7 @@ void coco_ssc_6809_device::device_timer(emu_timer &timer, device_timer_id id, in
 	{
 		case PF_TIMER_ID:
 			pf_T1_DECREMENTER--;
-
+			fprintf( stderr, "timer fire\n" );
 			if( pf_T1_DECREMENTER == std::numeric_limits<u8>::max()) {
 				pf_IOCNT0 = pf_IOCNT0 | 0x08;
 
@@ -782,6 +782,7 @@ void cocossc_6809_sac_device::sound_stream_update(sound_stream &stream, std::vec
 			dst.put(sampindex, src.get(sampindex));
 		}
 
+		// calculate root mean square
 		m_rms[m_index] = m_rms[m_index] / count;
 		m_rms[m_index] = sqrt(m_rms[m_index]);
 	}

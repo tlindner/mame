@@ -525,6 +525,7 @@ void cocossc_sac_device::sound_stream_update(sound_stream &stream, std::vector<r
 			dst.put(sampindex, src.get(sampindex));
 		}
 
+		// calculate root mean square
 		m_rms[m_index] = m_rms[m_index] / count;
 		m_rms[m_index] = sqrt(m_rms[m_index]);
 	}

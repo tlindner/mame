@@ -749,7 +749,7 @@ address_space::address_space(memory_manager &manager, device_memory_interface &m
 		m_device(memory.device()),
 		m_unmap(0),
 		m_spacenum(spacenum),
-		m_log_unmap(true),
+		m_log_unmap(false),
 		m_name(memory.space_config(spacenum)->name()),
 		m_notifier_id(0),
 		m_in_notification(0)
