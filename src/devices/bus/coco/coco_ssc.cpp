@@ -45,7 +45,7 @@
 #define LOG_RAM         (1U <<  3)
 // #define VERBOSE (0)
 // #define VERBOSE (LOG_INTERFACE)
-#define VERBOSE (LOG_INTERFACE | LOG_RAM)
+#define VERBOSE (LOG_INTERFACE | LOG_INTERNAL | LOG_RAM)
 // #define VERBOSE (LOG_INTERFACE | LOG_INTERNAL)
 
 #include "logmacro.h"
