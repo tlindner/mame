@@ -627,7 +627,7 @@ void coco_ssc_6809_device::ff7d_write(offs_t offset, u8 data)
 
 u8 coco_ssc_6809_device::ssc_port_a_r()
 {
-	LOGINTERNAL( "port a read: %02x\n", m_tms7000_porta );
+	LOGINTERNAL( "[pc=%04x] port a read: %02x\n", m_m6809->pc(), m_tms7000_porta );
 
 	m_im_int3->in_w<1>(0);
 
@@ -636,14 +636,14 @@ u8 coco_ssc_6809_device::ssc_port_a_r()
 
 void coco_ssc_6809_device::ssc_port_b_w(u8 data)
 {
-	LOGINTERNAL( "port b write: %02x\n", data );
+	LOGINTERNAL( "[pc=%04x] port b write: %02x\n", m_m6809->pc(), data );
 
 	m_tms7000_portb = data;
 }
 
 u8 coco_ssc_6809_device::ssc_port_c_r()
 {
-	LOGINTERNAL( "port c read: %02x\n", m_tms7000_portc );
+	LOGINTERNAL( "[pc=%04x] port c read: %02x\n", m_m6809->pc(), m_tms7000_portc );
 
 	return m_tms7000_portc;
 }
@@ -683,7 +683,7 @@ void coco_ssc_6809_device::ssc_port_c_w(u8 data)
 		m_tms7000_busy = false;
 	}
 
-	LOGINTERNAL( "port c write: %c%c%c%c %c%c%c%c (%02x)\n",
+	LOGINTERNAL( "[pc=%04x] port c write: %c%c%c%c %c%c%c%c (%02x)\n", m_m6809->pc(),
 			data & 0x80 ? '.' : 'B',
 			data & 0x40 ? '.' : 'P',
 			data & 0x20 ? '.' : 'V',
@@ -730,7 +730,7 @@ u8 coco_ssc_6809_device::ssc_port_d_r()
 
 void coco_ssc_6809_device::ssc_port_d_w(u8 data)
 {
-	LOGINTERNAL( "port d write: %02x\n", data );
+	LOGINTERNAL( "[pc=%04x] port d write: %02x\n", m_m6809->pc(), data );
 
 	m_tms7000_portd = data;
 }
