@@ -508,7 +508,11 @@ void coco_ssc_6809_device::pf_w(offs_t offset, uint8_t data)
 			break;
 
 		case 0x08:
-			ssc_port_c_w( data );
+			ssc_port_c_r();
+			if( pf_CDDR != 0 )
+			{
+				ssc_port_c_w( data );
+			}
 			break;
 
 		case 0x09:
@@ -516,7 +520,11 @@ void coco_ssc_6809_device::pf_w(offs_t offset, uint8_t data)
 			break;
 
 		case 0x0a:
-			ssc_port_d_w( data );
+			ssc_port_d_r();
+			if( pf_DDDR != 0 )
+			{
+				ssc_port_d_w( data );
+			}
 			break;
 
 		case 0x0b:
@@ -719,9 +727,6 @@ u8 coco_ssc_6809_device::ssc_port_d_r()
 			m_tms7000_portd = m_ay->data_r();
 		}
 	}
-
-	// pull hi output bits
-	m_tms7000_portd |= pf_CDDR;
 
 	LOGINTERNAL( "[pc=%04x] port d read: %02x\n", m_m6809->pc(), m_tms7000_portd );
 
