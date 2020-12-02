@@ -102,8 +102,6 @@ public:
 	void pia0_pa_w(uint8_t data);
 	void pia0_pb_w(uint8_t data);
 	void mux_w( uint8_t data );
-// 	DECLARE_WRITE_LINE_MEMBER( pia0_ca2_w );
-// 	DECLARE_WRITE_LINE_MEMBER( pia0_cb2_w );
 
 	// PIA1
 	uint8_t pia1_pa_r();
@@ -111,7 +109,6 @@ public:
 	void pia1_pa_w(uint8_t data);
 	void pia1_pb_w(uint8_t data);
 	DECLARE_WRITE_LINE_MEMBER( pia1_ca2_w );
-// 	DECLARE_WRITE_LINE_MEMBER( pia1_cb2_w );
 
 	// floating bus & "space"
 	uint8_t floating_bus_r()   { return floating_bus_read(); }

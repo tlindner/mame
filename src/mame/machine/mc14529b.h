@@ -24,11 +24,7 @@ public:
 		TIMER_B1 = 4,
 		TIMER_B2 = 5,
 		TIMER_B3 = 6,
-		TIMER_B4 = 7,
-		TIMER_E1 = 8,
-		TIMER_E2 = 9,
-		TIMER_E3 = 10,
-		TIMER_E4 = 11
+		TIMER_B4 = 7
 	};
 
 	enum soundmux_status_t
@@ -58,13 +54,13 @@ protected:
 private:
 	void set_timer(timer_id id_start, timer_id id_end, int state);
 
+	attotime delay;
 	int m_selector_a;
 	int m_selector_b;
 	int m_mux_enable;
 	int m_mux_output;
 	devcb_write8 m_mux_output_handler;
 	emu_timer *m_delay_timer[8];
-
 };
 
 DECLARE_DEVICE_TYPE(MC14529B, mc14529b_device)

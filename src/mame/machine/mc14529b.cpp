@@ -55,7 +55,7 @@ void mc14529b_device::device_start()
 	// resolve callbacks
 	m_mux_output_handler.resolve_safe();
 
-	for (int i = TIMER_A1; i <= TIMER_E4; i++)
+	for (int i = TIMER_A1; i <= TIMER_B4; i++)
 	{
 		m_delay_timer[i] = timer_alloc(i);
 	}
@@ -64,6 +64,8 @@ void mc14529b_device::device_start()
 	save_item(NAME(m_selector_b));
 	save_item(NAME(m_mux_enable));
 	save_item(NAME(m_mux_output));
+
+	delay = attotime::from_usec(9);
 }
 
 
@@ -80,10 +82,6 @@ void mc14529b_device::device_timer(emu_timer &timer, device_timer_id id, int32_t
 	else if( id <= TIMER_B4 )
 	{
 		m_selector_b = param;
-	}
-	else if( id <= TIMER_E4 )
-	{
-		m_mux_enable = param;
 	}
 	else
 	{
@@ -137,8 +135,6 @@ void mc14529b_device::mux_enable_w(int state)
 	{
 		m_mux_output_handler( (m_mux_enable << 2 ) | (m_selector_b << 1) | m_selector_a );
 	}
-
-// 	set_timer( TIMER_E1, TIMER_E4, state );
 }
 
 
@@ -153,8 +149,7 @@ void mc14529b_device::set_timer(timer_id id_start, timer_id id_end, int state)
 	{
 		if( !(m_delay_timer[i]->enabled()) )
 		{
-			// typical propagation delay (140ns typical, 400ns max)
-			m_delay_timer[i]->adjust(attotime::from_nsec(350), state);
+			m_delay_timer[i]->adjust(delay, state);
 			break;
 		}
 	}

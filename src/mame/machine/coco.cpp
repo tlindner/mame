@@ -342,7 +342,6 @@ void coco_state::pia0_pa_w(uint8_t data)
 }
 
 
-
 //-------------------------------------------------
 //  pia0_pb_w
 //-------------------------------------------------
@@ -351,29 +350,6 @@ void coco_state::pia0_pb_w(uint8_t data)
 {
 	poll_keyboard();
 }
-
-
-//-------------------------------------------------
-//  pia0_ca2_w
-//-------------------------------------------------
-
-// WRITE_LINE_MEMBER( coco_state::pia0_ca2_w )
-// {
-// 	update_sound();     // analog mux SEL1 is tied to PIA0 CA2
-// 	poll_keyboard();
-// }
-
-
-
-//-------------------------------------------------
-//  pia0_cb2_w
-//-------------------------------------------------
-
-// WRITE_LINE_MEMBER( coco_state::pia0_cb2_w )
-// {
-// 	update_sound();     // analog mux SEL2 is tied to PIA0 CB2
-// 	poll_keyboard();
-// }
 
 
 /***************************************************************************
@@ -489,16 +465,6 @@ WRITE_LINE_MEMBER( coco_state::pia1_ca2_w )
 		CASSETTE_MASK_MOTOR);
 }
 
-
-
-//-------------------------------------------------
-//  pia1_cb2_w
-//-------------------------------------------------
-
-// WRITE_LINE_MEMBER( coco_state::pia1_cb2_w )
-// {
-// 	update_sound();     // SOUND_ENABLE is connected to PIA1 CB2
-// }
 
 
 /***************************************************************************
