@@ -60,12 +60,14 @@ void mc14529b_device::device_start()
 		m_delay_timer[i] = timer_alloc(i);
 	}
 
+	delay = attotime::from_usec(9);
+
+	save_item(NAME(delay));
 	save_item(NAME(m_selector_a));
 	save_item(NAME(m_selector_b));
 	save_item(NAME(m_mux_enable));
 	save_item(NAME(m_mux_output));
 
-	delay = attotime::from_usec(9);
 }
 
 

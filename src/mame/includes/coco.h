@@ -188,7 +188,6 @@ protected:
 	hires_type_t hires_interface_type(void);
 	bool is_joystick_hires(int joystick_index);
 
-// 	soundmux_status_t soundmux_status(void);
 	void update_sound(void);
 	void poll_joystick(bool *joyin, uint8_t *buttons);
 	void poll_keyboard(void);
@@ -199,9 +198,6 @@ protected:
 
 	// thin wrappers for PIA output
 	uint8_t dac_output(void)  { return m_dac_output; }    // PA drives the DAC
-// 	bool sel1(void)         { return m_pia_0->ca2_output() ? true : false; }
-// 	bool sel2(void)         { return m_pia_0->cb2_output() ? true : false; }
-// 	bool snden(void)        { return m_pia_1->cb2_output() ? true : false; }
 
 	// VHD selection
 	coco_vhd_image_device *current_vhd();
