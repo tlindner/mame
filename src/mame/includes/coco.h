@@ -25,6 +25,7 @@
 #include "sound/dac.h"
 #include "screen.h"
 #include "machine/input_merger.h"
+#include "machine/mc14529b.h"
 
 //**************************************************************************
 //  MACROS / CONSTANTS
@@ -100,8 +101,9 @@ public:
 	// PIA0
 	void pia0_pa_w(uint8_t data);
 	void pia0_pb_w(uint8_t data);
-	DECLARE_WRITE_LINE_MEMBER( pia0_ca2_w );
-	DECLARE_WRITE_LINE_MEMBER( pia0_cb2_w );
+	void mux_w( uint8_t data );
+// 	DECLARE_WRITE_LINE_MEMBER( pia0_ca2_w );
+// 	DECLARE_WRITE_LINE_MEMBER( pia0_cb2_w );
 
 	// PIA1
 	uint8_t pia1_pa_r();
@@ -109,7 +111,7 @@ public:
 	void pia1_pa_w(uint8_t data);
 	void pia1_pb_w(uint8_t data);
 	DECLARE_WRITE_LINE_MEMBER( pia1_ca2_w );
-	DECLARE_WRITE_LINE_MEMBER( pia1_cb2_w );
+// 	DECLARE_WRITE_LINE_MEMBER( pia1_cb2_w );
 
 	// floating bus & "space"
 	uint8_t floating_bus_r()   { return floating_bus_read(); }
@@ -156,13 +158,6 @@ protected:
 	static const device_timer_id TIMER_HIRES_JOYSTICK_Y = 1;
 	static const device_timer_id TIMER_DIECOM_LIGHTGUN = 2;
 
-	enum soundmux_status_t
-	{
-		SOUNDMUX_SEL1 = 1,
-		SOUNDMUX_SEL2 = 2,
-		SOUNDMUX_ENABLE = 4
-	};
-
 	enum joystick_type_t
 	{
 		JOYSTICK_NONE = 0x00,
@@ -196,7 +191,7 @@ protected:
 	hires_type_t hires_interface_type(void);
 	bool is_joystick_hires(int joystick_index);
 
-	soundmux_status_t soundmux_status(void);
+// 	soundmux_status_t soundmux_status(void);
 	void update_sound(void);
 	void poll_joystick(bool *joyin, uint8_t *buttons);
 	void poll_keyboard(void);
@@ -207,9 +202,9 @@ protected:
 
 	// thin wrappers for PIA output
 	uint8_t dac_output(void)  { return m_dac_output; }    // PA drives the DAC
-	bool sel1(void)         { return m_pia_0->ca2_output() ? true : false; }
-	bool sel2(void)         { return m_pia_0->cb2_output() ? true : false; }
-	bool snden(void)        { return m_pia_1->cb2_output() ? true : false; }
+// 	bool sel1(void)         { return m_pia_0->ca2_output() ? true : false; }
+// 	bool sel2(void)         { return m_pia_0->cb2_output() ? true : false; }
+// 	bool snden(void)        { return m_pia_1->cb2_output() ? true : false; }
 
 	// VHD selection
 	coco_vhd_image_device *current_vhd();
@@ -235,6 +230,7 @@ protected:
 	optional_ioport m_beckerportconfig;
 	required_device<input_merger_device> m_irqs;
 	required_device<input_merger_device> m_firqs;
+	required_device<mc14529b_device> m_mux;
 
 	// input ports
 	required_ioport_array<7> m_keyboard;

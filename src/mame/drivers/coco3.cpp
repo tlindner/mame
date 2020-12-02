@@ -265,11 +265,14 @@ void coco3_state::coco3(machine_config &config)
 	INPUT_MERGER_ANY_HIGH(config, m_irqs).output_handler().set_inputline(m_maincpu, M6809_IRQ_LINE);
 	INPUT_MERGER_ANY_HIGH(config, m_firqs).output_handler().set_inputline(m_maincpu, M6809_FIRQ_LINE);
 
+	MC14529B(config, m_mux);
+	m_mux->mux_output_handler().set(FUNC(coco_state::mux_w));
+
 	pia6821_device &pia0(PIA6821(config, PIA0_TAG, 0));
 	pia0.writepa_handler().set(FUNC(coco_state::pia0_pa_w));
 	pia0.writepb_handler().set(FUNC(coco_state::pia0_pb_w));
-	pia0.ca2_handler().set(FUNC(coco_state::pia0_ca2_w));
-	pia0.cb2_handler().set(FUNC(coco_state::pia0_cb2_w));
+	pia0.ca2_handler().set(m_mux,FUNC(mc14529b_device::selector_a_w));
+	pia0.cb2_handler().set(m_mux,FUNC(mc14529b_device::selector_b_w));
 	pia0.irqa_handler().set(m_irqs, FUNC(input_merger_device::in_w<0>));
 	pia0.irqb_handler().set(m_irqs, FUNC(input_merger_device::in_w<1>));
 
@@ -279,7 +282,7 @@ void coco3_state::coco3(machine_config &config)
 	pia1.writepa_handler().set(FUNC(coco_state::pia1_pa_w));
 	pia1.writepb_handler().set(FUNC(coco_state::pia1_pb_w));
 	pia1.ca2_handler().set(FUNC(coco_state::pia1_ca2_w));
-	pia1.cb2_handler().set(FUNC(coco_state::pia1_cb2_w));
+	pia1.cb2_handler().set(m_mux,FUNC(mc14529b_device::mux_enable_w));
 	pia1.irqa_handler().set(m_firqs, FUNC(input_merger_device::in_w<0>));
 	pia1.irqb_handler().set(m_firqs, FUNC(input_merger_device::in_w<1>));
 

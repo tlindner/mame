@@ -3975,6 +3975,8 @@ files {
 	MAME_DIR .. "src/mame/drivers/mc10.cpp",
 	MAME_DIR .. "src/mame/machine/6883sam.cpp",
 	MAME_DIR .. "src/mame/machine/6883sam.h",
+	MAME_DIR .. "src/mame/machine/mc14529b.cpp",
+	MAME_DIR .. "src/mame/machine/mc14529b.h",
 	MAME_DIR .. "src/mame/machine/coco.cpp",
 	MAME_DIR .. "src/mame/includes/coco.h",
 	MAME_DIR .. "src/mame/machine/coco12.cpp",

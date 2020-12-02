@@ -100,6 +100,7 @@ coco_state::coco_state(const machine_config &mconfig, device_type type, const ch
 	m_beckerportconfig(*this, BECKERPORT_TAG),
 	m_irqs(*this, "irqs"),
 	m_firqs(*this, "firqs"),
+	m_mux(*this, "mux"),
 	m_keyboard(*this, "row%u", 0),
 	m_joystick_type_control(*this, CTRL_SEL_TAG),
 	m_joystick_hires_control(*this, HIRES_INTF_TAG),
@@ -352,16 +353,15 @@ void coco_state::pia0_pb_w(uint8_t data)
 }
 
 
-
 //-------------------------------------------------
 //  pia0_ca2_w
 //-------------------------------------------------
 
-WRITE_LINE_MEMBER( coco_state::pia0_ca2_w )
-{
-	update_sound();     // analog mux SEL1 is tied to PIA0 CA2
-	poll_keyboard();
-}
+// WRITE_LINE_MEMBER( coco_state::pia0_ca2_w )
+// {
+// 	update_sound();     // analog mux SEL1 is tied to PIA0 CA2
+// 	poll_keyboard();
+// }
 
 
 
@@ -369,11 +369,11 @@ WRITE_LINE_MEMBER( coco_state::pia0_ca2_w )
 //  pia0_cb2_w
 //-------------------------------------------------
 
-WRITE_LINE_MEMBER( coco_state::pia0_cb2_w )
-{
-	update_sound();     // analog mux SEL2 is tied to PIA0 CB2
-	poll_keyboard();
-}
+// WRITE_LINE_MEMBER( coco_state::pia0_cb2_w )
+// {
+// 	update_sound();     // analog mux SEL2 is tied to PIA0 CB2
+// 	poll_keyboard();
+// }
 
 
 /***************************************************************************
@@ -495,10 +495,10 @@ WRITE_LINE_MEMBER( coco_state::pia1_ca2_w )
 //  pia1_cb2_w
 //-------------------------------------------------
 
-WRITE_LINE_MEMBER( coco_state::pia1_cb2_w )
-{
-	update_sound();     // SOUND_ENABLE is connected to PIA1 CB2
-}
+// WRITE_LINE_MEMBER( coco_state::pia1_cb2_w )
+// {
+// 	update_sound();     // SOUND_ENABLE is connected to PIA1 CB2
+// }
 
 
 /***************************************************************************
@@ -530,7 +530,7 @@ WRITE_LINE_MEMBER( coco_state::pia1_cb2_w )
 
   00    - DAC (digital - analog converter)
   01    - CSN (cassette)
-  10    - SND input from cartridge (NYI because we only support the FDC)
+  10    - SND input from cartridge
   11    - Grounded (0)
 
   Source - Tandy Color Computer Service Manual
@@ -541,16 +541,27 @@ WRITE_LINE_MEMBER( coco_state::pia1_cb2_w )
 ***************************************************************************/
 
 //-------------------------------------------------
+//  mux_w
+//-------------------------------------------------
+
+void coco_state::mux_w( uint8_t data )
+{
+	update_sound();
+	poll_keyboard();
+}
+
+
+//-------------------------------------------------
 //  soundmux_status
 //-------------------------------------------------
 
-coco_state::soundmux_status_t coco_state::soundmux_status(void)
-{
-	return (soundmux_status_t) (
-		(snden() ? SOUNDMUX_ENABLE : 0) |
-		(sel1()  ? SOUNDMUX_SEL1 : 0) |
-		(sel2()  ? SOUNDMUX_SEL2 : 0));
-}
+// coco_state::soundmux_status_t coco_state::soundmux_status(void)
+// {
+// 	return (soundmux_status_t) (
+// 		(snden() ? SOUNDMUX_ENABLE : 0) |
+// 		(sel1()  ? SOUNDMUX_SEL1 : 0) |
+// 		(sel2()  ? SOUNDMUX_SEL2 : 0));
+// }
 
 
 
@@ -561,17 +572,17 @@ coco_state::soundmux_status_t coco_state::soundmux_status(void)
 void coco_state::update_sound(void)
 {
 	/* determine the sound mux status */
-	soundmux_status_t status = soundmux_status();
+	uint8_t status = m_mux->mux_output();
 
 	/* the SC77526 DAC chip internally biases the AC-coupled sound inputs for Cassette and Cartridge at the midpoint of the 3.9v output range */
-	bool bCassSoundEnable = (status == (SOUNDMUX_ENABLE | SOUNDMUX_SEL1));
-	bool bCartSoundEnable = (status == (SOUNDMUX_ENABLE | SOUNDMUX_SEL2));
+	bool bCassSoundEnable = (status == (mc14529b_device::SOUNDMUX_ENABLE | mc14529b_device::SOUNDMUX_SEL1));
+	bool bCartSoundEnable = (status == (mc14529b_device::SOUNDMUX_ENABLE | mc14529b_device::SOUNDMUX_SEL2));
 	uint8_t cassette_sound = (bCassSoundEnable ? 0x20 : 0);
 	uint8_t cart_sound = (bCartSoundEnable ? 0x20 : 0);
 
 	/* determine the value to send to the DAC (this is used by the Joystick read as well as audio out) */
 	m_dac_output = (pia_1().a_output() & 0xFC) >> 2;
-	uint8_t dac_sound =  (status == SOUNDMUX_ENABLE ? m_dac_output : 0);
+	uint8_t dac_sound =  (status == mc14529b_device::SOUNDMUX_ENABLE ? m_dac_output : 0);
 
 	/* The CoCo uses the main 6-bit DAC for both audio output and joystick axis position measurement.
 	 * To avoid introducing artifacts while reading the axis positions, some software will disable
@@ -582,7 +593,7 @@ void coco_state::update_sound(void)
 	 * used analog audio output value while the audio is disabled, to avoid introducing artifacts in
 	 * software such as Tandy's Popcorn and Sock Master's Donkey Kong.
 	 */
-	if ((status & SOUNDMUX_ENABLE) != 0)
+	if ((status & mc14529b_device::SOUNDMUX_ENABLE) != 0)
 	{
 		m_analog_audio_level = dac_sound + cassette_sound + cart_sound;
 	}
@@ -669,9 +680,12 @@ void coco_state::poll_joystick(bool *joyin, uint8_t *buttons)
 	static const int joy_rat_table[] = {15, 24, 42, 33 };
 	static const int dclg_table[] = {0, 14, 30, 49 };
 
+	/* determine the sound mux status */
+	uint8_t status = m_mux->mux_output();
+
 	/* identify the joystick and axis */
-	int joystick_axis = sel1() ? 1 : 0;
-	int joystick = sel2() ? 1 : 0;
+	int joystick_axis = (status & mc14529b_device::SOUNDMUX_SEL1) == mc14529b_device::SOUNDMUX_SEL1 ? 1 : 0;
+	int joystick = (status & mc14529b_device::SOUNDMUX_SEL2) == mc14529b_device::SOUNDMUX_SEL2 ? 1 : 0;
 
 	/* determine the JOYIN value */
 	const analog_input_t *analog;
