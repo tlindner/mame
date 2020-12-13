@@ -637,7 +637,10 @@ u8 coco_ssc_6809_device::ssc_port_a_r()
 {
 	LOGINTERNAL( "[pc=%04x] port a read: %02x\n", m_m6809->pc(), m_tms7000_porta );
 
-	m_im_int3->in_w<1>(0);
+	if (!machine().side_effects_disabled())
+	{
+		m_im_int3->in_w<1>(0);
+	}
 
 	return m_tms7000_porta;
 }
