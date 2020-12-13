@@ -79,12 +79,11 @@
 
 #include "speaker.h"
 
+//#define LOG_GENERAL   (1U << 0) //defined in logmacro.h already
 #define LOG_INTERFACE   (1U <<  1)
 #define LOG_INTERNAL    (1U <<  2)
 #define LOG_RAMADDRESS  (1U <<  3)
-// #define VERBOSE (0)
-// #define VERBOSE (LOG_INTERFACE | LOG_RAMADDRESS)
-#define VERBOSE (LOG_INTERFACE | LOG_INTERNAL | LOG_RAMADDRESS)
+//#define VERBOSE (LOG_GENERAL)
 
 #include "logmacro.h"
 
@@ -342,7 +341,8 @@ void coco_ssc_6809_device::device_timer(emu_timer &timer, device_timer_id id, in
 		case PF_TIMER_ID:
 			pf_T1_DECREMENTER--;
 
-			if( pf_T1_DECREMENTER == std::numeric_limits<u8>::max()) {
+			if( pf_T1_DECREMENTER == std::numeric_limits<u8>::max())
+			{
 				pf_IOCNT0 = pf_IOCNT0 | 0x08;
 
 				if( (pf_IOCNT0 & 0x04) == 0x04) {
@@ -382,6 +382,11 @@ WRITE_LINE_MEMBER(coco_ssc_6809_device::load_allophone)
 	{
 		pf_IOCNT0 = pf_IOCNT0 | 0x02;
 	}
+	else
+	{
+		pf_IOCNT0 = pf_IOCNT0 & ~0x02;
+	}
+
 
 	m_im_int1->in_w<1>(state);
 }
@@ -656,7 +661,7 @@ u8 coco_ssc_6809_device::ssc_port_c_r()
 {
 	LOGINTERNAL( "[pc=%04x] port c read: %02x\n", m_m6809->pc(), m_tms7000_portc );
 
-	return m_tms7000_portc;
+	return m_tms7000_portc & ~pf_CDDR;
 }
 
 void coco_ssc_6809_device::ssc_port_c_w(u8 data)
@@ -710,7 +715,7 @@ void coco_ssc_6809_device::ssc_port_c_w(u8 data)
 
 u8 coco_ssc_6809_device::ssc_port_d_r()
 {
-	if( ((m_tms7000_portc & C_RCS) == 0) && ((m_tms7000_portc & C_ACS) == 0))
+	if( (!machine().side_effects_disabled()) && ((m_tms7000_portc & C_RCS) == 0) && ((m_tms7000_portc & C_ACS) == 0))
 		logerror( "[%s] Warning: Reading RAM and PSG at the same time!\n", machine().describe_context() );
 
 	if( ((m_tms7000_portc & C_RCS) == 0)  && ((m_tms7000_portc & C_RRW) == C_RRW)) /* static ram chip select (low) and static ram chip read (high) */
@@ -733,7 +738,7 @@ u8 coco_ssc_6809_device::ssc_port_d_r()
 
 	LOGINTERNAL( "[pc=%04x] port d read: %02x\n", m_m6809->pc(), m_tms7000_portd );
 
-	return m_tms7000_portd;
+	return m_tms7000_portd & ~pf_DDDR;
 }
 
 void coco_ssc_6809_device::ssc_port_d_w(u8 data)
