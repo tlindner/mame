@@ -83,7 +83,7 @@
 #define LOG_INTERFACE   (1U <<  1)
 #define LOG_INTERNAL    (1U <<  2)
 #define LOG_RAMADDRESS  (1U <<  3)
-//#define VERBOSE (LOG_GENERAL)
+#define VERBOSE (LOG_GENERAL|LOG_INTERFACE|LOG_INTERNAL|LOG_RAMADDRESS)
 
 #include "logmacro.h"
 
@@ -160,7 +160,9 @@ namespace
 		u8                                      m_tms7000_porta;
 		u8                                      m_tms7000_portb;
 		u8                                      m_tms7000_portc;
+		u8										m_tms7000_portc_latch;
 		u8                                      m_tms7000_portd;
+		u8                                      m_tms7000_portd_latch;
 		u8										pf_IOCNT0;
 		u8										pf_T1CTL;
 		u8										pf_T1_DECREMENTER;
@@ -237,6 +239,7 @@ void coco_ssc_6809_device::device_add_mconfig(machine_config &config)
 	INPUT_MERGER_ALL_HIGH(config, m_im_int1).output_handler().set_inputline(m_m6809, M6809_IRQ_LINE);
 	INPUT_MERGER_ALL_HIGH(config, m_im_int2).output_handler().set_inputline(m_m6809, M6809_FIRQ_LINE);
 	INPUT_MERGER_ALL_HIGH(config, m_im_int3).output_handler().set_inputline(m_m6809, INPUT_LINE_NMI);
+// 	m_im_int3->set_logging(1);
 
 	SP0256(config, m_spo, XTAL(3'120'000));
 	m_spo->add_route(ALL_OUTPUTS, "ssc_6809_audio", SP0256_GAIN);
@@ -296,6 +299,7 @@ void coco_ssc_6809_device::device_start()
 	save_item(NAME(m_tms7000_porta));
 	save_item(NAME(m_tms7000_portb));
 	save_item(NAME(m_tms7000_portc));
+	save_item(NAME(m_tms7000_portc_latch));
 	save_item(NAME(m_tms7000_portd));
 
 	save_item(NAME(pf_IOCNT0));
@@ -307,6 +311,13 @@ void coco_ssc_6809_device::device_start()
 	save_item(NAME(pf_DDDR));
 
 	m_pf_timer = timer_alloc(PF_TIMER_ID);
+
+	m_im_int1->in_w<0>(0);
+	m_im_int1->in_w<1>(0);
+	m_im_int2->in_w<0>(0);
+	m_im_int2->in_w<1>(0);
+	m_im_int3->in_w<0>(0);
+	m_im_int3->in_w<1>(0);
 }
 
 
@@ -640,10 +651,10 @@ void coco_ssc_6809_device::ff7d_write(offs_t offset, u8 data)
 
 u8 coco_ssc_6809_device::ssc_port_a_r()
 {
-	LOGINTERNAL( "[pc=%04x] port a read: %02x\n", m_m6809->pc(), m_tms7000_porta );
 
 	if (!machine().side_effects_disabled())
 	{
+		LOGINTERNAL( "[pc=%04x] port a read: %02x\n", m_m6809->pc(), m_tms7000_porta );
 		m_im_int3->in_w<1>(0);
 	}
 
@@ -659,13 +670,21 @@ void coco_ssc_6809_device::ssc_port_b_w(u8 data)
 
 u8 coco_ssc_6809_device::ssc_port_c_r()
 {
-	LOGINTERNAL( "[pc=%04x] port c read: %02x\n", m_m6809->pc(), m_tms7000_portc );
+	if (!machine().side_effects_disabled())
+	{
+		u8 value = (m_tms7000_portc & ~pf_CDDR) | (m_tms7000_portc_latch & pf_CDDR);
+		LOGINTERNAL( "[pc=%04x] port c read: %02x\n", m_m6809->pc(), value );
+		return value;
+	}
 
-	return m_tms7000_portc & ~pf_CDDR;
+	return 0;
 }
 
 void coco_ssc_6809_device::ssc_port_c_w(u8 data)
 {
+	m_tms7000_portc_latch = data;
+	data = data & pf_CDDR;
+
 	if( (data & C_RCS) == 0 && (data & C_RRW) == 0) /* static RAM write */
 	{
 		u16 address = u16(data) << 8;
@@ -715,35 +734,43 @@ void coco_ssc_6809_device::ssc_port_c_w(u8 data)
 
 u8 coco_ssc_6809_device::ssc_port_d_r()
 {
-	if( (!machine().side_effects_disabled()) && ((m_tms7000_portc & C_RCS) == 0) && ((m_tms7000_portc & C_ACS) == 0))
-		logerror( "[%s] Warning: Reading RAM and PSG at the same time!\n", machine().describe_context() );
-
-	if( ((m_tms7000_portc & C_RCS) == 0)  && ((m_tms7000_portc & C_RRW) == C_RRW)) /* static ram chip select (low) and static ram chip read (high) */
+	if (!machine().side_effects_disabled())
 	{
-		u16 address = u16(m_tms7000_portc) << 8;
-		address += m_tms7000_portb;
-		address &= 0x7ff;
+		if( (!machine().side_effects_disabled()) && ((m_tms7000_portc & C_RCS) == 0) && ((m_tms7000_portc & C_ACS) == 0))
+			logerror( "[%s] Warning: Reading RAM and PSG at the same time!\n", machine().describe_context() );
 
-		m_tms7000_portd = m_staticram->read(address);
-		LOGRAM( "[pc=%04x] read RAM address %04x\n", m_m6809->pc(), address );
-	}
-
-	if( (m_tms7000_portc & C_ACS) == 0 ) /* chip select for AY-3-8913 */
-	{
-		if( ((m_tms7000_portc & C_BDR) == 0) && ((m_tms7000_portc & C_BC1) == C_BC1) ) /* psg read data */
+		if( ((m_tms7000_portc & C_RCS) == 0)  && ((m_tms7000_portc & C_RRW) == C_RRW)) /* static ram chip select (low) and static ram chip read (high) */
 		{
-			m_tms7000_portd = m_ay->data_r();
+			u16 address = u16(m_tms7000_portc) << 8;
+			address += m_tms7000_portb;
+			address &= 0x7ff;
+
+			m_tms7000_portd = m_staticram->read(address);
+			LOGRAM( "[pc=%04x] read RAM address %04x\n", m_m6809->pc(), address );
 		}
+
+		if( (m_tms7000_portc & C_ACS) == 0 ) /* chip select for AY-3-8913 */
+		{
+			if( ((m_tms7000_portc & C_BDR) == 0) && ((m_tms7000_portc & C_BC1) == C_BC1) ) /* psg read data */
+			{
+				m_tms7000_portd = m_ay->data_r();
+			}
+		}
+
+		u8 value = (m_tms7000_portd & ~pf_DDDR) | (m_tms7000_portd_latch & pf_DDDR);
+		LOGINTERNAL( "[pc=%04x] port d read: %02x\n", m_m6809->pc(), value );
+		return value;
 	}
 
-	LOGINTERNAL( "[pc=%04x] port d read: %02x\n", m_m6809->pc(), m_tms7000_portd );
-
-	return m_tms7000_portd & ~pf_DDDR;
+	return 0;
 }
 
 void coco_ssc_6809_device::ssc_port_d_w(u8 data)
 {
 	LOGINTERNAL( "[pc=%04x] port d write: %02x\n", m_m6809->pc(), data );
+
+	m_tms7000_portd_latch = data;
+	data = data & pf_DDDR;
 
 	m_tms7000_portd = data;
 }

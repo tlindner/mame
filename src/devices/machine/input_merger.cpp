@@ -15,7 +15,7 @@
 #include <algorithm>
 #include <iterator>
 
-//#define VERBOSE 1
+#define VERBOSE (LOG_GENERAL)
 #include "logmacro.h"
 
 
@@ -80,12 +80,17 @@ void input_merger_device::device_start()
 
 TIMER_CALLBACK_MEMBER(input_merger_device::update_state)
 {
+	if(m_log) LOG("before m_state: %08X, m_xorval: %08X\n", m_state, m_xorval );
+
 	if (BIT(m_state, param >> 1) != BIT(param, 0))
 	{
-		LOG("state[%d] = %d\n", param >> 1, BIT(param, 0));
+		if(m_log) LOG("state[%d] = %d\n", param >> 1, BIT(param, 0));
 		m_state ^= u32(1) << (param >> 1);
 		m_output_handler((m_state ^ m_xorval) ? m_active : !m_active);
 	}
+
+	if(m_log) LOG(" after m_state: %08X, m_xorval: %08X\n", m_state, m_xorval );
+
 }
 
 
