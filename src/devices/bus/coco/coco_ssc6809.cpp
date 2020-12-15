@@ -357,7 +357,7 @@ void coco_ssc_6809_device::device_timer(emu_timer &timer, device_timer_id id, in
 				pf_IOCNT0 = pf_IOCNT0 | 0x08;
 
 				if( (pf_IOCNT0 & 0x04) == 0x04) {
-					m_im_int2->in_w<1>(1);
+// 					m_im_int2->in_w<1>(1);
 				}
 
 				pf_T1_DECREMENTER = pf_T1_RELOAD;

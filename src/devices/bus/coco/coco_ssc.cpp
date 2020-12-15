@@ -369,10 +369,10 @@ void coco_ssc_device::ff7d_write(offs_t offset, u8 data)
 
 u8 coco_ssc_device::ssc_port_a_r()
 {
-	LOGINTERNAL( "[pc=%04x] port a read: %02x\n", m_tms7040->pc(), m_tms7000_porta );
 
 	if (!machine().side_effects_disabled())
 	{
+		LOGINTERNAL( "[pc=%04x] port a read: %02x\n", m_tms7040->pc(), m_tms7000_porta );
 		m_tms7040->set_input_line(TMS7000_INT3_LINE, CLEAR_LINE);
 	}
 
@@ -388,7 +388,10 @@ void coco_ssc_device::ssc_port_b_w(u8 data)
 
 u8 coco_ssc_device::ssc_port_c_r()
 {
-	LOGINTERNAL( "[pc=%04x] port c read: %02x\n", m_tms7040->pc(), m_tms7000_portc );
+	if (!machine().side_effects_disabled())
+	{
+		LOGINTERNAL( "[pc=%04x] port c read: %02x\n", m_tms7040->pc(), m_tms7000_portc );
+	}
 
 	return m_tms7000_portc;
 }
