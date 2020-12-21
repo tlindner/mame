@@ -77,6 +77,7 @@ private:
 
 	DECLARE_FLOPPY_FORMATS( floppy_formats );
 
+	uint8_t mirage_via_read_portb();
 	void mirage_via_write_porta(uint8_t data);
 	void mirage_via_write_portb(uint8_t data);
 	DECLARE_WRITE_LINE_MEMBER(mirage_doc_irq);
@@ -133,6 +134,15 @@ void enmirage_state::mirage_map(address_map &map)
 	map(0xf000, 0xffff).rom().region("osrom", 0);
 }
 
+// port B:
+//  bit 6: IN disk load
+//  bit 5: IN Q Chip sync
+uint8_t enmirage_state::mirage_via_read_portb()
+{
+	logerror( "mirage_via_read_portb\n" );
+	return 0x40; // disk always loaded
+}
+
 // port A: front panel
 // bits 0-2: column select from 0-7
 // bits 3/4 = right and left LED enable
@@ -163,6 +173,9 @@ void enmirage_state::mirage_via_write_portb(uint8_t data)
 		last_sndram_bank = bank;
 		membank("sndbank")->set_base(memregion("es5503")->base() + bank);
 	}
+
+	floppy_image_device *flop = m_floppy_connector->get_device();
+	flop->mon_w(data & 0x10 ? 1 : 0 );
 }
 
 void enmirage_state::mirage(machine_config &config)
@@ -181,6 +194,7 @@ void enmirage_state::mirage(machine_config &config)
 
 	VIA6522(config, m_via, 1000000);
 	m_via->writepa_handler().set(FUNC(enmirage_state::mirage_via_write_porta));
+	m_via->readpb_handler().set(FUNC(enmirage_state::mirage_via_read_portb));
 	m_via->writepb_handler().set(FUNC(enmirage_state::mirage_via_write_portb));
 	m_via->irq_handler().set_inputline(m_maincpu, M6809_IRQ_LINE);
 
