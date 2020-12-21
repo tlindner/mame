@@ -54,6 +54,7 @@
 #include "video/pwm.h"
 #include "speaker.h"
 #include "machine/input_merger.h"
+#include "bus/midi/midi.h"
 
 #include "mirage.lh"
 
@@ -201,7 +202,11 @@ void enmirage_state::mirage(machine_config &config)
 	config.set_default_layout(layout_mirage);
 
 	acia6850_device &acia6850(ACIA6850(config, "acia6850", 0));
-	acia6850.irq_handler().set_inputline(m_maincpu, M6809_FIRQ_LINE);
+	acia6850.txd_handler().set("mdout", FUNC(midi_port_device::write_txd));
+// 	acia6850.irq_handler().set_inputline(m_maincpu, M6809_FIRQ_LINE);
+
+	MIDI_PORT(config, "mdin", midiin_slot, "midiin").rxd_handler().set(acia6850, FUNC(acia6850_device::write_rxd));
+	MIDI_PORT(config, "mdout", midiout_slot, "midiout");
 
 	WD1772(config, m_fdc, 8000000);
 	m_fdc->intrq_wr_callback().set_inputline(m_maincpu, INPUT_LINE_NMI);
