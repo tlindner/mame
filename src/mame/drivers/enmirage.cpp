@@ -53,6 +53,7 @@
 #include "sound/es5503.h"
 #include "video/pwm.h"
 #include "speaker.h"
+#include "machine/input_merger.h"
 
 #include "mirage.lh"
 
@@ -65,7 +66,8 @@ public:
 		m_display(*this, "display"),
 		m_fdc(*this, "wd1772"),
 		m_floppy_connector(*this, "wd1772:0"),
-		m_via(*this, "via6522")
+		m_via(*this, "via6522"),
+		m_irq_merge(*this, "irqmerge")
 	{
 	}
 
@@ -80,7 +82,6 @@ private:
 	uint8_t mirage_via_read_portb();
 	void mirage_via_write_porta(uint8_t data);
 	void mirage_via_write_portb(uint8_t data);
-	DECLARE_WRITE_LINE_MEMBER(mirage_doc_irq);
 	uint8_t mirage_adc_read();
 
 	void mirage_map(address_map &map);
@@ -92,6 +93,7 @@ private:
 	required_device<wd1772_device> m_fdc;
 	required_device<floppy_connector> m_floppy_connector;
 	required_device<via6522_device> m_via;
+	required_device<input_merger_device> m_irq_merge;
 
 	int last_sndram_bank;
 };
@@ -103,11 +105,6 @@ FLOPPY_FORMATS_END
 static void ensoniq_floppies(device_slot_interface &device)
 {
 	device.option_add("35dd", FLOPPY_35_DD);
-}
-
-WRITE_LINE_MEMBER(enmirage_state::mirage_doc_irq)
-{
-//    m_maincpu->set_input_line(M6809_IRQ_LINE, state);
 }
 
 uint8_t enmirage_state::mirage_adc_read()
@@ -139,7 +136,6 @@ void enmirage_state::mirage_map(address_map &map)
 //  bit 5: IN Q Chip sync
 uint8_t enmirage_state::mirage_via_read_portb()
 {
-	logerror( "mirage_via_read_portb\n" );
 	return 0x40; // disk always loaded
 }
 
@@ -183,11 +179,13 @@ void enmirage_state::mirage(machine_config &config)
 	MC6809E(config, m_maincpu, 2000000);
 	m_maincpu->set_addrmap(AS_PROGRAM, &enmirage_state::mirage_map);
 
+	INPUT_MERGER_ANY_HIGH(config, m_irq_merge).output_handler().set_inputline(m_maincpu, M6809_IRQ_LINE);
+
 	SPEAKER(config, "lspeaker").front_left();
 	SPEAKER(config, "rspeaker").front_right();
 	es5503_device &es5503(ES5503(config, "es5503", 7000000));
 	es5503.set_channels(2);
-	es5503.irq_func().set(FUNC(enmirage_state::mirage_doc_irq));
+	es5503.irq_func().set(m_irq_merge, FUNC(input_merger_device::in_w<2>));
 	es5503.adc_func().set(FUNC(enmirage_state::mirage_adc_read));
 	es5503.add_route(0, "lspeaker", 1.0);
 	es5503.add_route(1, "rspeaker", 1.0);
@@ -196,7 +194,7 @@ void enmirage_state::mirage(machine_config &config)
 	m_via->writepa_handler().set(FUNC(enmirage_state::mirage_via_write_porta));
 	m_via->readpb_handler().set(FUNC(enmirage_state::mirage_via_read_portb));
 	m_via->writepb_handler().set(FUNC(enmirage_state::mirage_via_write_portb));
-	m_via->irq_handler().set_inputline(m_maincpu, M6809_IRQ_LINE);
+	m_via->irq_handler().set(m_irq_merge, FUNC(input_merger_device::in_w<0>));
 
 	PWM_DISPLAY(config, m_display).set_size(2, 8);
 	m_display->set_segmask(0x3, 0xff);
@@ -207,7 +205,7 @@ void enmirage_state::mirage(machine_config &config)
 
 	WD1772(config, m_fdc, 8000000);
 	m_fdc->intrq_wr_callback().set_inputline(m_maincpu, INPUT_LINE_NMI);
-	m_fdc->drq_wr_callback().set_inputline(m_maincpu, M6809_IRQ_LINE);
+	m_fdc->drq_wr_callback().set(m_irq_merge, FUNC(input_merger_device::in_w<1>));
 
 	FLOPPY_CONNECTOR(config, "wd1772:0", ensoniq_floppies, "35dd", enmirage_state::floppy_formats);
 }
