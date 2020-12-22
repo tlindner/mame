@@ -12,15 +12,24 @@ copyright-holders:R. Belmont
 		</led7seg>
 	</element>
 
+	<element name="bezel">
+		<image file="mirage_bezel.jpg" />
+	</element>
+
 	<view name="Default Layout">
-		<bounds left="0" top="0" right="42" bottom="28" />
+		<bounds left="0" top="0" right="1000" bottom="437" />
+
+		<!-- LEDs -->
+		<element ref="bezel">
+			<bounds x="0" y="0" width="1000" height="437" />
+		</element>
 
 		<!-- LEDs -->
 		<element name="digit0" ref="digit">
-			<bounds left="2" top="0" right="20" bottom="23" />
+			<bounds left="65" top="77" right="114" bottom="140" />
 		</element>
 		<element name="digit1" ref="digit">
-			<bounds left="22" top="0" right="40" bottom="23" />
+			<bounds left="117" top="77" right="169" bottom="140" />
 		</element>
 	</view>
 

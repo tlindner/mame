@@ -55,8 +55,32 @@
 #include "speaker.h"
 #include "machine/input_merger.h"
 #include "bus/midi/midi.h"
+#include "imagedev/cassette.h"
 
 #include "mirage.lh"
+
+#define PITCH_TAG "pitch"
+#define MOD_TAG "mod"
+
+class en_sample_device : public device_t,
+	public device_sound_interface
+{
+public:
+	en_sample_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock);
+	~en_sample_device() { }
+	uint8_t sample() {return m_sample;}
+
+protected:
+	// device-level overrides
+	virtual void device_start() override;
+
+	// sound stream update overrides
+	virtual void sound_stream_update(sound_stream &stream, std::vector<read_stream_view> const &inputs, std::vector<write_stream_view> &outputs) override;
+
+private:
+	sound_stream*  m_stream;
+	uint8_t m_sample;
+};
 
 class enmirage_state : public driver_device
 {
@@ -68,7 +92,11 @@ public:
 		m_fdc(*this, "wd1772"),
 		m_floppy_connector(*this, "wd1772:0"),
 		m_via(*this, "via6522"),
-		m_irq_merge(*this, "irqmerge")
+		m_irq_merge(*this, "irqmerge"),
+		m_sample(*this, "en_sample_tag"),
+		m_cassette(*this, "cassette"),
+		m_joystick(*this, {PITCH_TAG,MOD_TAG}),
+		m_key(*this, {"pb5","pb6","pb7"})
 	{
 	}
 
@@ -76,10 +104,14 @@ public:
 
 	void init_mirage();
 
+protected:
+	virtual void device_start() override;
+
 private:
 
 	DECLARE_FLOPPY_FORMATS( floppy_formats );
 
+	uint8_t mirage_via_read_porta();
 	uint8_t mirage_via_read_portb();
 	void mirage_via_write_porta(uint8_t data);
 	void mirage_via_write_portb(uint8_t data);
@@ -95,9 +127,18 @@ private:
 	required_device<floppy_connector> m_floppy_connector;
 	required_device<via6522_device> m_via;
 	required_device<input_merger_device> m_irq_merge;
+	required_device<en_sample_device> m_sample;
+	required_device<cassette_image_device> m_cassette;
+
+	required_ioport_array<2> m_joystick;
+	required_ioport_array<3> m_key;
 
 	int last_sndram_bank;
+	int m_mux_value;
+	int m_key_col_select;
 };
+
+DEFINE_DEVICE_TYPE(EN_SAMPLE, en_sample_device, "en_sample", "Ensonic Mirage Sampler Circuit");
 
 FLOPPY_FORMATS_MEMBER( enmirage_state::floppy_formats )
 	FLOPPY_ESQ8IMG_FORMAT
@@ -110,7 +151,30 @@ static void ensoniq_floppies(device_slot_interface &device)
 
 uint8_t enmirage_state::mirage_adc_read()
 {
-	return 0x00;
+	uint8_t value;
+	switch( m_mux_value & 0x03 )
+	{
+		case 0:
+			value = m_cassette->input(); /* microphone */
+			break;
+		case 1:
+			value = m_sample->sample(); /* internal audio */
+			break;
+		case 2:
+			value = m_joystick[0]->read(); /* pitch wheel */
+			break;
+		case 3:
+			value = m_joystick[1]->read(); /* mod wheel */
+			break;
+	}
+
+	return value;
+}
+
+void enmirage_state::device_start()
+{
+	// call base device_start
+	driver_device::device_start();
 }
 
 void enmirage_state::machine_reset()
@@ -132,22 +196,37 @@ void enmirage_state::mirage_map(address_map &map)
 	map(0xf000, 0xffff).rom().region("osrom", 0);
 }
 
+// port A:
+// bits 5/6/7 keypad rows 0/1/2 return
+uint8_t enmirage_state::mirage_via_read_porta()
+{
+	uint8_t value;
+
+	value  = ((m_key[0]->read() >> m_key_col_select) & 0x01) << 5;
+	value |= ((m_key[1]->read() >> m_key_col_select) & 0x01) << 6;
+	value |= ((m_key[2]->read() >> m_key_col_select) & 0x01) << 7;
+
+	return value;
+}
+
 // port B:
 //  bit 6: IN disk load
 //  bit 5: IN Q Chip sync
 uint8_t enmirage_state::mirage_via_read_portb()
 {
-	return 0x40; // disk always loaded
+	floppy_image_device *flop = m_floppy_connector->get_device();
+	return ((!flop->ready_r()) & 0x01) << 6;
 }
 
 // port A: front panel
 // bits 0-2: column select from 0-7
 // bits 3/4 = right and left LED enable
-// bits 5/6/7 keypad rows 0/1/2 return
 void enmirage_state::mirage_via_write_porta(uint8_t data)
 {
 	u8 segdata = data & 7;
 	m_display->matrix(((data >> 3) & 3) ^ 3, (1<<segdata));
+
+	m_key_col_select = (data & 0x07);
 }
 
 // port B:
@@ -173,6 +252,12 @@ void enmirage_state::mirage_via_write_portb(uint8_t data)
 
 	floppy_image_device *flop = m_floppy_connector->get_device();
 	flop->mon_w(data & 0x10 ? 1 : 0 );
+
+	if( m_mux_value != ((data >> 2) & 0x03) )
+	{
+		m_mux_value = (data >> 2) & 0x03;
+		logerror( "mux value: %d\n", m_mux_value );
+	}
 }
 
 void enmirage_state::mirage(machine_config &config)
@@ -182,16 +267,27 @@ void enmirage_state::mirage(machine_config &config)
 
 	INPUT_MERGER_ANY_HIGH(config, m_irq_merge).output_handler().set_inputline(m_maincpu, M6809_IRQ_LINE);
 
-	SPEAKER(config, "lspeaker").front_left();
-	SPEAKER(config, "rspeaker").front_right();
+// 	SPEAKER(config, "lspeaker").front_left();
+// 	SPEAKER(config, "rspeaker").front_right();
+	SPEAKER(config, "speaker").front_center();
+
+	CASSETTE(config, m_cassette);
+	m_cassette->set_default_state(CASSETTE_PLAY | CASSETTE_MOTOR_DISABLED | CASSETTE_SPEAKER_ENABLED);
+	m_cassette->add_route(ALL_OUTPUTS, "speaker", 1.0);
+
+	EN_SAMPLE(config, m_sample, 7000000);
+	m_sample->add_route(ALL_OUTPUTS, "speaker", 1.0);
+
 	es5503_device &es5503(ES5503(config, "es5503", 7000000));
-	es5503.set_channels(2);
+ 	es5503.set_channels(1);
 	es5503.irq_func().set(m_irq_merge, FUNC(input_merger_device::in_w<2>));
 	es5503.adc_func().set(FUNC(enmirage_state::mirage_adc_read));
-	es5503.add_route(0, "lspeaker", 1.0);
-	es5503.add_route(1, "rspeaker", 1.0);
+// 	es5503.add_route(0, "lspeaker", 1.0);
+// 	es5503.add_route(1, "rspeaker", 1.0);
+ 	es5503.add_route(0, "en_sample_tag", 1.0);
 
 	VIA6522(config, m_via, 1000000);
+	m_via->readpa_handler().set(FUNC(enmirage_state::mirage_via_read_porta));
 	m_via->writepa_handler().set(FUNC(enmirage_state::mirage_via_write_porta));
 	m_via->readpb_handler().set(FUNC(enmirage_state::mirage_via_read_portb));
 	m_via->writepb_handler().set(FUNC(enmirage_state::mirage_via_write_portb));
@@ -203,7 +299,7 @@ void enmirage_state::mirage(machine_config &config)
 
 	acia6850_device &acia6850(ACIA6850(config, "acia6850", 0));
 	acia6850.txd_handler().set("mdout", FUNC(midi_port_device::write_txd));
-// 	acia6850.irq_handler().set_inputline(m_maincpu, M6809_FIRQ_LINE);
+ 	acia6850.irq_handler().set_inputline(m_maincpu, M6809_FIRQ_LINE);
 
 	MIDI_PORT(config, "mdin", midiin_slot, "midiin").rxd_handler().set(acia6850, FUNC(acia6850_device::write_rxd));
 	MIDI_PORT(config, "mdout", midiout_slot, "midiout");
@@ -216,11 +312,43 @@ void enmirage_state::mirage(machine_config &config)
 }
 
 static INPUT_PORTS_START( mirage )
+	PORT_START("pb5") /* KEY ROW 0 */
+	PORT_BIT(0x01, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Load Upper")      PORT_CODE(KEYCODE_A)
+	PORT_BIT(0x02, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Load Lower")      PORT_CODE(KEYCODE_B)
+	PORT_BIT(0x04, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Sample Upper")    PORT_CODE(KEYCODE_C)
+	PORT_BIT(0x08, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Play Sequence")   PORT_CODE(KEYCODE_D)
+	PORT_BIT(0x10, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Load Sequence")   PORT_CODE(KEYCODE_E)
+	PORT_BIT(0x20, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Save Sequence")   PORT_CODE(KEYCODE_F)
+	PORT_BIT(0x40, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Record Sequence") PORT_CODE(KEYCODE_G)
+	PORT_BIT(0x80, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Sample Lower")    PORT_CODE(KEYCODE_H)
+	PORT_START("pb6") /* KEY ROW 1 */
+	PORT_BIT(0x01, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("3")     PORT_CODE(KEYCODE_3)
+	PORT_BIT(0x02, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("6")     PORT_CODE(KEYCODE_6)
+	PORT_BIT(0x04, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("9")     PORT_CODE(KEYCODE_9)
+	PORT_BIT(0x08, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("5")     PORT_CODE(KEYCODE_5)
+	PORT_BIT(0x10, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("8")     PORT_CODE(KEYCODE_8)
+	PORT_BIT(0x20, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("0")     PORT_CODE(KEYCODE_0)
+	PORT_BIT(0x40, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("2")     PORT_CODE(KEYCODE_2)
+	PORT_BIT(0x80, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Enter") PORT_CODE(KEYCODE_ENTER)
+	PORT_START("pb7") /* KEY ROW 2 */
+	PORT_BIT(0x01, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("1")      PORT_CODE(KEYCODE_1)
+	PORT_BIT(0x02, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("4")      PORT_CODE(KEYCODE_4)
+	PORT_BIT(0x04, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("7")      PORT_CODE(KEYCODE_7)
+	PORT_BIT(0x08, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Up")     PORT_CODE(KEYCODE_UP)
+	PORT_BIT(0x10, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Param")  PORT_CODE(KEYCODE_I)
+	PORT_BIT(0x20, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Down")   PORT_CODE(KEYCODE_DOWN)
+	PORT_BIT(0x40, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Value")  PORT_CODE(KEYCODE_J)
+	PORT_BIT(0x80, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Cancel") PORT_CODE(KEYCODE_K)
+
+	PORT_START(PITCH_TAG)
+	PORT_BIT( 0xff, 0x7f, IPT_PADDLE) PORT_NAME("Pitch Wheel") PORT_SENSITIVITY(100) PORT_KEYDELTA(10) PORT_MINMAX(0x00,0xff) PORT_CODE_INC(KEYCODE_4_PAD) PORT_CODE_DEC(KEYCODE_1_PAD)
+	PORT_START(MOD_TAG)
+	PORT_BIT( 0xff, 0x7f, IPT_PADDLE) PORT_NAME("Mod Wheel") PORT_SENSITIVITY(100) PORT_KEYDELTA(10) PORT_MINMAX(0x00,0xff) PORT_CODE_INC(KEYCODE_5_PAD) PORT_CODE_DEC(KEYCODE_6_PAD)
 INPUT_PORTS_END
 
 ROM_START( enmirage )
 	ROM_REGION(0x1000, "osrom", 0)
-	ROM_LOAD( "mirage.bin",   0x0000, 0x1000, CRC(9fc7553c) SHA1(ec6ea5613eeafd21d8f3a7431a35a6ff16eed56d) )
+	ROM_LOAD( "mirage.bin", 0x0000, 0x1000, CRC(9fc7553c) SHA1(ec6ea5613eeafd21d8f3a7431a35a6ff16eed56d) )
 
 	ROM_REGION(0x20000, "es5503", ROMREGION_ERASE)
 ROM_END
@@ -256,6 +384,53 @@ void enmirage_state::init_mirage()
 	m_via->write_pb5(1);
 	m_via->write_pb6(0);    // how to determine if a disk is inserted?
 	m_via->write_pb7(0);
+}
+
+//-------------------------------------------------
+//  en_sample_device - constructor
+//-------------------------------------------------
+
+en_sample_device::en_sample_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock)
+	: device_t(mconfig, EN_SAMPLE, tag, owner, clock),
+		device_sound_interface(mconfig, *this),
+		m_stream(nullptr),
+		m_sample(0)
+{
+}
+
+//-------------------------------------------------
+//  device_start - device-specific startup
+//-------------------------------------------------
+
+void en_sample_device::device_start()
+{
+	m_stream = stream_alloc(1, 1, machine().sample_rate());
+}
+
+//-------------------------------------------------
+//  sound_stream_update - handle a stream update
+//-------------------------------------------------
+
+void en_sample_device::sound_stream_update(sound_stream &stream, std::vector<read_stream_view> const &inputs, std::vector<write_stream_view> &outputs)
+{
+	auto &src = inputs[0];
+	auto &dst = outputs[0];
+
+	int count = dst.samples();
+	double m_rms = 0;
+
+	if( count > 0 )
+	{
+		for (int sampindex = 0; sampindex < count; sampindex++)
+		{
+			m_rms += src.get(sampindex);
+			dst.put(sampindex, src.get(sampindex));
+		}
+
+		m_rms /= count;
+	}
+
+	m_sample = 0x7f;
 }
 
 CONS( 1984, enmirage, 0, 0, mirage, mirage, enmirage_state, init_mirage, "Ensoniq", "Mirage", MACHINE_NOT_WORKING )
