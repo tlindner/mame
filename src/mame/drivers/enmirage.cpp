@@ -96,8 +96,8 @@ public:
         , m_sample(*this, "en_sample_tag")
         , m_cassette(*this, "cassette")
         , m_acia(*this, "acia6850")
-        , m_joystick(*this, {PITCH_TAG,MOD_TAG})
-        , m_key(*this, {"pb5","pb6","pb7"})
+        , m_joystick(*this, {PITCH_TAG, MOD_TAG})
+        , m_key(*this, {"pb5", "pb6", "pb7"})
     {
     }
 
@@ -187,12 +187,12 @@ void enmirage_state::machine_reset()
 
 void enmirage_state::mirage_map(address_map &map)
 {
-    map(0x0000, 0x7fff).bankrw("sndbank");  // 32k window on 128k of wave RAM
-    map(0x8000, 0xbfff).ram();         // main RAM
-    map(0xc000, 0xdfff).ram();         // expansion RAM
+    map(0x0000, 0x7fff).bankrw("sndbank"); // 32k window on 128k of audio RAM
+    map(0x8000, 0xbfff).ram(); // main RAM
+    map(0xc000, 0xdfff).ram(); // expansion RAM
     map(0xe100, 0xe101).rw("acia6850", FUNC(acia6850_device::read), FUNC(acia6850_device::write));
     map(0xe200, 0xe2ff).m(m_via, FUNC(via6522_device::map));
-    map(0xe400, 0xe4ff).noprw();
+    map(0xe400, 0xe4ff).noprw(); // filters
     map(0xe800, 0xe803).rw(m_fdc, FUNC(wd1772_device::read), FUNC(wd1772_device::write));
     map(0xec00, 0xecef).rw("es5503", FUNC(es5503_device::read), FUNC(es5503_device::write));
     map(0xf000, 0xffff).rom().region("osrom", 0);
@@ -216,8 +216,15 @@ uint8_t enmirage_state::mirage_via_read_porta()
 //  bit 5: IN Q Chip sync
 uint8_t enmirage_state::mirage_via_read_portb()
 {
-    floppy_image_device *flop = m_floppy_connector->get_device();
-    return ((!flop->ready_r()) & 0x01) << 6;
+	uint8_t value = 0;
+
+    floppy_image_device *floppy = m_floppy_connector ? m_floppy_connector->get_device() : nullptr;
+    if (floppy)
+    {
+        value = ((!floppy->ready_r()) & 0x01) << 6;
+    }
+
+    return value;
 }
 
 // port A: front panel
@@ -237,7 +244,7 @@ void enmirage_state::mirage_via_write_porta(uint8_t data)
 //  bit 3: OUT sample/play
 //  bit 2: OUT mic line/in
 //  bit 1: OUT upper/lower bank (64k halves)
-//  bit 0: OUT bank 0/bank 1 (32k halves)
+//  bit 0: OUT bank 0/bank 1 (32k quarters)
 
 void enmirage_state::mirage_via_write_portb(uint8_t data)
 {
@@ -255,11 +262,7 @@ void enmirage_state::mirage_via_write_portb(uint8_t data)
     floppy_image_device *flop = m_floppy_connector->get_device();
     flop->mon_w(data & 0x10 ? 1 : 0 );
 
-    if( m_mux_value != ((data >> 2) & 0x03) )
-    {
-        m_mux_value = (data >> 2) & 0x03;
-        logerror( "mux value: %d\n", m_mux_value );
-    }
+    m_mux_value = (data >> 2) & 0x03;
 
     int clock = (data >> 7) & 0x01;
     m_acia->write_txc(clock);
