@@ -1,11 +1,12 @@
 // license:BSD-3-Clause
-// copyright-holders:R. Belmont
+// copyright-holders:R. Belmont, tim lindner
 /***************************************************************************
 
     drivers/mirage.c
 
     Ensoniq Mirage Sampler
     Preliminary driver by R. Belmont
+	Fleshed out by tim lindner
 
     Map for Mirage:
     0000-7fff: 32k window on 128k of sample RAM
