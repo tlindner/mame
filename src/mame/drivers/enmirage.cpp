@@ -103,6 +103,7 @@ public:
     }
 
     void mirage(machine_config &config);
+	void enmirage_es5503_map(address_map &map);
 
     void init_mirage();
 
@@ -110,7 +111,6 @@ protected:
     virtual void device_start() override;
 
 private:
-
     DECLARE_FLOPPY_FORMATS( floppy_formats );
 
     uint8_t mirage_via_read_porta();
@@ -270,6 +270,11 @@ void enmirage_state::mirage_via_write_portb(uint8_t data)
     m_acia->write_rxc(clock);
 }
 
+void enmirage_state::enmirage_es5503_map(address_map &map)
+{
+	map(0x00000, 0x1ffff).rom().region("es5503", 0);
+}
+
 void enmirage_state::mirage(machine_config &config)
 {
     MC6809E(config, m_maincpu, 2000000);
@@ -277,8 +282,6 @@ void enmirage_state::mirage(machine_config &config)
 
     INPUT_MERGER_ANY_HIGH(config, m_irq_merge).output_handler().set_inputline(m_maincpu, M6809_IRQ_LINE);
 
-//  SPEAKER(config, "lspeaker").front_left();
-//  SPEAKER(config, "rspeaker").front_right();
     SPEAKER(config, "speaker").front_center();
 
     CASSETTE(config, m_cassette);
@@ -289,12 +292,11 @@ void enmirage_state::mirage(machine_config &config)
     m_sample->add_route(ALL_OUTPUTS, "speaker", 1.0);
 
     es5503_device &es5503(ES5503(config, "es5503", 7000000));
-    es5503.set_channels(1);
+    es5503.set_channels(8);
+    es5503.set_addrmap(0, &enmirage_state::enmirage_es5503_map);
     es5503.irq_func().set(m_irq_merge, FUNC(input_merger_device::in_w<2>));
     es5503.adc_func().set(FUNC(enmirage_state::mirage_adc_read));
-//  es5503.add_route(0, "lspeaker", 1.0);
-//  es5503.add_route(1, "rspeaker", 1.0);
-    es5503.add_route(0, "en_sample_tag", 1.0);
+    es5503.add_route(ALL_OUTPUTS, "speaker", 1.0);
 
     VIA6522(config, m_via, 1000000);
     m_via->readpa_handler().set(FUNC(enmirage_state::mirage_via_read_porta));
