@@ -19,7 +19,7 @@ copyright-holders:R. Belmont
 	<view name="Default Layout">
 		<bounds left="0" top="0" right="1000" bottom="437" />
 
-		<!-- LEDs -->
+		<!-- bezel -->
 		<element ref="bezel">
 			<bounds x="0" y="0" width="1000" height="437" />
 		</element>
