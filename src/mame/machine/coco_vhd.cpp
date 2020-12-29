@@ -33,6 +33,7 @@
      2 = VHD image does not exist
      4 = Unable to open VHD image file
      5 = access denied (may not be able to write to VHD image)
+     6 = disk changed (cleared by flush command)
 
     IMPORTANT: The I/O buffer must NOT cross an 8K MMU bank boundary.
 
@@ -48,11 +49,14 @@
     CONSTANTS
 ***************************************************************************/
 
-#define VERBOSE 0
+#define VERBOSE (LOG_GENERAL)
+
+#include "logmacro.h"
 
 #define VHDSTATUS_OK                    0x00
 #define VHDSTATUS_NO_VHD_ATTACHED       0x02
 #define VHDSTATUS_ACCESS_DENIED         0x05
+#define VHDSTATUS_DISK_CHANGE           0x06
 #define VHDSTATUS_UNKNOWN_COMMAND       0xFE
 #define VHDSTATUS_POWER_ON_STATE        0xFF
 
@@ -113,6 +117,17 @@ image_init_result coco_vhd_image_device::call_load()
 }
 
 
+//-------------------------------------------------
+//  call_unload
+//-------------------------------------------------
+
+void coco_vhd_image_device::call_unload()
+{
+	m_status = VHDSTATUS_DISK_CHANGE;
+	m_logical_record_number = 0;
+	m_buffer_address = 0;
+}
+
 
 //-------------------------------------------------
 //  coco_vhd_readwrite
@@ -126,6 +141,19 @@ void coco_vhd_image_device::coco_vhd_readwrite(uint8_t data)
 	uint64_t seek_position;
 	uint64_t total_size;
 	char buffer[1024];
+
+	/* Flush file cache */
+	if( data == VHDCMD_FLUSH )
+	{
+		m_status = VHDSTATUS_OK;
+		return;
+	}
+
+	/* checkout disk change */
+	if (m_status == VHDSTATUS_DISK_CHANGE )
+	{
+		return;
+	}
 
 	/* access the image */
 	if (!exists())
@@ -201,10 +229,6 @@ void coco_vhd_image_device::coco_vhd_readwrite(uint8_t data)
 			m_status = VHDSTATUS_OK;
 			break;
 
-		case VHDCMD_FLUSH: /* Flush file cache */
-			m_status = VHDSTATUS_OK;
-			break;
-
 		default:
 			m_status = VHDSTATUS_UNKNOWN_COMMAND;
 			break;
@@ -220,8 +244,7 @@ uint8_t coco_vhd_image_device::read(offs_t offset)
 	switch(offset)
 	{
 		case 0xff83 - 0xff80:
-			if (VERBOSE)
-				logerror("vhd: Status read: %d\n", m_status);
+			LOG("vhd: Status read: %d\n", m_status);
 			result = m_status;
 			break;
 	}
@@ -242,28 +265,24 @@ void coco_vhd_image_device::write(offs_t offset, uint8_t data)
 			pos = ((0xff82 - 0xff80) - offset) * 8;
 			m_logical_record_number &= ~(0xFF << pos);
 			m_logical_record_number += data << pos;
-			if (VERBOSE)
-				logerror("vhd: LRN write: %6.6X\n", m_logical_record_number);
+			LOG("vhd: LRN write: %6X\n", m_logical_record_number);
 			break;
 
 		case 0xff83 - 0xff80:
 			coco_vhd_readwrite(data);
-			if (VERBOSE)
-				logerror("vhd: Command: %d\n", data);
+			LOG("vhd: Command: %d\n", data);
 			break;
 
 		case 0xff84 - 0xff80:
 			m_buffer_address &= 0xFFFF00FF;
 			m_buffer_address += data << 8;
-			if (VERBOSE)
-				logerror("vhd: BA write: %X (%2.2X..)\n", m_buffer_address, data);
+			LOG("vhd: BA write: %X (%2X..)\n", m_buffer_address, data);
 			break;
 
 		case 0xff85 - 0xff80:
 			m_buffer_address &= 0xFFFFFF00;
 			m_buffer_address += data;
-			if (VERBOSE)
-				logerror("vhd: BA write: %X (..%2.2X)\n", m_buffer_address, data);
+			LOG("vhd: BA write: %X (..%2X)\n", m_buffer_address, data);
 			break;
 	}
 }

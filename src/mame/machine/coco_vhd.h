@@ -44,6 +44,7 @@ public:
 	virtual bool must_be_loaded() const noexcept override { return false; }
 	virtual bool is_reset_on_load() const noexcept override { return false; }
 	virtual const char *file_extensions() const noexcept override { return "vhd"; }
+	virtual void call_unload() override;
 
 	// specific implementation
 	uint8_t read(offs_t offset);
