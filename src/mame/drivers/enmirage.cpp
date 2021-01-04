@@ -64,25 +64,25 @@
 #define PITCH_TAG "pitch"
 #define MOD_TAG "mod"
 
-class en_sample_device : public device_t,
-    public device_sound_interface
-{
-public:
-    en_sample_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock);
-    ~en_sample_device() { }
-    uint8_t sample() {return m_sample;}
-
-protected:
-    // device-level overrides
-    virtual void device_start() override;
-
-    // sound stream update overrides
-    virtual void sound_stream_update(sound_stream &stream, std::vector<read_stream_view> const &inputs, std::vector<write_stream_view> &outputs) override;
-
-private:
-    sound_stream*  m_stream;
-    uint8_t m_sample;
-};
+// class en_sample_device : public device_t,
+//     public device_sound_interface
+// {
+// public:
+//     en_sample_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock);
+//     ~en_sample_device() { }
+//     uint8_t sample() {return m_sample;}
+//
+// protected:
+//     // device-level overrides
+//     virtual void device_start() override;
+//
+//     // sound stream update overrides
+//     virtual void sound_stream_update(sound_stream &stream, std::vector<read_stream_view> const &inputs, std::vector<write_stream_view> &outputs) override;
+//
+// private:
+//     sound_stream*  m_stream;
+//     uint8_t m_sample;
+// };
 
 class enmirage_state : public driver_device
 {
@@ -95,7 +95,7 @@ public:
         , m_floppy_connector(*this, "wd1772:0")
         , m_via(*this, "via6522")
         , m_irq_merge(*this, "irqmerge")
-        , m_sample(*this, "en_sample_tag")
+//         , m_sample(*this, "en_sample_tag")
         , m_cassette(*this, "cassette")
         , m_acia(*this, "acia6850")
         , m_wheel(*this, {PITCH_TAG, MOD_TAG})
@@ -134,7 +134,7 @@ private:
     required_device<floppy_connector> m_floppy_connector;
     required_device<via6522_device> m_via;
     required_device<input_merger_device> m_irq_merge;
-    required_device<en_sample_device> m_sample;
+//     required_device<en_sample_device> m_sample;
     required_device<cassette_image_device> m_cassette;
     required_device<acia6850_device> m_acia;
 
@@ -146,7 +146,7 @@ private:
     int m_key_col_select;
 };
 
-DEFINE_DEVICE_TYPE(EN_SAMPLE, en_sample_device, "en_sample", "Ensonic Mirage Sampler Circuit");
+// DEFINE_DEVICE_TYPE(EN_SAMPLE, en_sample_device, "en_sample", "Ensonic Mirage Sampler Circuit");
 
 FLOPPY_FORMATS_MEMBER( enmirage_state::floppy_formats )
     FLOPPY_ESQ8IMG_FORMAT
@@ -166,7 +166,8 @@ uint8_t enmirage_state::mirage_adc_read()
             value = m_cassette->input(); /* microphone */
             break;
         case 1:
-            value = m_sample->sample(); /* internal audio */
+//            value = m_sample->sample(); /* internal audio */
+            value = 0x7f; /* internal audio */
             break;
         case 2:
             value = m_wheel[0]->read(); /* pitch wheel */
@@ -317,7 +318,7 @@ void enmirage_state::mirage(machine_config &config)
 
     INPUT_MERGER_ANY_HIGH(config, m_irq_merge).output_handler().set_inputline(m_maincpu, M6809_IRQ_LINE);
     // <0> via6522
-    // <1> m6850
+    // <1> wd1772
     // <2> es5502
 
     SPEAKER(config, "speaker").front_center();
@@ -326,8 +327,8 @@ void enmirage_state::mirage(machine_config &config)
     m_cassette->set_default_state(CASSETTE_PLAY | CASSETTE_MOTOR_DISABLED | CASSETTE_SPEAKER_ENABLED);
     m_cassette->add_route(ALL_OUTPUTS, "speaker", 1.0);
 
-    EN_SAMPLE(config, m_sample, 8000000);
-    m_sample->add_route(ALL_OUTPUTS, "speaker", 1.0);
+//     EN_SAMPLE(config, m_sample, 8000000);
+//     m_sample->add_route(ALL_OUTPUTS, "speaker", 1.0);
 
     es5503_device &es5503(ES5503(config, "es5503", 8000000));
     es5503.set_channels(8);
@@ -420,47 +421,47 @@ void enmirage_state::init_mirage()
 //  en_sample_device - constructor
 //-------------------------------------------------
 
-en_sample_device::en_sample_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock)
-    : device_t(mconfig, EN_SAMPLE, tag, owner, clock),
-        device_sound_interface(mconfig, *this),
-        m_stream(nullptr),
-        m_sample(0)
-{
-}
-
-//-------------------------------------------------
-//  device_start - device-specific startup
-//-------------------------------------------------
-
-void en_sample_device::device_start()
-{
-    m_stream = stream_alloc(1, 1, machine().sample_rate());
-}
-
-//-------------------------------------------------
-//  sound_stream_update - handle a stream update
-//-------------------------------------------------
-
-void en_sample_device::sound_stream_update(sound_stream &stream, std::vector<read_stream_view> const &inputs, std::vector<write_stream_view> &outputs)
-{
-    auto &src = inputs[0];
-    auto &dst = outputs[0];
-
-    int count = dst.samples();
-    double m_rms = 0;
-
-    if( count > 0 )
-    {
-        for (int sampindex = 0; sampindex < count; sampindex++)
-        {
-            m_rms += src.get(sampindex);
-            dst.put(sampindex, src.get(sampindex));
-        }
-
-        m_rms /= count;
-    }
-
-    m_sample = 0x7f;
-}
+// en_sample_device::en_sample_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock)
+//     : device_t(mconfig, EN_SAMPLE, tag, owner, clock),
+//         device_sound_interface(mconfig, *this),
+//         m_stream(nullptr),
+//         m_sample(0)
+// {
+// }
+//
+// //-------------------------------------------------
+// //  device_start - device-specific startup
+// //-------------------------------------------------
+//
+// void en_sample_device::device_start()
+// {
+//     m_stream = stream_alloc(1, 1, machine().sample_rate());
+// }
+//
+// //-------------------------------------------------
+// //  sound_stream_update - handle a stream update
+// //-------------------------------------------------
+//
+// void en_sample_device::sound_stream_update(sound_stream &stream, std::vector<read_stream_view> const &inputs, std::vector<write_stream_view> &outputs)
+// {
+//     auto &src = inputs[0];
+//     auto &dst = outputs[0];
+//
+//     int count = dst.samples();
+//     double m_rms = 0;
+//
+//     if( count > 0 )
+//     {
+//         for (int sampindex = 0; sampindex < count; sampindex++)
+//         {
+//             m_rms += src.get(sampindex);
+//             dst.put(sampindex, src.get(sampindex));
+//         }
+//
+//         m_rms /= count;
+//     }
+//
+//     m_sample = 0x7f;
+// }
 
 CONS( 1984, enmirage, 0, 0, mirage, mirage, enmirage_state, init_mirage, "Ensoniq", "Mirage", MACHINE_NOT_WORKING )
