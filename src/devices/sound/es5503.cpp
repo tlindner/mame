@@ -128,7 +128,6 @@ void es5503_device::halt_osc(int onum, int type, uint32_t *accumulator, int ress
 	if (pOsc->control & 0x08)
 	{
 		pOsc->irqpend = 1;
-
 		m_irq_func(1);
 	}
 }
@@ -352,7 +351,7 @@ u8 es5503_device::read(offs_t offset)
 					}
 				}
 
-				return retval;
+				return rege0 | 0x41;
 
 			case 0xe1:  // oscillator enable
 				return oscsenabled<<1;
