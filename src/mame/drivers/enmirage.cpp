@@ -304,6 +304,7 @@ void enmirage_state::mirage_via_write_portb(uint8_t data)
     int clock = (data >> 7) & 0x01;
     m_acia->write_txc(clock);
     m_acia->write_rxc(clock);
+//     logerror("pb7: %d: %s\n", clock, machine().time().to_string() );
 }
 
 void enmirage_state::enmirage_es5503_map(address_map &map)
@@ -337,7 +338,7 @@ void enmirage_state::mirage(machine_config &config)
     es5503.adc_func().set(FUNC(enmirage_state::mirage_adc_read));
     es5503.add_route(ALL_OUTPUTS, "speaker", 1.0);
 
-    VIA6522(config, m_via, 1000000);
+    VIA6522(config, m_via, 3000000);
     m_via->writepa_handler().set(FUNC(enmirage_state::mirage_via_write_porta));
 //     m_via->readpb_handler().set(FUNC(enmirage_state::mirage_via_read_portb));
     m_via->writepb_handler().set(FUNC(enmirage_state::mirage_via_write_portb));
@@ -360,6 +361,10 @@ void enmirage_state::mirage(machine_config &config)
 
 	clock_device &es5503_ca3_clock(CLOCK(config, "ca3_clock", XTAL(8'000'000) / 16));
 	es5503_ca3_clock.signal_handler().set(m_via, FUNC(via6522_device::write_pb5));
+
+// 	clock_device &acia_clock(CLOCK(config, "acia_clock", 31250*16));
+// 	acia_clock.signal_handler().set(m_acia, FUNC(acia6850_device::write_txc));
+// 	acia_clock.signal_handler().append(m_acia, FUNC(acia6850_device::write_rxc));
 }
 
 static INPUT_PORTS_START( mirage )
