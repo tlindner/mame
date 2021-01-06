@@ -59,7 +59,7 @@
 #include "speaker.h"
 #include "video/pwm.h"
 
-#include "mirage.lh"
+#include "enmirage.lh"
 
 #define PITCH_TAG "pitch"
 #define MOD_TAG "mod"
@@ -260,8 +260,11 @@ void enmirage_state::update_keypad_matrix()
 // }
 
 // port A: front panel
-// bits 0-2: column select from 0-7
-// bits 3/4 = right and left LED enable
+// bits 0/1/2: dual purpose (0 to 7 lines, though a 74LS145 decoder):
+//               keyboard matrix column select
+//               7 segment display driver
+// bits 3/4 = right and left 7 segment display enable
+// bits 5/6/7 = Keyboard matrix row sense from 0 to 2
 void enmirage_state::mirage_via_write_porta(uint8_t data)
 {
     u8 segdata = data & 7;
@@ -346,7 +349,7 @@ void enmirage_state::mirage(machine_config &config)
 
     PWM_DISPLAY(config, m_display).set_size(2, 8);
     m_display->set_segmask(0x3, 0xff);
-    config.set_default_layout(layout_mirage);
+    config.set_default_layout(layout_enmirage);
 
     ACIA6850(config, m_acia).txd_handler().set("mdout", FUNC(midi_port_device::write_txd));
     m_acia->irq_handler().set_inputline(m_maincpu, M6809_FIRQ_LINE);
@@ -357,7 +360,7 @@ void enmirage_state::mirage(machine_config &config)
     m_fdc->intrq_wr_callback().set_inputline(m_maincpu, INPUT_LINE_NMI);
     m_fdc->drq_wr_callback().set(m_irq_merge, FUNC(input_merger_device::in_w<1>));
 
-    FLOPPY_CONNECTOR(config, "wd1772:0", ensoniq_floppies, "35dd", enmirage_state::floppy_formats);
+    FLOPPY_CONNECTOR(config, "wd1772:0", ensoniq_floppies, "35dd", enmirage_state::floppy_formats).enable_sound(true);
 
 	clock_device &es5503_ca3_clock(CLOCK(config, "ca3_clock", XTAL(8'000'000) / 16));
 	es5503_ca3_clock.signal_handler().set(m_via, FUNC(via6522_device::write_pb5));
