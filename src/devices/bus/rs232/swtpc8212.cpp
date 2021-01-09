@@ -77,7 +77,7 @@ void swtpc8212_terminal_device::device_reset()
 	m_swtpc8212->rs232_conn_cts_w(0);
 
 	// To the computer
-	output_rxd(1);
+	output_rxd(m_port->initial_rx_state());
 	output_dcd(0);
 	output_dsr(0);
 	if (!m_flow_control->read())

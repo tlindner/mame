@@ -39,7 +39,7 @@ void ie15_terminal_device::device_start()
 
 void ie15_terminal_device::device_reset()
 {
-	output_rxd(1);
+	output_rxd(m_port->initial_rx_state());
 
 	// TODO: make this configurable
 	output_dcd(0);

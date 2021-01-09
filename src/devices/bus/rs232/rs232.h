@@ -135,6 +135,8 @@ public:
 	DECLARE_READ_LINE_MEMBER( rxc_r ) { return m_dce_rxc; }
 	DECLARE_READ_LINE_MEMBER( txc_r ) { return m_dce_txc; }
 
+	void set_initial_rx_state(int state) { m_inital_rx_state = state; }
+	int initial_rx_state() { return m_inital_rx_state; }
 protected:
 	rs232_port_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock);
 
@@ -151,6 +153,7 @@ protected:
 	int m_cts;
 	int m_dce_rxc;
 	int m_dce_txc;
+	int m_inital_rx_state;
 
 	devcb_write_line m_rxd_handler;
 	devcb_write_line m_dcd_handler;
@@ -160,6 +163,7 @@ protected:
 	devcb_write_line m_cts_handler;
 	devcb_write_line m_rxc_handler;
 	devcb_write_line m_txc_handler;
+
 
 private:
 	device_rs232_port_interface *m_dev;

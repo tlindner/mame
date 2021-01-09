@@ -42,7 +42,7 @@ void sun_keyboard_adaptor_device::device_start()
 
 void sun_keyboard_adaptor_device::device_reset()
 {
-	output_rxd(1);
+	output_rxd(m_port->initial_rx_state());
 	output_dcd(0);
 	output_dsr(0);
 	output_cts(0);

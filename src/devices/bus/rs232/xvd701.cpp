@@ -39,7 +39,7 @@ void jvc_xvd701_device::device_start()
 	int rxbaud = 9600;
 	set_rcv_rate(rxbaud);
 
-	output_rxd(1);
+	output_rxd(m_port->initial_rx_state());
 
 	// TODO: make this configurable
 	output_dcd(0);

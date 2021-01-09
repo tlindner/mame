@@ -49,7 +49,7 @@ WRITE_LINE_MEMBER(serial_terminal_device::update_serial)
 	int const rxbaud = convert_baud(m_rs232_rxbaud->read());
 	set_rcv_rate(rxbaud);
 
-	output_rxd(1);
+	output_rxd(m_port->initial_rx_state());
 
 	// TODO: make this configurable
 	output_dcd(0);

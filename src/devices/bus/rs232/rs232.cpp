@@ -60,6 +60,7 @@ rs232_port_device::rs232_port_device(const machine_config &mconfig, device_type 
 	m_cts(0),
 	m_dce_rxc(0),
 	m_dce_txc(0),
+	m_inital_rx_state(1),
 	m_rxd_handler(*this),
 	m_dcd_handler(*this),
 	m_dsr_handler(*this),
@@ -113,6 +114,7 @@ void rs232_port_device::device_start()
 	save_item(NAME(m_cts));
 	save_item(NAME(m_dce_rxc));
 	save_item(NAME(m_dce_txc));
+	save_item(NAME(m_inital_rx_state));
 
 	m_rxd = 1;
 	m_dcd = 1;

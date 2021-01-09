@@ -51,8 +51,9 @@ WRITE_LINE_MEMBER(serial_printer_device::update_serial)
 	int rxbaud = convert_baud(m_rs232_rxbaud->read());
 	set_rcv_rate(rxbaud);
 
+	output_rxd(m_port->initial_rx_state());
+
 	// TODO: make this configurable
-	output_rxd(1);
 	output_dcd(0);
 	output_dsr(0);
 	output_cts(0);

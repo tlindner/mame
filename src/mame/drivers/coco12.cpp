@@ -511,6 +511,7 @@ void coco12_state::coco(machine_config &config)
 
 	rs232_port_device &rs232(RS232_PORT(config, RS232_TAG, default_rs232_devices, "printer"));
 	rs232.dcd_handler().set(PIA1_TAG, FUNC(pia6821_device::ca1_w));
+	rs232.set_initial_rx_state(0);
 	rs232.set_option_device_input_defaults("printer", DEVICE_INPUT_DEFAULTS_NAME(printer));
 
 	cococart_slot_device &cartslot(COCOCART_SLOT(config, CARTRIDGE_TAG, DERIVED_CLOCK(1, 1), coco_cart, "pak"));

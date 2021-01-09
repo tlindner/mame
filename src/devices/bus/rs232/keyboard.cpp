@@ -63,7 +63,7 @@ void serial_keyboard_device::device_reset()
 	int const txbaud = convert_baud(m_rs232_txbaud->read());
 	set_tra_rate(txbaud);
 
-	output_rxd(1);
+	output_rxd(m_port->initial_rx_state());
 
 	// TODO: make this configurable
 	output_dcd(0);
