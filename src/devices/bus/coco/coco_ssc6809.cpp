@@ -83,7 +83,7 @@
 #define LOG_INTERFACE   (1U <<  1)
 #define LOG_INTERNAL    (1U <<  2)
 #define LOG_RAMADDRESS  (1U <<  3)
-#define VERBOSE (LOG_GENERAL|LOG_INTERFACE|LOG_INTERNAL|LOG_RAMADDRESS)
+#define VERBOSE (LOG_INTERNAL)
 
 #include "logmacro.h"
 
