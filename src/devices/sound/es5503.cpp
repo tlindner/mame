@@ -216,7 +216,7 @@ void es5503_device::device_start()
 	m_irq_func.resolve_safe();
 	m_adc_func.resolve_safe(0);
 
-	rege0 = 0xff;
+	rege0 = 0x41;
 
 	save_pointer(STRUCT_MEMBER(oscillators, freq), 32);
 	save_pointer(STRUCT_MEMBER(oscillators, wtsize), 32);
@@ -250,7 +250,7 @@ void es5503_device::device_clock_changed()
 
 void es5503_device::device_reset()
 {
-	rege0 = 0xff;
+	rege0 = 0x41;
 
 	for (auto & elem : oscillators)
 	{
@@ -276,7 +276,7 @@ void es5503_device::device_reset()
 u8 es5503_device::read(offs_t offset)
 {
 	uint8_t retval;
-	int i;
+// 	int i;
 
 	m_stream->update();
 
@@ -320,38 +320,61 @@ u8 es5503_device::read(offs_t offset)
 	{
 		switch (offset)
 		{
+// 			case 0xe0:  // interrupt status
+// 				retval = rege0;
+
+//				m_irq_func(0);
+
 			case 0xe0:  // interrupt status
-				retval = rege0;
 
 				m_irq_func(0);
 
-				// scan all oscillators
-				for (i = 0; i < oscsenabled+1; i++)
-				{
-					if (oscillators[i].irqpend)
-					{
-						// signal this oscillator has an interrupt
-						retval = i<<1;
+				retval = rege0;
+				if (rege0 & 0x80) {
+					uint8_t onum = (rege0 >> 1) & 0x1f;
+					oscillators[onum].irqpend = 0;
+					rege0 ^= 0x80;
+				}
 
-						rege0 = retval | 0x80;
-
-						// and clear its flag
-						oscillators[i].irqpend = 0;
-						break;
+				for (int i = 0; i < oscsenabled; ++i) {
+					if (oscillators[i].irqpend) {
+						if(oscillators[i].control & 0x08) {
+							rege0 = (i << 1) | 0xc1;
+							m_irq_func(1);
+							break;
+						}
 					}
 				}
+
+				return retval;
+
+				// scan all oscillators
+// 				for (i = 0; i < oscsenabled+1; i++)
+// 				{
+// 					if (oscillators[i].irqpend)
+// 					{
+// 						// signal this oscillator has an interrupt
+// 						retval = i<<1;
+//
+// 						rege0 = retval | 0x80;
+//
+// 						// and clear its flag
+// 						oscillators[i].irqpend = 0;
+// 						break;
+// 					}
+// 				}
 
 				// if any oscillators still need to be serviced, assert IRQ again immediately
-				for (i = 0; i < oscsenabled+1; i++)
-				{
-					if (oscillators[i].irqpend)
-					{
-						m_irq_func(1);
-						break;
-					}
-				}
+// 				for (i = 0; i < oscsenabled+1; i++)
+// 				{
+// 					if (oscillators[i].irqpend)
+// 					{
+// 						m_irq_func(1);
+// 						break;
+// 					}
+// 				}
 
-				return rege0 | 0x41;
+// 				return rege0 | 0x41;
 
 			case 0xe1:  // oscillator enable
 				return oscsenabled<<1;
@@ -401,6 +424,15 @@ void es5503_device::write(offs_t offset, u8 data)
 				{
 					oscillators[osc].accumulator = 0;
 				}
+
+				// if interrupt is enabled and irq is pending, then interrupt
+				if ((oscillators[osc].control & 0x80) && (!(data&0x80)))
+				{
+					if (oscillators[osc].irqpend) {
+						m_irq_func(1);
+					}
+				}
+
 				oscillators[osc].control = data;
 				break;
 
