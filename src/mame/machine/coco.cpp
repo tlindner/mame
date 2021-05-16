@@ -51,10 +51,6 @@
     research that for you if you want an exact number for scanlines before the
     screen starts and the scanline that the v-interrupt triggers..etc.
 
-Added bi-directional bitbanger support. Also fixed reading PIA 1, port A. The
-DAC and bitbanger values written should be reflected in the read.
-    tim lindner, October 2010
-
 ***************************************************************************/
 
 #include "emu.h"
@@ -710,21 +706,18 @@ void coco_state::poll_joystick(bool *joyin, uint8_t *buttons)
 			/* get the vertical position of the lightgun */
 			dclg_vpos = analog->input(joystick, 1);
 
-			if (m_screen && (m_screen->vpos() == dclg_vpos))
+			if (m_dclg_state == 15)
 			{
-				/* if gun is pointing at the current scan line, set hit bit and cache horizontal timer value */
+				/* if light-gun is pointing at the current scan line, set sense bit */
 				m_dclg_output_h |= 0x02;
-				m_dclg_timer = analog->input(joystick, 0);
+			}
+			else
+			{
+				m_dclg_output_h &= ~0x02;
 			}
 
 			joyin_value = (dac_output() <= dclg_table[(joystick_axis ? m_dclg_output_h : m_dclg_output_v) & 0x03]);
 
-			if (m_dclg_state == 7)
-			{
-				/* while in state 7, prepare to check next video frame for a hit */
-				attotime dclg_time = m_screen->time_until_pos(dclg_vpos, 0);
-				m_diecom_lightgun_timer->adjust(dclg_time);
-			}
 			break;
 
 		default: /* None */
@@ -803,43 +796,52 @@ void coco_state::update_cassout(int cassout)
 
 
 //-------------------------------------------------
-//  diecom_lightgun_clock - called the diecom
-//  lightgun undergoes a high to low transition
+//  diecom_lightgun_clock - called when the diecom
+//  lightgun undergoes a clock transition
 //-------------------------------------------------
 
 void coco_state::diecom_lightgun_clock(void)
 {
-	/* clock Diecom Light gun interface on a high to low transistion */
 	m_dclg_state++;
-	m_dclg_state &= 0x0f;
+	m_dclg_state &= 0x1f;
+	int half_state = m_dclg_state >> 1;
 
 	/* clear hit bit for every transistion */
 	m_dclg_output_h &= ~0x02;
+	m_dclg_output_v = 0;
 
-	if (m_dclg_state > 7)
+	if (half_state > 7)
 	{
-		/* Bit shift timer data on state 8 thru 15 */
-		if (m_dclg_timer & (1 << (m_dclg_state - 7)))
+		/* Bit shift timer data on half states 8 thru 15 */
+		if (m_dclg_timer & (1 << (half_state - 7)))
 		{
 			m_dclg_output_v |= 0x01;
 		}
-		else
-		{
-			m_dclg_output_v &= ~0x01;
-		}
 
-		/* Bit 9 of timer is only available if state == 8 */
-		if (m_dclg_state == 8 && (m_dclg_timer & (1 << 8)))
+		/* Bit 9 of timer is only available if half state == 8 */
+		if (half_state == 8 && (m_dclg_timer & (1 << 8)))
 			m_dclg_output_v |= 0x02;
-		else
-			m_dclg_output_v &= ~0x02;
 	}
 
-	/* During state 15, this bit is high. */
-	if (m_dclg_state == 15)
+	/* During half state 15, this bit is high. */
+	/* it is used to sync the state machine of the converter box with the computer */
+	if (half_state == 15)
 		m_dclg_output_h |= 0x01;
 	else
 		m_dclg_output_h &= ~0x01;
+
+	/* while in full state 15, prepare to check next video frame for a hit */
+	if (m_dclg_state == 15)
+	{
+		int dclg_vpos = m_diecom_lightgun.input(sel2() ? 1 : 0, 1) - 12;
+		m_dclg_timer = m_diecom_lightgun.input(sel2() ? 1 : 0, 0);
+		attotime dclg_time = m_screen->time_until_pos(dclg_vpos, 0);
+		m_diecom_lightgun_timer->adjust(dclg_time);
+	}
+	else
+	{
+		m_diecom_lightgun_timer->adjust(attotime::never);
+	}
 }
 
 
@@ -853,10 +855,11 @@ void coco_state::update_prinout(bool prinout)
 	if ((joystick_type(0) == JOYSTICK_DIECOM_LIGHT_GUN) || (joystick_type(1) == JOYSTICK_DIECOM_LIGHT_GUN))
 	{
 		/* printer port is connected to diecom light gun */
-		if (m_dclg_previous_bit && !prinout)
+		if (m_dclg_previous_bit != prinout)
 		{
 			diecom_lightgun_clock();
 		}
+
 		m_dclg_previous_bit = prinout;
 	}
 	else
