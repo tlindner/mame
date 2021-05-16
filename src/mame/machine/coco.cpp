@@ -710,11 +710,11 @@ void coco_state::poll_joystick(bool *joyin, uint8_t *buttons)
 			/* get the vertical position of the lightgun */
 			dclg_vpos = analog->input(joystick, 1);
 
-			if (m_screen->vpos() == dclg_vpos)
+			if (m_screen && (m_screen->vpos() == dclg_vpos))
 			{
 				/* if gun is pointing at the current scan line, set hit bit and cache horizontal timer value */
 				m_dclg_output_h |= 0x02;
-				m_dclg_timer = analog->input(joystick, 0) << 1;
+				m_dclg_timer = analog->input(joystick, 0);
 			}
 
 			joyin_value = (dac_output() <= dclg_table[(joystick_axis ? m_dclg_output_h : m_dclg_output_v) & 0x03]);
@@ -819,13 +819,17 @@ void coco_state::diecom_lightgun_clock(void)
 	if (m_dclg_state > 7)
 	{
 		/* Bit shift timer data on state 8 thru 15 */
-		if (((m_dclg_timer >> (m_dclg_state - 8 + 1)) & 0x01) == 1)
+		if (m_dclg_timer & (1 << (m_dclg_state - 7)))
+		{
 			m_dclg_output_v |= 0x01;
+		}
 		else
+		{
 			m_dclg_output_v &= ~0x01;
+		}
 
-		/* Bit 9 of timer is only available if state == 8*/
-		if (m_dclg_state == 8 && (((m_dclg_timer >> 9) & 0x01) == 1))
+		/* Bit 9 of timer is only available if state == 8 */
+		if (m_dclg_state == 8 && (m_dclg_timer & (1 << 8)))
 			m_dclg_output_v |= 0x02;
 		else
 			m_dclg_output_v &= ~0x02;

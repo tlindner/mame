@@ -201,11 +201,11 @@ INPUT_PORTS_END
 
 static INPUT_PORTS_START( coco_lightgun )
 	PORT_START(DIECOM_LIGHTGUN_RX_TAG)
-	PORT_BIT( 0x1ff, 266, IPT_LIGHTGUN_X ) PORT_NAME("Lightgun X (Right Port)") PORT_CROSSHAIR(X, 1.0, 0.0, 0) PORT_MINMAX(116,416) PORT_SENSITIVITY(100) PORT_KEYDELTA(1) PORT_PLAYER(1) PORT_CONDITION(CTRL_SEL_TAG, 0x0f, EQUALS, 0x03)
+	PORT_BIT( 0xfff, 266, IPT_LIGHTGUN_X ) PORT_NAME("Lightgun X (Right Port)") PORT_CROSSHAIR(X, 1.0, 0.0, 0) PORT_MINMAX(116,416) PORT_SENSITIVITY(100) PORT_KEYDELTA(1) PORT_PLAYER(1) PORT_CONDITION(CTRL_SEL_TAG, 0x0f, EQUALS, 0x03)
 	PORT_START(DIECOM_LIGHTGUN_RY_TAG)
 	PORT_BIT( 0xff, 121, IPT_LIGHTGUN_Y ) PORT_NAME("Lightgun Y (Right Port)") PORT_CROSSHAIR(Y, 1.0, 0.0, 0) PORT_MINMAX(0,242) PORT_SENSITIVITY(100) PORT_KEYDELTA(1) PORT_PLAYER(1) PORT_CONDITION(CTRL_SEL_TAG, 0x0f, EQUALS, 0x03)
 	PORT_START(DIECOM_LIGHTGUN_LX_TAG)
-	PORT_BIT( 0x1ff, 266, IPT_LIGHTGUN_X ) PORT_NAME("Lightgun X (Left Port)") PORT_CROSSHAIR(X, 1.0, 0.0, 0) PORT_MINMAX(116,416) PORT_SENSITIVITY(100) PORT_KEYDELTA(1) PORT_PLAYER(1) PORT_CONDITION(CTRL_SEL_TAG, 0xf0, EQUALS, 0x30)
+	PORT_BIT( 0xfff, 266, IPT_LIGHTGUN_X ) PORT_NAME("Lightgun X (Left Port)") PORT_CROSSHAIR(X, 1.0, 0.0, 0) PORT_MINMAX(116,416) PORT_SENSITIVITY(100) PORT_KEYDELTA(1) PORT_PLAYER(1) PORT_CONDITION(CTRL_SEL_TAG, 0xf0, EQUALS, 0x30)
 	PORT_START(DIECOM_LIGHTGUN_LY_TAG)
 	PORT_BIT( 0xff, 121, IPT_LIGHTGUN_Y ) PORT_NAME("Lightgun Y (Left Port)") PORT_CROSSHAIR(Y, 1.0, 0.0, 0) PORT_MINMAX(0,242) PORT_SENSITIVITY(100) PORT_KEYDELTA(1) PORT_PLAYER(1) PORT_CONDITION(CTRL_SEL_TAG, 0xf0, EQUALS, 0x30)
 	PORT_START(DIECOM_LIGHTGUN_BUTTONS_TAG)
@@ -318,19 +318,13 @@ void coco3_state::coco3(machine_config &config)
 
 	// composite monitor
 	screen_device &composite_screen(SCREEN(config, COMPOSITE_SCREEN_TAG, SCREEN_TYPE_RASTER));
-	composite_screen.set_refresh_hz(60);
+	composite_screen.set_raw(28.636363_MHz_XTAL/2, 912, 0, 640-1, 263, 1, 241-1);
 	composite_screen.set_screen_update(FUNC(coco3_state::screen_update));
-	composite_screen.set_size(640, 243);
-	composite_screen.set_visarea(0, 640-1, 1, 241-1);
-	composite_screen.set_vblank_time(0);
 
 	// RGB monitor
 	screen_device &rgb_screen(SCREEN(config, RGB_SCREEN_TAG, SCREEN_TYPE_RASTER));
-	rgb_screen.set_refresh_hz(60);
+	rgb_screen.set_raw(28.636363_MHz_XTAL/2, 912, 0, 640-1, 263, 1, 241-1);
 	rgb_screen.set_screen_update(FUNC(coco3_state::screen_update));
-	rgb_screen.set_size(640, 243);
-	rgb_screen.set_visarea(0, 640-1, 1, 241-1);
-	rgb_screen.set_vblank_time(0);
 
 	// internal ram
 	RAM(config, RAM_TAG).set_default_size("512K").set_extra_options("128K,2M,8M");
