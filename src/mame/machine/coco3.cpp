@@ -129,6 +129,7 @@ uint32_t coco3_state::screen_update(screen_device &screen, bitmap_rgb32 &bitmap,
 {
 	bool result;
 	m_screen = screen;
+
 	if (!strcmp(screen.tag(), ":" COMPOSITE_SCREEN_TAG))
 	{
 		/* composite screen */
