@@ -174,7 +174,8 @@ void coco_ssc_device::device_add_mconfig(machine_config &config)
 	SPEAKER(config, "ssc_audio").front_center();
 
 	SP0256(config, m_spo, XTAL(3'120'000));
-	m_spo->add_route(ALL_OUTPUTS, "ssc_audio", SP0256_GAIN);
+// 	m_spo->add_route(ALL_OUTPUTS, "ssc_audio", SP0256_GAIN);
+	m_spo->add_route(ALL_OUTPUTS, ":acfilter", SP0256_GAIN);
 	m_spo->data_request_callback().set_inputline(m_tms7040, TMS7000_INT1_LINE);
 
 	AY8913(config, m_ay, DERIVED_CLOCK(2, 1));
@@ -182,7 +183,8 @@ void coco_ssc_device::device_add_mconfig(machine_config &config)
 	m_ay->add_route(ALL_OUTPUTS, "coco_sac_tag", AY8913_GAIN);
 
 	COCOSSC_SAC(config, m_sac, DERIVED_CLOCK(2, 1));
-	m_sac->add_route(ALL_OUTPUTS, "ssc_audio", 1.0);
+// 	m_sac->add_route(ALL_OUTPUTS, "ssc_audio", 1.0);
+	m_sac->add_route(ALL_OUTPUTS, ":acfilter", 1.0);
 }
 
 ROM_START(coco_ssc)

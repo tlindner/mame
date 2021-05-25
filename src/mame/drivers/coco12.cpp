@@ -418,11 +418,15 @@ void coco_state::coco_sound(machine_config &config)
 {
 	SPEAKER(config, "speaker").front_center();
 
+// 	FILTER_RC(config, m_filter).add_route(ALL_OUTPUTS, "speaker", 1.0);
+	FILTER_RC(config, "acfilter", 0).set_ac().add_route(ALL_OUTPUTS, "speaker", 1.0);
+
 	// 6-bit D/A: R10-15 = 10K, 20K, 40.2K, 80.6K, 162K, 324K (according to parts list); output also controls joysticks
-	DAC_6BIT_BINARY_WEIGHTED(config, m_dac, 0).add_route(ALL_OUTPUTS, "speaker", 0.125);
+	DAC_6BIT_BINARY_WEIGHTED(config, m_dac, 0).add_route(ALL_OUTPUTS, "acfilter", 0.125);
 
 	// Single-bit sound: R22 = 10K
 	DAC_1BIT(config, "sbs", 0).set_output_range(-1, 1).add_route(ALL_OUTPUTS, "speaker", 0.125);
+
 }
 
 

@@ -96,6 +96,7 @@ coco_state::coco_state(const machine_config &mconfig, device_type type, const ch
 	m_beckerportconfig(*this, BECKERPORT_TAG),
 	m_irqs(*this, "irqs"),
 	m_firqs(*this, "firqs"),
+	m_filter(*this, "acfilter"),
 	m_keyboard(*this, "row%u", 0),
 	m_joystick_type_control(*this, CTRL_SEL_TAG),
 	m_joystick_hires_control(*this, HIRES_INTF_TAG),
@@ -181,6 +182,8 @@ void coco_state::device_reset()
 	m_dclg_state = 0;
 	m_dclg_timer = 0;
 	m_vhd_select = 0;
+
+// 	m_filter->set_ac();
 }
 
 

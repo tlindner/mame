@@ -24,6 +24,7 @@
 #include "sound/dac.h"
 #include "screen.h"
 #include "machine/input_merger.h"
+#include "sound/flt_rc.h"
 
 //**************************************************************************
 //  MACROS / CONSTANTS
@@ -234,6 +235,7 @@ protected:
 	optional_ioport m_beckerportconfig;
 	required_device<input_merger_device> m_irqs;
 	required_device<input_merger_device> m_firqs;
+	required_device<filter_rc_device> m_filter;
 
 	// input ports
 	required_ioport_array<7> m_keyboard;
