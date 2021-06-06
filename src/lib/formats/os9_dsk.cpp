@@ -213,6 +213,7 @@ int os9_format::find_size(io_generic *io, uint32_t form_factor, const std::vecto
 				continue;
 		}
 
+		osd_printf_verbose("OS9: Floppy disk image geometry: %d tracks, %d head(s), %d sectors with %d bytes.\n", f.track_count, f.head_count, f.sector_count, f.sector_base_size);
 		LOG_FORMATS("OS9 matching format index %d\n", i);
 		return i;
 	}

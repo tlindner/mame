@@ -163,7 +163,7 @@ bool jvc_format::parse_header(io_generic *io, int &header_size, int &tracks, int
 		break;
 	}
 
-	osd_printf_verbose("Floppy disk image geometry: %d tracks, %d head(s), %d sectors with %d bytes.\n", tracks, heads, sectors, sector_size);
+	osd_printf_verbose("JVC: Floppy disk image geometry: %d tracks, %d head(s), %d sectors with %d bytes.\n", tracks, heads, sectors, sector_size);
 
 	return tracks * heads * sectors * sector_size == (size - header_size);
 }
