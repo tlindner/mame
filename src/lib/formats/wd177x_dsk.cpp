@@ -213,7 +213,7 @@ bool wd177x_format::load(io_generic *io, uint32_t form_factor, const std::vector
 	}
 
 	if(f.head_count > max_heads) {
-		osd_printf_error("wd177x_format: Number of sides in image file too high for floppy drive (%d > %d)\n", f.track_count, max_heads);
+		osd_printf_error("wd177x_format: Number of sides in image file too high for floppy drive (%d > %d)\n", f.head_count, max_heads);
 		return false;
 	}
 
