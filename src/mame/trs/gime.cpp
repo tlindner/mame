@@ -205,6 +205,7 @@ void gime_device::device_start()
 	// set up save states
 	save_item(NAME(m_gime_registers));
 	save_item(NAME(m_mmu));
+	save_item(NAME(m_gime_x));
 	save_item(NAME(m_sam_state));
 	save_item(NAME(m_ff22_value));
 	save_item(NAME(m_ff23_value));
@@ -302,6 +303,7 @@ void gime_device::device_reset()
 {
 	/* Tepolt verifies that the GIME registers are all cleared on initialization */
 	memset(m_gime_registers, 0, sizeof(m_gime_registers));
+	memset(m_gime_x, 0, sizeof(m_gime_x));
 
 	/* initialize MMU */
 	for (int i = 0; i < 8; i++)
@@ -780,6 +782,11 @@ void gime_device::write(offs_t offset, uint8_t data)
 		case 0x40:
 			write_sam_register(offset - 0x30);                      // $FFC0 - $FFDF
 			break;
+
+		case 0x50:
+			write_gime_x_register(offset & 0x0F, data);             // $FFE0 - $FFEF
+			break;
+
 	}
 }
 
@@ -1074,6 +1081,17 @@ inline void gime_device::write_palette_register(offs_t offset, uint8_t data)
 
 
 //-------------------------------------------------
+//  write_gime_x_register
+//-------------------------------------------------
+
+inline void gime_device::write_gime_x_register(offs_t offset, uint8_t data)
+{
+	m_gime_x[offset] = data;
+}
+
+
+
+//-------------------------------------------------
 //  write_sam_register
 //-------------------------------------------------
 
@@ -1233,6 +1251,20 @@ inline offs_t gime_device::get_video_base()
 
 void gime_device::new_frame()
 {
+	/* latch hsync table start */
+	m_hsync_table = (m_gime_x[10] << 16) + (m_gime_x[11] << 8) + m_gime_x[12];
+
+	/* process frame writes */
+	if((m_gime_registers[1] & 0x80) == 0x80)
+	{
+		int max_rounds = 16;
+		while((memory_pointer(m_hsync_table)[0] == 0xff) && max_rounds--)
+		{
+			write(memory_pointer(m_hsync_table+1)[0], memory_pointer(m_hsync_table+2)[0]);
+			m_hsync_table += 3;
+		}
+	}
+
 	/* call inherited function */
 	super::new_frame();
 
@@ -1257,6 +1289,38 @@ void gime_device::new_frame()
 TIMER_CALLBACK_MEMBER(gime_device::horizontal_sync_changed)
 {
 	set_interrupt_value(INTERRUPT_HBORD, (bool)param);
+
+	/* walk hsync table */
+	if(param == true)
+	{
+		if((m_gime_registers[1] & 0x80) == 0x80)
+		{
+			int vert_pos = screen().vpos() - top_border_scanlines();
+			if(vert_pos >= 0 && vert_pos < body_scanlines())
+			{
+				int max_rounds = 9;
+
+				while((vert_pos == memory_pointer(m_hsync_table)[0]) && max_rounds--)
+				{
+					if(memory_pointer(m_hsync_table+1)[0] == 0xfd)
+					{
+						/* latch in the video position */
+						m_video_position = get_video_base();
+						m_line_in_row = m_gime_registers[0x0C] & 0x0F;
+					}
+					else if(memory_pointer(m_hsync_table+1)[0] == 0xfe)
+					{
+						set_interrupt_value(INTERRUPT_SCLN, true);
+						set_interrupt_value(INTERRUPT_SCLN, false);
+					}
+					else
+						write(memory_pointer(m_hsync_table+1)[0], memory_pointer(m_hsync_table+2)[0]);
+
+					m_hsync_table += 3;
+				}
+			}
+		}
+	}
 }
 
 

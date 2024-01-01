@@ -111,6 +111,7 @@ protected:
 
 	enum
 	{
+		INTERRUPT_SCLN      = 0x40,
 		INTERRUPT_TMR       = 0x20,
 		INTERRUPT_HBORD     = 0x10,
 		INTERRUPT_VBORD     = 0x08,
@@ -137,6 +138,7 @@ protected:
 	// device state
 	uint8_t                     m_gime_registers[16];
 	uint8_t                     m_mmu[16];
+	uint8_t						m_gime_x[16];
 	uint8_t                     m_ff22_value;
 	uint8_t                     m_ff23_value;
 	uint8_t                     m_interrupt_value;
@@ -145,6 +147,7 @@ protected:
 	uint16_t                    m_timer_value;
 	bool                        m_is_blinking;
 	bool                        m_composite_phase_invert;
+	unsigned int				m_hsync_table;
 
 	// video state
 	bool                        m_legacy_video;
@@ -176,6 +179,7 @@ protected:
 
 	// read/write
 	uint8_t read_gime_register(offs_t offset);
+	void write_gime_x_register(offs_t offset, uint8_t data);
 	uint8_t read_mmu_register(offs_t offset);
 	uint8_t read_palette_register(offs_t offset);
 	uint8_t read_floating_bus();

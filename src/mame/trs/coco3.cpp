@@ -44,14 +44,14 @@ void coco3_state::coco3_mem(address_map &map)
 	map(0xFF20, 0xFF2F).r(PIA1_TAG, FUNC(pia6821_device::read)).w(FUNC(coco3_state::ff20_write));
 	map(0xFF40, 0xFF5F).rw(FUNC(coco3_state::ff40_read), FUNC(coco3_state::ff40_write));
 	map(0xFF60, 0xFF8F).rw(FUNC(coco3_state::ff60_read), FUNC(coco3_state::ff60_write));
-	map(0xFF90, 0xFFDF).rw(m_gime, FUNC(gime_device::read), FUNC(gime_device::write));
+	map(0xFF90, 0xFFEF).rw(m_gime, FUNC(gime_device::read), FUNC(gime_device::write));
 
 	// While Tepolt and other sources say that the interrupt vectors are mapped to
 	// the same memory accessed at $BFFx, William Astle offered evidence that this
 	// memory on a CoCo 3 is not the same.
 	//
 	// http://lost.l-w.ca/0x05/coco3-and-interrupt-vectors/
-	map(0xFFE0, 0xFFFF).rom().region(MAINCPU_TAG, 0x7FE0);
+	map(0xFFF0, 0xFFFF).rom().region(MAINCPU_TAG, 0x7FF0);
 }
 
 

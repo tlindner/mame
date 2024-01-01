@@ -50,6 +50,9 @@ public:
 	// inlines
 	bool hs_r() const { return m_horizontal_sync; }
 	bool fs_r() const { return m_field_sync; }
+	auto top_border_scanlines() { return m_top_border_scanlines; }
+	auto body_scanlines() { return m_body_scanlines; }
+
 
 	auto hsync_wr_callback() { return m_write_hsync.bind(); }
 	auto fsync_wr_callback() { return m_write_fsync.bind(); }
