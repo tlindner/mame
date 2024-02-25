@@ -81,7 +81,7 @@ coco_state::coco_state(const machine_config &mconfig, device_type type, const ch
 	m_ram(*this, RAM_TAG),
 	m_cassette(*this, "cassette"),
 	m_floating(*this, "floating"),
-	m_rs232(*this, RS232_TAG),
+	m_rs232(*this, "rs232"),
 	m_vhd_0(*this, "vhd0"),
 	m_vhd_1(*this, "vhd1"),
 	m_beckerport(*this, "dwsock"),

@@ -44,7 +44,6 @@ void coco_cart(device_slot_interface &device);
 
 // devices
 #define MAINCPU_TAG                 "maincpu"
-#define RS232_TAG                   "rs232"
 
 // inputs
 #define CTRL_SEL_TAG                "ctrl_sel"

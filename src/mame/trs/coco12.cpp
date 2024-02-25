@@ -536,9 +536,9 @@ void coco12_state::coco(machine_config &config)
 	m_cassette->set_formats(coco_cassette_formats);
 	m_cassette->set_default_state(CASSETTE_PLAY | CASSETTE_MOTOR_DISABLED | CASSETTE_SPEAKER_ENABLED);
 
-	rs232_port_device &rs232(RS232_PORT(config, RS232_TAG, default_rs232_devices, "rs_printer"));
-	rs232.dcd_handler().set(m_pia_1, FUNC(pia6821_device::ca1_w));
-	rs232.set_option_device_input_defaults("rs_printer", DEVICE_INPUT_DEFAULTS_NAME(rs_printer));
+	RS232_PORT(config, m_rs232, default_rs232_devices, "rs_printer");
+	m_rs232->dcd_handler().set(m_pia_1, FUNC(pia6821_device::ca1_w));
+	m_rs232->set_option_device_input_defaults("rs_printer", DEVICE_INPUT_DEFAULTS_NAME(rs_printer));
 
 	// video hardware
 	SCREEN(config, m_screen, SCREEN_TYPE_RASTER);

@@ -293,9 +293,9 @@ void coco3_state::coco3(machine_config &config)
 	m_cassette->set_formats(coco_cassette_formats);
 	m_cassette->set_default_state(CASSETTE_PLAY | CASSETTE_MOTOR_DISABLED | CASSETTE_SPEAKER_ENABLED);
 
-	rs232_port_device &rs232(RS232_PORT(config, RS232_TAG, default_rs232_devices, "rs_printer"));
-	rs232.dcd_handler().set(m_pia_1, FUNC(pia6821_device::ca1_w));
-	rs232.set_option_device_input_defaults("rs_printer", DEVICE_INPUT_DEFAULTS_NAME(rs_printer));
+	RS232_PORT(config, m_rs232, default_rs232_devices, "rs_printer");
+	m_rs232->dcd_handler().set(m_pia_1, FUNC(pia6821_device::ca1_w));
+	m_rs232->set_option_device_input_defaults("rs_printer", DEVICE_INPUT_DEFAULTS_NAME(rs_printer));
 
 	COCO_VHD(config, m_vhd_0, 0, m_maincpu);
 	COCO_VHD(config, m_vhd_1, 0, m_maincpu);
