@@ -17,6 +17,7 @@
 #include "win/debugwininfo.h"
 #include "win/disasmwininfo.h"
 #include "win/logwininfo.h"
+#include "win/luawininfo.h"
 #include "win/memorywininfo.h"
 #include "win/pointswininfo.h"
 #include "win/uimetrics.h"
@@ -83,6 +84,7 @@ protected:
 	virtual void create_memory_window() override { create_window<debugger::win::memorywin_info>(); }
 	virtual void create_disasm_window() override { create_window<debugger::win::disasmwin_info>(); }
 	virtual void create_log_window() override { create_window<debugger::win::logwin_info>(); }
+	virtual void create_lua_window() override { create_window<debugger::win::luawin_info>(); }
 	virtual void create_points_window() override { create_window<debugger::win::pointswin_info>(); }
 	virtual void remove_window(debugger::win::debugwin_info &info) override;
 

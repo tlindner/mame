@@ -395,6 +395,10 @@ bool debugwin_info::handle_command(WPARAM wparam, LPARAM lparam)
 			debugger().create_log_window();
 			return true;
 
+		case ID_NEW_LUA_WND:
+			debugger().create_lua_window();
+			return true;
+
 		case ID_NEW_POINTS_WND:
 			debugger().create_points_window();
 			return true;
@@ -658,6 +662,7 @@ HMENU debugwin_info::create_standard_menubar()
 	AppendMenu(debugmenu, MF_ENABLED, ID_NEW_DISASM_WND, TEXT("New Disassembly Window\tCtrl+D"));
 	AppendMenu(debugmenu, MF_ENABLED, ID_NEW_LOG_WND, TEXT("New Error Log Window\tCtrl+L"));
 	AppendMenu(debugmenu, MF_ENABLED, ID_NEW_POINTS_WND, TEXT("New (Break|Watch)points Window\tCtrl+B"));
+	AppendMenu(debugmenu, MF_ENABLED, ID_NEW_LUA_WND, TEXT("New Lua Window\tCtrl+U"));
 	AppendMenu(debugmenu, MF_DISABLED | MF_SEPARATOR, 0, TEXT(""));
 	AppendMenu(debugmenu, MF_ENABLED, ID_RUN, TEXT("Run\tF5"));
 	AppendMenu(debugmenu, MF_ENABLED, ID_RUN_AND_HIDE, TEXT("Run and Hide Debugger\tF12"));
