@@ -57,7 +57,9 @@ private:
 	std::unique_ptr<lua_engine> m_lua;
 	std::unique_ptr<sol::load_result> m_load_result;
 
-	int print_x, print_y;
+	debug_view_xy m_area;
+	debug_view_xy m_location;
+	std::vector<char> m_viewbuffer;
 };
 
 #endif // MAME_EMU_DEBUG_DVLUA_H

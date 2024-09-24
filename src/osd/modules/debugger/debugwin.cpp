@@ -454,6 +454,9 @@ void debugger_windows::load_configuration(util::xml::data_node const &parentnode
 		case debugger::WINDOW_TYPE_ERROR_LOG_VIEWER:
 			win = create_window<debugger::win::logwin_info>();
 			break;
+		case debugger::WINDOW_TYPE_LUA_VIEWER:
+			win = create_window<debugger::win::luawin_info>();
+			break;
 		case debugger::WINDOW_TYPE_POINTS_VIEWER:
 			win = create_window<debugger::win::pointswin_info>();
 			break;

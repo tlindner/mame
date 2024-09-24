@@ -43,6 +43,7 @@
 - (IBAction)debugNewErrorLogWindow:(id)sender;
 - (IBAction)debugNewPointsWindow:(id)sender;
 - (IBAction)debugNewDevicesWindow:(id)sender;
+- (IBAction)debugNewLuaWindow:(id)sender;
 
 - (void)debugNewMemoryWindowForSpace:(address_space *)space device:(device_t *)device expression:(NSString *)expression;
 - (void)debugNewDisassemblyWindowForSpace:(address_space *)space device:(device_t *)device expression:(NSString *)expression;

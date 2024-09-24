@@ -13,11 +13,6 @@
 
 #include "debugger.h"
 
-//#include <algorithm>
-//#include <cctype>
-//#include <tuple>
-
-
 //**************************************************************************
 //  DEBUG VIEW LUA SOURCE
 //**************************************************************************
@@ -44,19 +39,31 @@ debug_view_lua_source::debug_view_lua_source(std::string &&name, address_space &
 debug_view_lua::debug_view_lua(running_machine &machine, debug_view_osd_update_func osdupdate, void *osdprivate)
 	: debug_view(machine, DVT_LUA, osdupdate, osdprivate)
     , m_lua(std::make_unique<lua_engine>())
+    , m_viewbuffer(m_area.y * m_area.x)
 {
     m_lua->initialize();
+
+	lua()->sol().set_function("view_set_area",
+		[this] (s32 x, s32 y)
+		{
+			m_area.x = x;
+			m_area.y = y;
+			m_viewbuffer.resize(x*y, 0);
+		});
 
     lua()->sol().set_function("view_print",
         [this] (std::string string)
         {
             //fprintf( stderr, "view_print: %s, %d, %d, %d, %d, %lld\n", string.c_str(), m_total.x, m_total.y, m_visible.x, m_visible.y, m_viewdata.size());
-            debug_view_char *dest = &m_viewdata[0];
-            
+
+           	if (m_location.y > m_area.y) return;
+
             for (char & c : string)
             {
-                dest[(print_y*m_visible.y)+print_x].byte = c;
-                print_x++;
+            	if (m_location.x > m_area.x) break;
+
+                m_viewbuffer[(m_location.y*m_area.x)+m_location.x] = c;
+                m_location.x++;
             }
         });
 
@@ -64,8 +71,8 @@ debug_view_lua::debug_view_lua(running_machine &machine, debug_view_osd_update_f
         [this] (int x, int y)
         {
             // fprintf( stderr, "view_set_xy: %d, %d\n", x, y);
-            print_x = x;
-            print_y = y;
+            m_location.x = x;
+            m_location.y = y;
         });
 
 
@@ -73,12 +80,15 @@ debug_view_lua::debug_view_lua(running_machine &machine, debug_view_osd_update_f
         "cpu = manager.machine.devices[':maincpu']\n"
         "mem = cpu.spaces['program']\n"
         "print (mem:read_i8(0x8000))\n"
+        "view_set_area(40,40)\n"
         "function view_update()\n"
-        "print (mem:read_i8(0x8000))\n"
-        "view_set_xy(10, 10)\n"
-        "view_print('dump string')\n"
+        "   view_set_xy (0, 0)\n"
+        "   view_print ('value' .. mem:read_i8(0x7fff) .. '  ')\n"
+        "   view_print ('Hello World')\n"
+        "   view_set_xy (0, 1)\n"
+        "   view_print ('dump string')\n"
         "end\n" );
-        
+
 	if (!result.valid())
 	{
 		sol::error err = result;
@@ -143,6 +153,20 @@ void debug_view_lua::view_update()
                 "no script",
                 sol::to_string(status),
                 err.what());
+    }
+    else
+    {
+    	for( s32 i=0; i<m_area.y; i++)
+    	{
+    		if (i<m_visible.y)
+    		{
+				for( s32 j=0; j<m_area.x; j++ )
+				{
+					if (j<m_visible.x)
+						m_viewdata[(i*m_visible.x)+j].byte = m_viewbuffer[(i*m_area.x)+j];
+				}
+			}
+    	}
     }
 }
 

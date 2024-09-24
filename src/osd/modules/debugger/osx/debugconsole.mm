@@ -17,6 +17,7 @@
 #import "disassemblyview.h"
 #import "disassemblyviewer.h"
 #import "errorlogviewer.h"
+#import "luaviewer.h"
 #import "memoryviewer.h"
 #import "pointsviewer.h"
 #import "registersview.h"
@@ -325,6 +326,14 @@
 }
 
 
+- (IBAction)debugNewLuaWindow:(id)sender {
+	MAMELuaViewer *win = [[MAMELuaViewer alloc] initWithMachine:*machine console:self];
+	[auxiliaryWindows addObject:win];
+	[win release];
+	[win activate];
+}
+
+
 - (void)debugNewMemoryWindowForSpace:(address_space *)space device:(device_t *)device expression:(NSString *)expression {
 	MAMEMemoryViewer *win = [[MAMEMemoryViewer alloc] initWithMachine:*machine console:self];
 	[auxiliaryWindows addObject:win];
@@ -402,6 +411,9 @@
 			break;
 		case osd::debugger::WINDOW_TYPE_ERROR_LOG_VIEWER:
 			win = [[MAMEErrorLogViewer alloc] initWithMachine:*machine console:self];
+			break;
+		case osd::debugger::WINDOW_TYPE_LUA_VIEWER:
+			win = [[MAMELuaViewer alloc] initWithMachine:*machine console:self];
 			break;
 		case osd::debugger::WINDOW_TYPE_POINTS_VIEWER:
 			win = [[MAMEPointsViewer alloc] initWithMachine:*machine console:self];

@@ -226,6 +226,9 @@ void debugger_osx::build_menus()
 		[debugMenu addItemWithTitle:@"New Devices Window"
 							 action:@selector(debugNewDevicesWindow:)
 					  keyEquivalent:@"D"];
+		[debugMenu addItemWithTitle:@"New Lua Window"
+							 action:@selector(debugNewLuaWindow:)
+					  keyEquivalent:@"D"];
 
 		[debugMenu addItem:[NSMenuItem separatorItem]];
 
