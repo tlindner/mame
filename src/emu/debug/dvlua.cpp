@@ -52,23 +52,23 @@ debug_view_lua::debug_view_lua(running_machine &machine, debug_view_osd_update_f
 		});
 
     lua()->sol().set_function("view_print",
-        [this] (std::string string)
+        [this] (const char *str)
         {
             //fprintf( stderr, "view_print: %s, %d, %d, %d, %d, %lld\n", string.c_str(), m_total.x, m_total.y, m_visible.x, m_visible.y, m_viewdata.size());
 
            	if (m_location.y > m_area.y) return;
 
-            for (char & c : string)
+            while (*str != '\0')
             {
             	if (m_location.x > m_area.x) break;
 
-                m_viewbuffer[(m_location.y*m_area.x)+m_location.x] = c;
+                m_viewbuffer[(m_location.y*m_area.x)+m_location.x] = *str++;
                 m_location.x++;
             }
         });
 
     lua()->sol().set_function("view_set_xy",
-        [this] (int x, int y)
+        [this] (s32 x, s32 y)
         {
             // fprintf( stderr, "view_set_xy: %d, %d\n", x, y);
             m_location.x = x;
@@ -79,14 +79,35 @@ debug_view_lua::debug_view_lua(running_machine &machine, debug_view_osd_update_f
 	auto result = lua()->load_string(
         "cpu = manager.machine.devices[':maincpu']\n"
         "mem = cpu.spaces['program']\n"
-        "print (mem:read_i8(0x8000))\n"
         "view_set_area(40,40)\n"
         "function view_update()\n"
         "   view_set_xy (0, 0)\n"
-        "   view_print ('value' .. mem:read_i8(0x7fff) .. '  ')\n"
-        "   view_print ('Hello World')\n"
-        "   view_set_xy (0, 1)\n"
-        "   view_print ('dump string')\n"
+        "   view_print ('POW ' .. mem:read_u16(0x0217) .. '  ')\n"
+        "   view_print ('DAM ' .. mem:read_u16(0x0221) .. '        ')\n"
+        "   player_pos_y = mem:read_u8(0x213)\n"
+        "   player_pos_x = mem:read_u8(0x214)\n"
+        "   line = 1"
+        "   addy = 0x05f4\n"
+        "   for i = 0,31,1 \n"
+        "   do\n"
+        "       view_set_xy (0, line)\n"
+        "       for j = 0,31,1\n"
+        "       do\n"
+        "           if (mem:read_u8(addy) == 255)\n"
+        "           then\n"
+        "               view_print(' ')\n"
+        "           else\n"
+        "               if ((player_pos_x==j) and (player_pos_y==i))\n"
+        "               then\n"
+        "                  view_print('X')\n"
+        "               else\n"
+        "                  view_print('O')\n"
+        "               end\n"
+        "           end\n"
+        "           addy = addy + 1\n"
+        "       end\n"
+        "       line = line + 1\n"
+        "   end\n"
         "end\n" );
 
 	if (!result.valid())
@@ -156,15 +177,20 @@ void debug_view_lua::view_update()
     }
     else
     {
-    	for( s32 i=0; i<m_area.y; i++)
+    	for (s32 i=0; i<m_area.y; i++)
     	{
     		if (i<m_visible.y)
     		{
-				for( s32 j=0; j<m_area.x; j++ )
+				for (s32 j=0; j<m_area.x; j++ )
 				{
 					if (j<m_visible.x)
 						m_viewdata[(i*m_visible.x)+j].byte = m_viewbuffer[(i*m_area.x)+j];
 				}
+
+                for (s32 j=m_area.x; j<m_visible.x; j++)
+                {
+                    m_viewdata[(i*m_visible.x)+j].byte = 0;
+                }
 			}
     	}
     }

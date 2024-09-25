@@ -70,7 +70,7 @@ bool luawin_info::handle_command(WPARAM wparam, LPARAM lparam)
 void luawin_info::save_configuration_to_node(util::xml::data_node &node)
 {
 	debugwin_info::save_configuration_to_node(node);
-	node.set_attribute_int(ATTR_WINDOW_TYPE, WINDOW_TYPE_ERROR_LUA_VIEWER);
+	node.set_attribute_int(ATTR_WINDOW_TYPE, WINDOW_TYPE_LUA_VIEWER);
 }
 
 } // namespace osd::debugger::win
