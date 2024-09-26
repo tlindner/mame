@@ -225,10 +225,6 @@ static void debugwin_view_update(debug_view &view, void *osdprivate)
 
 
 - (void)adjustSizeAndRecomputeVisible {
-	debug_view_xy const size = view->total_size();
-	totalWidth = size.x;
-	totalHeight = size.y;
-
 	NSScrollView *const scroller = [self enclosingScrollView];
 	NSSize const clip = [[scroller contentView] bounds].size;
 	NSSize content = NSMakeSize((fontWidth * totalWidth) + (2 * [textContainer lineFragmentPadding]),

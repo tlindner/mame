@@ -78,13 +78,13 @@ debug_view_lua::debug_view_lua(running_machine &machine, debug_view_osd_update_f
 	auto result = lua()->load_string(
         "cpu = manager.machine.devices[':maincpu']\n"
         "mem = cpu.spaces['program']\n"
-        "view_set_area(40,40)\n"
+        "view_set_area (40,40)\n"
         "function view_update()\n"
         "   view_set_xy (0, 0)\n"
         "   view_print ('POW ' .. mem:read_u16(0x0217) .. '  ')\n"
         "   view_print ('DAM ' .. mem:read_u16(0x0221) .. '        ')\n"
         "   -- Draw Map\n"
-        "   line = 1"
+        "   line = 1\n"
         "   addy = 0x05f4\n"
         "   for i = 0,31,1 \n"
         "   do\n"
@@ -93,9 +93,9 @@ debug_view_lua::debug_view_lua(running_machine &machine, debug_view_osd_update_f
         "       do\n"
         "           if (mem:read_u8(addy) == 255)\n"
         "           then\n"
-        "               view_print(' ')\n"
+        "               view_print (' ')\n"
         "           else\n"
-        "               view_print('.')\n"
+        "               view_print ('.')\n"
         "           end\n"
         "           addy = addy + 1\n"
         "       end\n"
@@ -191,7 +191,7 @@ void debug_view_lua::view_update()
 				for (s32 j=0; j<m_total.x; j++ )
 				{
 					if (j<m_visible.x)
-						m_viewdata[(i*m_visible.x)+j].byte = m_viewbuffer[(i*m_total.x)+j];
+						m_viewdata[(i*m_visible.x)+j].byte = m_viewbuffer[((i+m_topleft.y)*m_total.x)+(j+m_topleft.x)];
 				}
 
                 for (s32 j=m_total.x; j<m_visible.x; j++)
