@@ -57,7 +57,6 @@ private:
 	std::unique_ptr<lua_engine> m_lua;
 	std::unique_ptr<sol::load_result> m_load_result;
 
-	debug_view_xy m_area;
 	debug_view_xy m_location;
 	std::vector<char> m_viewbuffer;
 };

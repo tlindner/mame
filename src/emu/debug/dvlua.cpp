@@ -39,15 +39,14 @@ debug_view_lua_source::debug_view_lua_source(std::string &&name, address_space &
 debug_view_lua::debug_view_lua(running_machine &machine, debug_view_osd_update_func osdupdate, void *osdprivate)
 	: debug_view(machine, DVT_LUA, osdupdate, osdprivate)
     , m_lua(std::make_unique<lua_engine>())
-    , m_viewbuffer(m_area.y * m_area.x)
+    , m_viewbuffer(m_total.y * m_total.x)
 {
     m_lua->initialize();
 
 	lua()->sol().set_function("view_set_area",
 		[this] (s32 x, s32 y)
 		{
-			m_area.x = x;
-			m_area.y = y;
+			m_total = debug_view_xy(x,y);
 			m_viewbuffer.resize(x*y, 0);
 		});
 
@@ -56,13 +55,13 @@ debug_view_lua::debug_view_lua(running_machine &machine, debug_view_osd_update_f
         {
             //fprintf( stderr, "view_print: %s, %d, %d, %d, %d, %lld\n", string.c_str(), m_total.x, m_total.y, m_visible.x, m_visible.y, m_viewdata.size());
 
-           	if (m_location.y > m_area.y) return;
+           	if (m_location.y > m_total.y) return;
 
             while (*str != '\0')
             {
-            	if (m_location.x > m_area.x) break;
+            	if (m_location.x > m_total.x) break;
 
-                m_viewbuffer[(m_location.y*m_area.x)+m_location.x] = *str++;
+                m_viewbuffer[(m_location.y*m_total.x)+m_location.x] = *str++;
                 m_location.x++;
             }
         });
@@ -97,17 +96,14 @@ debug_view_lua::debug_view_lua(running_machine &machine, debug_view_osd_update_f
         "           then\n"
         "               view_print(' ')\n"
         "           else\n"
-        "               if ((player_pos_x==j) and (player_pos_y==i))\n"
-        "               then\n"
-        "                  view_print('X')\n"
-        "               else\n"
-        "                  view_print('O')\n"
-        "               end\n"
+        "               view_print('O')\n"
         "           end\n"
         "           addy = addy + 1\n"
         "       end\n"
         "       line = line + 1\n"
         "   end\n"
+        "   view_set_xy (player_pos_x,player_pos_y+1)\n"
+        "   view_print ('X')\n"
         "end\n" );
 
 	if (!result.valid())
@@ -177,17 +173,17 @@ void debug_view_lua::view_update()
     }
     else
     {
-    	for (s32 i=0; i<m_area.y; i++)
+    	for (s32 i=0; i<m_total.y; i++)
     	{
     		if (i<m_visible.y)
     		{
-				for (s32 j=0; j<m_area.x; j++ )
+				for (s32 j=0; j<m_total.x; j++ )
 				{
 					if (j<m_visible.x)
-						m_viewdata[(i*m_visible.x)+j].byte = m_viewbuffer[(i*m_area.x)+j];
+						m_viewdata[(i*m_visible.x)+j].byte = m_viewbuffer[(i*m_total.x)+j];
 				}
 
-                for (s32 j=m_area.x; j<m_visible.x; j++)
+                for (s32 j=m_total.x; j<m_visible.x; j++)
                 {
                     m_viewdata[(i*m_visible.x)+j].byte = 0;
                 }

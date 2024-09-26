@@ -20,21 +20,21 @@
 	NSScrollView    *luaScroll;
 	NSString        *title;
 
-	title = [NSString stringWithFormat:@"Error Lua: %@ [%@]",
+	title = [NSString stringWithFormat:@"Lua Window: %@ [%@]",
 									   [NSString stringWithUTF8String:m.system().type.fullname()],
 									   [NSString stringWithUTF8String:m.system().name]];
 	if (!(self = [super initWithMachine:m title:title console:c]))
 		return nil;
 
 	// create the lua view
-	luaView = [[MAMELuaView alloc] initWithFrame:NSMakeRect(0, 0, 100, 100) machine:*machine];
-	luaScroll = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, 100, 100)];
+	luaView = [[MAMELuaView alloc] initWithFrame:[[window contentView] frame] machine:*machine];
+ 	luaScroll = [[NSScrollView alloc] initWithFrame:[[window contentView] frame]];
 	[luaScroll setAutoresizingMask:(NSViewWidthSizable | NSViewHeightSizable)];
 	[luaScroll setHasHorizontalScroller:YES];
 	[luaScroll setHasVerticalScroller:YES];
 	[luaScroll setAutohidesScrollers:YES];
 	[luaScroll setBorderType:NSNoBorder];
-	[luaScroll setDrawsBackground:NO];
+	[luaScroll setDrawsBackground:YES];
 	[luaScroll setDocumentView:luaView];
 	[luaView release];
 	[window setContentView:luaScroll];
