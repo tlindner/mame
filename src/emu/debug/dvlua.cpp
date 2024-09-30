@@ -41,39 +41,12 @@ debug_view_lua::debug_view_lua(running_machine &machine, debug_view_osd_update_f
     , m_lua(std::make_unique<lua_engine>())
     , m_viewbuffer(m_total.y * m_total.x)
 {
+    running = true;
     m_lua->initialize();
 
-	lua()->sol().set_function("view_set_area",
-		[this] (s32 x, s32 y)
-		{
-			m_total = debug_view_xy(x,y);
-			m_viewbuffer.resize(x*y, 0);
-		});
-
-    lua()->sol().set_function("view_print",
-        [this] (const char *str)
-        {
-            //fprintf( stderr, "view_print: %s, %d, %d, %d, %d, %lld\n", string.c_str(), m_total.x, m_total.y, m_visible.x, m_visible.y, m_viewdata.size());
-
-           	if (m_location.y > m_total.y) return;
-
-            while (*str != '\0')
-            {
-            	if (m_location.x > m_total.x) break;
-
-                m_viewbuffer[(m_location.y*m_total.x)+m_location.x] = *str++;
-                m_location.x++;
-            }
-        });
-
-    lua()->sol().set_function("view_set_xy",
-        [this] (s32 x, s32 y)
-        {
-            // fprintf( stderr, "view_set_xy: %d, %d\n", x, y);
-            m_location.x = x;
-            m_location.y = y;
-        });
-
+	lua()->sol().set_function("view_set_area", &debug_view_lua::view_set_area, this);
+    lua()->sol().set_function("view_set_xy", &debug_view_lua::view_set_xy, this);
+    lua()->sol().set_function("view_print", &debug_view_lua::view_print, this);
 
 	auto result = lua()->load_string(
         "cpu = manager.machine.devices[':maincpu']\n"
@@ -121,9 +94,9 @@ debug_view_lua::debug_view_lua(running_machine &machine, debug_view_osd_update_f
 	{
 		sol::error err = result;
 		sol::load_status status = result.status();
-		fatalerror("Error loading lua debug window %s: %s error\n%s\n",
+		report_error("Error loading lua debug window %s: %s error\n%s\n",
 				"no script",
-				sol::to_string(status),
+				sol::to_string(status).c_str(),
 				err.what());
 	}
 
@@ -136,9 +109,9 @@ debug_view_lua::debug_view_lua(running_machine &machine, debug_view_osd_update_f
     {
         sol::error err = result2;
         sol::call_status status = result2.status();
-        fatalerror("Error running lua debug window %s: %s error\n%s\n",
+        report_error("Error running lua debug window %s: %s error\n%s\n",
                 "no script",
-                sol::to_string(status),
+                sol::to_string(status).c_str(),
                 err.what());
     }
 }
@@ -151,6 +124,58 @@ debug_view_lua::~debug_view_lua()
 {
 	m_load_result.reset();
 	m_lua.reset();
+}
+
+
+//-------------------------------------------------
+//  view_set_area - set the largest area you can
+//  draw in to
+//-------------------------------------------------
+
+void debug_view_lua::view_set_area( s32 x, s32 y)
+{
+    m_total = debug_view_xy(x,y);
+    m_viewbuffer.resize(x*y, 0);
+};
+
+
+//-------------------------------------------------
+//  view_set_xy - set the coordinates where the
+//  next print will occur
+//-------------------------------------------------
+
+void debug_view_lua::view_set_xy(s32 x, s32 y)
+{
+    // fprintf( stderr, "view_set_xy: %d, %d\n", x, y);
+    m_location = debug_view_xy(x, y);
+}
+
+
+//-------------------------------------------------
+//  view_print - print line of text to the window
+//-------------------------------------------------
+
+void debug_view_lua::view_print(const char *str)
+{
+    while (*str != '\0')
+    {
+        if (m_location.x > m_total.x)
+        {
+            m_location.y += 1;
+            m_location.x = 0;
+        }
+
+        if (*str == '\n')
+        {
+            m_location.y += 1;
+            m_location.x = 0;
+        }
+
+        if (m_location.y > m_total.y) break;
+
+        m_viewbuffer[(m_location.y*m_total.x)+m_location.x] = *str++;
+        m_location.x++;
+    }
 }
 
 //-------------------------------------------------
@@ -170,36 +195,37 @@ void debug_view_lua::view_notify(debug_view_notification type)
 
 void debug_view_lua::view_update()
 {
-    sol::protected_function func = lua()->sol()["view_update"];
-    sol::protected_function_result call_result = func();
-
-    if (!call_result.valid())
+    if (running == true)
     {
-        sol::error err = call_result;
-        sol::call_status status = call_result.status();
-        fatalerror("Error running view update %s: %s error\n%s\n",
-                "no script",
-                sol::to_string(status),
-                err.what());
+        sol::protected_function func = lua()->sol()["view_update"];
+        sol::protected_function_result call_result = func();
+
+        if (!call_result.valid())
+        {
+            sol::error err = call_result;
+            sol::call_status status = call_result.status();
+            report_error("Error running view update %s: %s error\n%s\n",
+                    "no script",
+                    sol::to_string(status).c_str(),
+                    err.what());
+        }
     }
-    else
+    
+    for (s32 i=0; i<m_total.y; i++)
     {
-    	for (s32 i=0; i<m_total.y; i++)
-    	{
-    		if (i<m_visible.y)
-    		{
-				for (s32 j=0; j<m_total.x; j++ )
-				{
-					if (j<m_visible.x)
-						m_viewdata[(i*m_visible.x)+j].byte = m_viewbuffer[((i+m_topleft.y)*m_total.x)+(j+m_topleft.x)];
-				}
+        if (i<m_visible.y)
+        {
+            for (s32 j=0; j<m_total.x; j++ )
+            {
+                if (j<m_visible.x)
+                    m_viewdata[(i*m_visible.x)+j].byte = m_viewbuffer[((i+m_topleft.y)*m_total.x)+(j+m_topleft.x)];
+            }
 
-                for (s32 j=m_total.x; j<m_visible.x; j++)
-                {
-                    m_viewdata[(i*m_visible.x)+j].byte = 0;
-                }
-			}
-    	}
+            for (s32 j=m_total.x; j<m_visible.x; j++)
+            {
+                m_viewdata[(i*m_visible.x)+j].byte = 0;
+            }
+        }
     }
 }
 
@@ -224,3 +250,21 @@ void debug_view_lua::view_click(const int button, const debug_view_xy& pos)
 }
 
 
+//-------------------------------------------------
+//  report_error - report error and stop script
+//-------------------------------------------------
+
+void ATTR_PRINTF( 2, 3 ) debug_view_lua::report_error( const char *s_fmt, ... )
+{
+    va_list v;
+    char buf[32768];
+    va_start( v, s_fmt );
+    vsprintf( buf, s_fmt, v );
+    va_end( v );
+	
+    running = false;
+    view_set_area(80,24);
+    view_set_xy(0,0);
+    view_print(buf);
+    force_update();
+}

@@ -45,6 +45,9 @@ class debug_view_lua : public debug_view
 public:
 	lua_engine *lua() { return m_lua.get(); }
 	sol::load_result *load_result() { return *m_load_result; };
+	void view_set_area(s32 x, s32 y);
+	void view_set_xy(s32 x, s32 y);
+	void view_print(const char *str);
 
 protected:
 	// view overrides
@@ -54,11 +57,13 @@ protected:
 	virtual void view_click(const int button, const debug_view_xy& pos) override;
 
 private:
+	void ATTR_PRINTF( 2, 3 ) report_error( const char *s_fmt, ... );
 	std::unique_ptr<lua_engine> m_lua;
 	std::unique_ptr<sol::load_result> m_load_result;
 
 	debug_view_xy m_location;
 	std::vector<char> m_viewbuffer;
+	bool running;
 };
 
 #endif // MAME_EMU_DEBUG_DVLUA_H
