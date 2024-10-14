@@ -67,6 +67,9 @@ extern char const *const ATTR_SELECTION_CURSOR_Y;
 extern char const *const ATTR_SCROLL_ORIGIN_X;
 extern char const *const ATTR_SCROLL_ORIGIN_Y;
 
+extern char const *const ATTR_WINDOW_LUA_SCRIPT_PATH;
+extern char const *const ATTR_WINDOW_LUA_RUNNING;
+
 } // namespace osd::debugger
 
 #endif // MAME_OSD_DEBUGGER_XMLCONFIG_H

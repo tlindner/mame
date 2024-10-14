@@ -50,4 +50,7 @@ char const *const ATTR_SELECTION_CURSOR_Y = "start_y";
 char const *const ATTR_SCROLL_ORIGIN_X = "position_x";
 char const *const ATTR_SCROLL_ORIGIN_Y = "position_y";
 
+char const *const ATTR_WINDOW_LUA_SCRIPT_PATH = "script_path";
+char const *const ATTR_WINDOW_LUA_RUNNING = "lua_running";
+
 } // namespace osd::debugger

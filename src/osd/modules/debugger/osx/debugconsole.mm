@@ -334,6 +334,23 @@
 }
 
 
+- (void)debugNewLuaWindowForSpace:(address_space *)space device:(device_t *)device expression:(NSString *)expression {
+	MAMELuaViewer *win = [[MAMELuaViewer alloc] initWithMachine:*machine console:self];
+	[auxiliaryWindows addObject:win];
+	[win release];
+	if ([win selectSubviewForSpace:space])
+	{
+		if (expression != nil)
+			[win setExpression:expression];
+	}
+	else
+	{
+		[win selectSubviewForDevice:device];
+	}
+	[win activate];
+}
+
+
 - (void)debugNewMemoryWindowForSpace:(address_space *)space device:(device_t *)device expression:(NSString *)expression {
 	MAMEMemoryViewer *win = [[MAMEMemoryViewer alloc] initWithMachine:*machine console:self];
 	[auxiliaryWindows addObject:win];

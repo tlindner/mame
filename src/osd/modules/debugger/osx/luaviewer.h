@@ -2,7 +2,7 @@
 // copyright-holders:tim lindner
 //============================================================
 //
-//  luaviewer.h - MacOS X Cocoa debug window handling
+//  luaviewer.h - MacOS X Cocoa Lua debug window handling
 //
 //============================================================
 
@@ -16,13 +16,20 @@
 
 @class MAMEDebugConsole, MAMELuaView;
 
-@interface MAMELuaViewer : MAMEAuxiliaryDebugWindowHandler
+@interface MAMELuaViewer : MAMEExpressionAuxiliaryDebugWindowHandler
 {
-	MAMELuaView    *luaView;
+	MAMELuaView  *luaView;
+	NSPopUpButton   *subviewButton;
 }
 
 - (id)initWithMachine:(running_machine &)m console:(MAMEDebugConsole *)c;
 
+- (BOOL)selectSubviewForDevice:(device_t *)device;
+- (BOOL)selectSubviewForSpace:(address_space *)space;
+
+- (IBAction)changeSubview:(id)sender;
+
 - (void)saveConfigurationToNode:(util::xml::data_node *)node;
+- (void)restoreConfigurationFromNode:(util::xml::data_node const *)node;
 
 @end
