@@ -495,20 +495,24 @@ void debug_view_lua::view_notify(debug_view_notification type)
 
 void debug_view_lua::view_update()
 {
+// 	fprintf(stderr, "updating %d, %d\n", m_visible.x, m_visible.y );
+// 	fprintf(stderr, "total %d, %d\n", m_total.x, m_total.y );
+
     if (m_running == true)
     {
-//         sol::protected_function func = m_lua.get()->sol()["view_update"];
-//         sol::protected_function_result call_result = func();
-//
-//         if (!call_result.valid())
-//         {
-//             sol::error err = call_result;
-//             sol::call_status status = call_result.status();
-//             report_error("Error running view update %s: %s error\n%s\n",
-//                     "no script",
-//                     sol::to_string(status).c_str(),
-//                     err.what());
-//         }
+        sol::protected_function func = m_lua.get()->sol()["view_update"];
+        sol::protected_function_result call_result = func();
+// 		fprintf(stderr, "func called\n");
+
+        if (!call_result.valid())
+        {
+            sol::error err = call_result;
+            sol::call_status status = call_result.status();
+            report_error("Error running view update %s:\n%s\nerror:\n%s\n",
+                    m_script_path.c_str(),
+                    sol::to_string(status).c_str(),
+                    err.what());
+        }
     }
 
     for (s32 i=0; i<m_total.y; i++)
@@ -1185,6 +1189,7 @@ void debug_view_lua::set_script(const std::string &script)
 
 		if (!result.valid())
 		{
+			fprintf(stderr, "load error\n");
 			sol::error err = result;
 			sol::load_status status = result.status();
 			report_error("Error loading lua debug window %s:\n%s\nerror:\n%s\n",
@@ -1194,12 +1199,15 @@ void debug_view_lua::set_script(const std::string &script)
 			return;
 		}
 
-		m_load_result.reset(new sol::load_result(std::move(result)));
-		sol::protected_function func = *m_load_result;
-		sol::protected_function_result result2 = m_lua.get()->invoke(func);
+		sol::protected_function_result result2 = m_lua.get()->invoke(sol::protected_function(result));
+
+// 		m_load_result.reset(new sol::load_result(std::move(result)));
+// 		sol::protected_function func = *m_load_result;
+// 		sol::protected_function_result result2 = m_lua.get()->invoke(func);
 
 		if (!result2.valid())
 		{
+			fprintf(stderr, "run error\n");
 			sol::error err = result2;
 			sol::call_status status = result2.status();
 			report_error("Error running lua debug window %s:\n%s\nerror:\n%s\n",
@@ -1210,6 +1218,8 @@ void debug_view_lua::set_script(const std::string &script)
 		}
 
 		m_running = true;
+		force_update();
+
 	}
 }
 

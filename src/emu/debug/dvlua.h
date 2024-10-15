@@ -118,7 +118,7 @@ protected:
 	virtual void view_click(const int button, const debug_view_xy& pos) override;
 
 	std::unique_ptr<lua_engine> m_lua;
-	std::unique_ptr<sol::load_result> m_load_result;
+// 	std::unique_ptr<sol::load_result> m_load_result;
 	std::string m_script_path;
 
 private:
