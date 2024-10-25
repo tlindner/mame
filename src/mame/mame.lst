@@ -16377,6 +16377,9 @@ indyheat                        // (c) 1991 Leland
 wsf                             // (c) 1990 Leland
 wsf3                            // (c) 1990 Leland
 
+@source:cirsa/cirsa2080606.cpp
+maquinati                       // (c) 2015 Cirsa / Unidesa
+
 @source:cirsa/cirsa820xxx.cpp
 unk820501
 
@@ -16652,8 +16655,8 @@ quasara                         // (c) 1980 Zelco Games Italy
 ch2001
 
 @source:cxg/computachess.cpp
-scptchess
-scptchessa
+scpchess
+scpchessa
 
 @source:cxg/dominator.cpp
 scmder
@@ -17906,6 +17909,7 @@ pwrflip                         // (c) 1994 Excellent System
 @source:excellent/lastbank.cpp
 fever13                         // (c) 1995 Excellent System
 lastbank                        // (c) 1994 Excellent System
+mir7hg                          // (c) 1996 Excellent System
 
 @source:excellent/witch.cpp
 keirinou                        // (c) 1987 Excellent System
@@ -20295,6 +20299,8 @@ iqblocka                        // (c) 1996
 iqblockf                        // (c) 1996
 jking103a                       // (c) 1999
 jking302us                      // (c) 2000?
+lhzb                            // (c) 1998
+lhzba                           // (c) 1998
 lhzb2                           // (c) 1998
 lhzb2a                          // (c) 1998
 mgcs                            // (c) 1998
@@ -20302,6 +20308,7 @@ mgcsa                           // (c) 1998
 mgdh                            // (c) 1997
 mgdha                           // (c) 1997
 sdmg2                           // (c) 1997
+sdmg2a                          // (c) 1997
 sdmg2p                          // (c) 2000
 slqz2                           // (c) 1998
 slqz2a                          // (c) 1998
@@ -20319,29 +20326,36 @@ icescape                        // (c) 2006
 superkds
 
 @source:igs/igs_m027.cpp
-amazoni2                        // (c) 2002
+amazoni2                        // (c) 2003
 amazonia                        // (c) 1999
 amazonkp                        // (c) 1999
-chessc2                         // (c) 200?
-cjddz                           // (c) 200?
-cjddzp                          // (c) 200?
-extradrw                        // (c) 200?
+chessc2                         // (c) 2002
+cjddz                           // (c) 2004
+cjddz215cn                      // (c) 2004
+cjddz217cn                      // (c) 2004
+cjddzlf                         // (c) 2005
+cjddzp                          // (c) 2004
+cjtljp                          // (c) 2005
+extradrw                        // (c) 2001
 fruitpar                        // (c) 1999
 fruitpar206us                   // (c) 1999
 gonefsh2                        // (c) 200?
-jking02                         // (c) 200?
+jking02                         // (c) 2001
 klxyj                           // (c) 200?
 lhdmg                           // (c) 1999
 lhdmgp                          // (c) 1999
-lhzb3                           // (c) 200?
-lhzb4                           // (c) 200?
-lthy                            // (c) 1999
+lhzb3                           // (c) 1999
+lhzb3106c5m                     // (c) 1999
+lhzb3sjb                        // (c) 1999
+lhzb4                           // (c) 2004
+lhzb4dhb                        // (c) 2004
+lthyp                           // (c) 1999
 luckycrs                        // (c) 200?
-mgcs3                           // (c) 200?
+mgcs3                           // (c) 2007
 mgzz                            // (c) 2003
 mgzz100cn                       // (c) 2003
-oceanpar                        //
-oceanpar101us                   //
+oceanpar                        // (c) 1999
+oceanpar101us                   // (c) 1999
 olympic5                        // (c) 2005
 olympic5107us                   // (c) 2003
 tripslot                        // (c) 2007
@@ -20349,6 +20363,9 @@ qlgs                            // (c) 1999
 sdwx                            // (c) 2002
 slqz3                           // (c) 1999
 zhongguo                        // (c) 2000
+
+@source:igs/igs_m027_023vid.cpp
+mxsqy                           // (c) 200?
 
 @source:igs/igs_m027_link.cpp
 cjslh
@@ -20640,6 +20657,7 @@ ms3                             //
 ms5                             //
 ms72c                           //
 mystjag                         //
+tripplay                        // (c) 1999 IGT
 
 @source:igt/peplus.cpp
 im1p1952                        // (c) 1995 IGT - International Game Technology
@@ -24522,7 +24540,8 @@ sys573                          //
 
 @source:konami/labyrunr.cpp
 labyrunr                        // GX771 (c) 1987 (Japan)
-labyrunrk                       // GX771 (c) 1987 (Japan)
+labyrunrf                       // GX771 (c) 1987 (World)
+labyrunrk                       // GX771 (c) 1987 (World)
 tricktrp                        // GX771 (c) 1987
 
 @source:konami/lethal.cpp
@@ -39013,6 +39032,13 @@ ccdelta1
 @source:saitek/edames.cpp
 edames
 
+@source:saitek/electrio.cpp
+electrio
+mk12
+pcheckers
+pchess
+pplus
+
 @source:saitek/exechess.cpp
 exechess
 
@@ -41232,12 +41258,13 @@ raiden2eua                      // (c) 1993 Seibu Kaihatsu + Fabtek license
 raiden2eub                      // (c) 1993 Seibu Kaihatsu + Fabtek license
 raiden2f                        // (c) 1993 Seibu Kaihatsu
 raiden2g                        // (c) 1993 Seibu Kaihatsu + Tuning license
+raiden2gb                       // (c) 1993 Seibu Kaihatsu
 raiden2hk                       // (c) 1993 Seibu Kaihatsu + Metrotainment license
 raiden2i                        // (c) 1993 Seibu Kaihatsu
 raiden2j                        // (c) 1993 Seibu Kaihatsu
 raiden2k                        // (c) 1993 Seibu Kaihatsu
 raiden2nl                       // (c) 1993 Seibu Kaihatsu
-raiden2sw                       // (c) 1993 Seibu Kaihats
+raiden2sw                       // (c) 1993 Seibu Kaihatsu
 raiden2u                        // (c) 1993 Seibu Kaihatsu + Fabtek license
 raidendx                        // (c) 1994 Seibu Kaihatsu
 raidendxa1                      // (c) 1994 Seibu Kaihatsu + Metrotainment license
@@ -42473,6 +42500,9 @@ p8000_16                        //
 
 @source:skeleton/palestra.cpp
 palestra
+
+@source:skeleton/pap2.cpp
+pap2
 
 @source:skeleton/pcksurfer.cpp
 pcksurfer                       // (c) 2006 Datawind
@@ -43797,6 +43827,7 @@ retofinvb                       // bootleg
 retofinvb1                      // bootleg
 retofinvb2                      // bootleg
 retofinvb3                      // bootleg
+retofinvbv                      // bootleg (Video Dens)
 
 @source:taito/rollrace.cpp
 fightrol                        // (c) 1983 Taito
@@ -45822,6 +45853,7 @@ epo_epp                         //
 epo_epp2
 epo_epp3                        //
 epo_eppk                        //
+epo_epps                        //
 epo_esdx                        //
 epo_esht                        //
 epo_guru                        //
@@ -45832,6 +45864,7 @@ epo_quiz                        //
 epo_strk                        //
 epo_tenn                        //
 epo_tfp2                        //
+epo_tp2p                        //
 evio                            //
 gcslottv                        //
 gungunad                        //
@@ -45878,9 +45911,11 @@ tak_comt                        //
 tak_daig
 tak_gin                         //
 tak_geig                        //
+tak_hamr                        //
 tcarnavi                        //
 tomcpin                         //
 tomshoot                        //
+tomthr                          //
 tomplc                          //
 tvpc_dor
 tvpc_ham
@@ -45892,16 +45927,21 @@ domfitad                        //
 dombikec                        //
 
 @source:tvgames/xavix_2000.cpp
+ban_omt                         //
+ban_onep                        //
+drgqst                          //
 duelmast                        //
-epo_ebox                        //
 epo_bowl                        //
+epo_ebox                        //
+epo_golf                        //
+epo_mini                        //
 epo_sdb                         //
+tak_chq                         //
 tom_dpgm                        //
-ttv_sw                          //
 ttv_lotr                        //
 ttv_mx                          //
-drgqst                          //
-ban_onep                        //
+ttv_sw                          //
+ttv_swj                         //
 
 @source:tvgames/xavix_2002.cpp
 domdance                        //
@@ -45911,6 +45951,7 @@ domstepc                        //
 epo_tfit
 mrangbat
 suprtvpc
+suprtvpcdo
 suprtvpchk
 tmy_thom                        //
 udance

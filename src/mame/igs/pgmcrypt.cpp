@@ -1802,7 +1802,7 @@ void wldfruit_decrypt(running_machine &machine)
 
 
 // IGS MAHJONG CHINA S104CN
-void lthy_decrypt(running_machine &machine)
+void lthyp_decrypt(running_machine &machine)
 {
 	memory_region *const region = machine.root_device().memregion("user1");
 	auto const src = util::little_endian_cast<u16>(reinterpret_cast<u32 *>(region->base()));
@@ -1820,30 +1820,6 @@ void lthy_decrypt(running_machine &machine)
 		IGS27_CRYPT6_ALT    // correct
 		IGS27_CRYPT7        // ?
 		IGS27_CRYPT8        // correct 12c0
-
-		src[i] ^= x;
-	}
-}
-
-
-void lhdmg_decrypt(running_machine &machine)
-{
-	memory_region *const region = machine.root_device().memregion("user1");
-	auto const src = util::little_endian_cast<u16>(reinterpret_cast<u32 *>(region->base()));
-	auto const rom_size = region->bytes();
-
-	for (int i = 0; i < rom_size / 2; i++)
-	{
-		uint16_t x = 0;
-
-		IGS27_CRYPT1
-		IGS27_CRYPT2_ALT
-		IGS27_CRYPT3
-		IGS27_CRYPT4
-		IGS27_CRYPT5
-		IGS27_CRYPT6_ALT
-		IGS27_CRYPT7
-		IGS27_CRYPT8
 
 		src[i] ^= x;
 	}
@@ -1894,6 +1870,76 @@ void extradrw_decrypt(running_machine &machine)
 		IGS27_CRYPT8_ALT
 
 		x |= (x << 8);
+		src[i] ^= x;
+	}
+}
+
+void cjddzlf_decrypt(running_machine &machine)
+{
+	memory_region *const region = machine.root_device().memregion("user1");
+	auto const src = util::little_endian_cast<u16>(reinterpret_cast<u32 *>(region->base()));
+	auto const rom_size = region->bytes();
+
+	for (int i = 0; i < rom_size / 2; i++)
+	{
+		uint16_t x = 0;
+
+		IGS27_CRYPT1_ALT
+		IGS27_CRYPT2
+		IGS27_CRYPT3_ALT2
+		IGS27_CRYPT4
+		IGS27_CRYPT5_ALT
+		IGS27_CRYPT6
+		IGS27_CRYPT7
+		IGS27_CRYPT8
+
+		src[i] ^= x;
+	}
+}
+
+void cjtljp_decrypt(running_machine &machine)
+{
+	memory_region *const region = machine.root_device().memregion("user1");
+	auto const src = util::little_endian_cast<u16>(reinterpret_cast<u32 *>(region->base()));
+	auto const rom_size = region->bytes();
+
+	for (int i = 0; i < rom_size / 2; i++)
+	{
+		uint16_t x = 0;
+
+		IGS27_CRYPT1
+		IGS27_CRYPT2
+		IGS27_CRYPT3
+		IGS27_CRYPT4_ALT
+		IGS27_CRYPT5_ALT
+		IGS27_CRYPT6_ALT
+		IGS27_CRYPT7
+		IGS27_CRYPT8_ALT
+
+		src[i] ^= x;
+	}
+}
+
+void mxsqy_decrypt(running_machine &machine)
+{
+	memory_region *const region = machine.root_device().memregion("user1");
+	auto const src = util::little_endian_cast<u16>(reinterpret_cast<u32 *>(region->base()));
+	auto const rom_size = region->bytes();
+
+	for (int i = 0; i < rom_size / 2; i++)
+	{
+		uint16_t x = 0;
+
+		// this part is the same as luckycrs
+		IGS27_CRYPT1_ALT
+		IGS27_CRYPT2
+		IGS27_CRYPT3
+		IGS27_CRYPT4_ALT
+		IGS27_CRYPT5_ALT
+		IGS27_CRYPT6_ALT
+		IGS27_CRYPT7
+		IGS27_CRYPT8_ALT
+
 		src[i] ^= x;
 	}
 }
