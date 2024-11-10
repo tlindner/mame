@@ -157,9 +157,13 @@ debug_view_lua::debug_view_lua(running_machine &machine, debug_view_osd_update_f
 	m_lua.get()->sol().set_function("view_set_area", &debug_view_lua::view_set_area, this);
     m_lua.get()->sol().set_function("view_set_xy", &debug_view_lua::view_set_xy, this);
     m_lua.get()->sol().set_function("view_print", &debug_view_lua::view_print, this);
+    m_lua.get()->sol().set_function("view_set_supports_cursor", &debug_view_lua::view_set_supports_cursor, this);
+    m_lua.get()->sol().set_function("view_set_cursor_visible", &debug_view_lua::view_set_cursor_visible, this);
+    m_lua.get()->sol().set_function("view_get_expression", &debug_view_lua::get_expression, this);
+    m_lua.get()->sol().set_function("view_get_value", &debug_view_lua::get_value, this);
 
 	// configure the view
-	report_error("No script loaded.\nChoose \"Load Script\" from above.");
+	report_error("Stopped.\n\nNo script loaded.\nChoose \"Load Script\" from above.");
 
 // 	m_supports_cursor = true;
 }
@@ -296,6 +300,23 @@ void debug_view_lua::enumerate_sources()
 
 void debug_view_lua::view_notify(debug_view_notification type)
 {
+    if (m_running == true)
+    {
+        sol::protected_function func = m_lua.get()->sol()["view_notify"];
+        sol::protected_function_result call_result = func(type);
+// 		fprintf(stderr, "func called\n");
+
+        if (!call_result.valid())
+        {
+            sol::error err = call_result;
+            sol::call_status status = call_result.status();
+            report_error("Stopped.\n\nError running Lua script: %s\nfunction: view_notify()\nerror: %s\nwhat: %s\n",
+                    m_script_path.c_str(),
+                    sol::to_string(status).c_str(),
+                    err.what());
+        }
+    }
+
 	if (type == VIEW_NOTIFY_CURSOR_CHANGED)
 	{
 		// normalize the cursor
@@ -508,7 +529,7 @@ void debug_view_lua::view_update()
         {
             sol::error err = call_result;
             sol::call_status status = call_result.status();
-            report_error("Error running view update %s:\n%s\nerror:\n%s\n",
+            report_error("Stopped.\n\nError running Lua script: %s\nfunction: view_update()\nerror: %s\nwhat: %s\n",
                     m_script_path.c_str(),
                     sol::to_string(status).c_str(),
                     err.what());
@@ -578,6 +599,23 @@ void debug_view_lua::view_update()
 
 void debug_view_lua::view_char(int chval)
 {
+    if (m_running == true)
+    {
+        sol::protected_function func = m_lua.get()->sol()["view_char"];
+        sol::protected_function_result call_result = func(chval);
+// 		fprintf(stderr, "func called\n");
+
+        if (!call_result.valid())
+        {
+            sol::error err = call_result;
+            sol::call_status status = call_result.status();
+            report_error("Stopped.\n\nError running Lua script: %s\nfunction: view_char()\nerror: %s\nwhat: %s\n",
+                    m_script_path.c_str(),
+                    sol::to_string(status).c_str(),
+                    err.what());
+        }
+    }
+
 // 	get the position
 // 	cursor_pos pos = get_cursor_pos(m_cursor);
 //
@@ -710,6 +748,22 @@ void debug_view_lua::view_click(const int button, const debug_view_xy& pos)
 // 	view_notify(VIEW_NOTIFY_CURSOR_CHANGED);
 // 	m_update_pending = true;
 // 	end_update();
+
+    if (m_running == true)
+    {
+        sol::protected_function func = m_lua.get()->sol()["view_click"];
+        sol::protected_function_result call_result = func(button, pos.x, pos.y);
+
+        if (!call_result.valid())
+        {
+            sol::error err = call_result;
+            sol::call_status status = call_result.status();
+            report_error("Stopped.\n\nError running Lua script: %s\nfunction: view_click()\nerror: %s\nwhat: %s\n",
+                    m_script_path.c_str(),
+                    sol::to_string(status).c_str(),
+                    err.what());
+        }
+    }
 }
 
 
@@ -1161,8 +1215,11 @@ void debug_view_lua::set_expression(const std::string &expression)
 
 void debug_view_lua::set_script(const char *script)
 {
-	std::string s(script);
-	set_script(s);
+// 	std::string s(script);
+// 	m_script_path = s;
+	m_script_path = script;
+	restart_script();
+// 	set_script(s);
 }
 
 
@@ -1171,19 +1228,25 @@ void debug_view_lua::set_script(const char *script)
 //  to find the script
 //-------------------------------------------------
 
-void debug_view_lua::set_script(const std::string &script)
+
+// void debug_view_lua::set_script(const std::string &script)
+// {
+// 	m_running = false;
+// 	m_script_path = script;
+// 	restart_script();
+// }
+
+
+//-------------------------------------------------
+//  restart_script - execute the script again
+//-------------------------------------------------
+
+void debug_view_lua::restart_script()
 {
-	fprintf( stderr, "C++ side: %s\n", script.c_str());
+	fprintf( stderr, "C++ side: %s\n", m_script_path.c_str());
 
-	// Stop existing script
-	m_running = false;
-	m_script_path = "";
-
-	if (!script.empty())
+	if (!m_script_path.empty())
 	{
-		// Open and start new script
-		m_script_path = script;
-
 // 		auto result = m_lua.get()->load_string( "" );
 		auto result = m_lua.get()->load_script(m_script_path);
 
@@ -1192,7 +1255,7 @@ void debug_view_lua::set_script(const std::string &script)
 			fprintf(stderr, "load error\n");
 			sol::error err = result;
 			sol::load_status status = result.status();
-			report_error("Error loading lua debug window %s:\n%s\nerror:\n%s\n",
+            report_error("Stopped.\n\nError loading Lua script: %s\nerror: %s\nwhat: %s\n",
 					m_script_path.c_str(),
 					sol::to_string(status).c_str(),
 					err.what());
@@ -1210,7 +1273,7 @@ void debug_view_lua::set_script(const std::string &script)
 			fprintf(stderr, "run error\n");
 			sol::error err = result2;
 			sol::call_status status = result2.status();
-			report_error("Error running lua debug window %s:\n%s\nerror:\n%s\n",
+            report_error("Stopped.\n\nError running Lua script: %s\nerror: %s\nwhat: %s\n",
 					m_script_path.c_str(),
 					sol::to_string(status).c_str(),
 					err.what());
@@ -1219,7 +1282,11 @@ void debug_view_lua::set_script(const std::string &script)
 
 		m_running = true;
 		force_update();
-
+	}
+	else
+	{
+		// empty path
+		report_error("Stopped.\n\nNo script loaded.\nChoose \"Load Script\" from above.");
 	}
 }
 

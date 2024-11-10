@@ -23,7 +23,8 @@
 
 - (NSSize)maximumFrameSize;
 
-- (NSString *)scriptRunning;
+// - (NSString *)scriptRunning;
+- (NSString *)scriptName;
 - (NSString *)selectedSubviewName;
 - (int)selectedSubviewIndex;
 - (void)selectSubviewAtIndex:(int)index;

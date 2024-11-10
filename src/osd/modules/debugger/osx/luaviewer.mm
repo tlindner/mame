@@ -28,7 +28,7 @@
 	NSPopUpButton   *actionButton;
 	NSRect          expressionFrame;
 
-	if (!(self = [super initWithMachine:m title:@"Memory" console:c]))
+	if (!(self = [super initWithMachine:m title:@"Lua" console:c]))
 		return nil;
 	NSRect const contentBounds = [[window contentView] bounds];
 	NSFont *const defaultFont = [[MAMEDebugView class] defaultFontForMachine:m];
@@ -114,7 +114,7 @@
 	[expressionField selectText:self];
 	[subviewButton selectItemAtIndex:[subviewButton indexOfItemWithTag:[luaView selectedSubviewIndex]]];
 	[window makeFirstResponder:expressionField];
-	[window setTitle:[NSString stringWithFormat:@"Lua: %@", [luaView scriptRunning]]];
+	[window setTitle:[NSString stringWithFormat:@"Lua: %@", [luaView scriptName]]];
 
 	// calculate the optimal size for everything
 	NSSize const desired = [NSScrollView frameSizeForContentSize:[luaView maximumFrameSize]
@@ -166,7 +166,7 @@
 - (BOOL)selectSubviewForDevice:(device_t *)device {
 	BOOL const result = [luaView selectSubviewForDevice:device];
 	[subviewButton selectItemAtIndex:[subviewButton indexOfItemWithTag:[luaView selectedSubviewIndex]]];
-	[window setTitle:[NSString stringWithFormat:@"Lua: %@", [luaView scriptRunning]]];
+	[window setTitle:[NSString stringWithFormat:@"Lua: %@", [luaView scriptName]]];
 	return result;
 }
 
@@ -174,14 +174,14 @@
 - (BOOL)selectSubviewForSpace:(address_space *)space {
 	BOOL const result = [luaView selectSubviewForSpace:space];
 	[subviewButton selectItemAtIndex:[subviewButton indexOfItemWithTag:[luaView selectedSubviewIndex]]];
-	[window setTitle:[NSString stringWithFormat:@"Lua: %@", [luaView scriptRunning]]];
+	[window setTitle:[NSString stringWithFormat:@"Lua: %@", [luaView scriptName]]];
 	return result;
 }
 
 
 - (IBAction)changeSubview:(id)sender {
 	[luaView selectSubviewAtIndex:[[sender selectedItem] tag]];
-	[window setTitle:[NSString stringWithFormat:@"Lua: %@", [luaView scriptRunning]]];
+	[window setTitle:[NSString stringWithFormat:@"Lua: %@", [luaView scriptName]]];
 }
 
 
@@ -197,9 +197,9 @@
 	[super restoreConfigurationFromNode:node];
 	int const region = node->get_attribute_int(osd::debugger::ATTR_WINDOW_MEMORY_REGION, [luaView selectedSubviewIndex]);
 	[luaView selectSubviewAtIndex:region];
-	[window setTitle:[NSString stringWithFormat:@"Lua: %@", [luaView scriptRunning]]];
 	[subviewButton selectItemAtIndex:[subviewButton indexOfItemWithTag:[luaView selectedSubviewIndex]]];
 	[luaView restoreConfigurationFromNode:node];
+	[window setTitle:[NSString stringWithFormat:@"Lua: %@", [luaView scriptName]]];
 }
 
 @end

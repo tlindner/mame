@@ -15,7 +15,7 @@
 
 #include "debugvw.h"
 
-#include "softfloat3/source/include/softfloat.h"
+//#include "softfloat3/source/include/softfloat.h"
 
 
 //**************************************************************************
@@ -99,9 +99,15 @@ public:
 
 	// setters
 	void set_expression(const std::string &expression);
+	const char *get_expression() { return m_expression.string(); }
+	u64 get_value() { return m_expression.value(); }
 	void set_script(const char *script);
-	void set_script(const std::string &script);
-	void set_running(bool run) {m_running = run; }
+// 	void set_script(const std::string &script);
+	void restart_script();
+	void set_running(bool run) { m_running = run; }
+	std::string get_path() { return m_script_path; }
+	void view_set_supports_cursor(bool support) { m_supports_cursor = support; }
+	void view_set_cursor_visible(bool visible) { m_cursor_visible = visible; }
 
 // 	void set_chunks_per_row(u32 rowchunks);
 // 	void set_data_format(data_format format);

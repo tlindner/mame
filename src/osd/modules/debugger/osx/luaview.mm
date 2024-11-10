@@ -29,25 +29,25 @@
 
 
 - (BOOL)validateMenuItem:(NSMenuItem *)item {
-	SEL                 action = [item action];
+// 	SEL                 action = [item action];
 // 	NSInteger           tag = [item tag];
- 	debug_view_lua   *luaview = downcast<debug_view_lua *>(view);
-
-	if (action == @selector(loadScript:))
-	{
-		[item setState:NSOnState];
-		return YES;
-	}
-	else if (action == @selector(reloadScript:))
-	{
-		[item setState:NSOnState];
-		return YES;
-	}
-	else if ( action == @selector(stopScript:))
-	{
-		[item setState:!luaview->running()];
-		return YES;
-	}
+//  	debug_view_lua   *luaview = downcast<debug_view_lua *>(view);
+//
+// 	if (action == @selector(loadScript:))
+// 	{
+// 		[item setState:NSOnState];
+// 		return YES;
+// 	}
+// 	else if (action == @selector(reloadScript:))
+// 	{
+// 		[item setState:NSOnState];
+// 		return YES;
+// 	}
+// 	else if ( action == @selector(stopScript:))
+// 	{
+// 		[item setState:!luaview->running()];
+// 		return YES;
+// 	}
 
 // 	if (action == @selector(showChunkSize:))
 // 	{
@@ -79,10 +79,10 @@
 // // 		[item setState:((memview->address_radix() == [item tag]) ? NSOnState : NSOffState)];
 // 		return YES;
 // 	}
-	else
-	{
+// 	else
+// 	{
 		return [super validateMenuItem:item];
-	}
+// 	}
 }
 
 
@@ -109,16 +109,22 @@
 	[self insertActionItemsInMenu:menu atIndex:[menu numberOfItems]];
 }
 
-- (NSString *)scriptRunning
+// - (NSString *)scriptRunning
+// {
+// 	if (downcast<debug_view_lua *>(view)->running())
+// 	{
+// 		return @"Running";
+// 	}
+// 	else
+// 	{
+// 		return @"Stopped";
+// 	}
+// }
+
+- (NSString *)scriptName
 {
-	if (downcast<debug_view_lua *>(view)->running())
-	{
-		return @"Running";
-	}
-	else
-	{
-		return @"Stopped";
-	}
+	std::string path = downcast<debug_view_lua *>(view)->get_path();
+	return [NSString stringWithCString:path.c_str() encoding:[NSString defaultCStringEncoding]];
 }
 
 - (NSString *)selectedSubviewName {
@@ -217,16 +223,19 @@
 
 			NSLog( @"File: %@", theScript );
 			NSString *stringPath = [theScript path];
-			std::string stdStringPath([stringPath cStringUsingEncoding: NSUTF8StringEncoding], [stringPath lengthOfBytesUsingEncoding: NSUTF8StringEncoding]);
-			downcast<debug_view_lua *>(view)->set_script(stdStringPath);
-		}
+// 			std::string stdStringPath([stringPath cStringUsingEncoding: NSUTF8StringEncoding], [stringPath lengthOfBytesUsingEncoding: NSUTF8StringEncoding]);
+// 			downcast<debug_view_lua *>(view)->set_script(stdStringPath);
+			downcast<debug_view_lua *>(view)->set_script([stringPath cStringUsingEncoding: NSUTF8StringEncoding]);
+ 		}
 	}];
 }
 
 - (IBAction)reloadScript:(id)sender {
+	downcast<debug_view_lua *>(view)->restart_script();
 }
 
 - (IBAction)stopScript:(id)sender {
+	downcast<debug_view_lua *>(view)->set_running(false);
 }
 
 - (IBAction)showChunkSize:(id)sender {
