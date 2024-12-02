@@ -161,6 +161,7 @@ debug_view_lua::debug_view_lua(running_machine &machine, debug_view_osd_update_f
     m_lua.get()->sol().set_function("view_set_cursor_visible", &debug_view_lua::view_set_cursor_visible, this);
     m_lua.get()->sol().set_function("view_get_expression", &debug_view_lua::get_expression, this);
     m_lua.get()->sol().set_function("view_get_value", &debug_view_lua::get_value, this);
+	m_lua.get()->sol().set_function("view_source",  &debug_view_lua::source, this);)
 
 	// configure the view
 	report_error("Stopped.\n\nNo script loaded.\nChoose \"Load Script\" from above.");
