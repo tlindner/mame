@@ -62,6 +62,7 @@ protected:
 			bool supports_partial_body_scanlines, bool pal);
 
 	// fonts
+	virtual const tiny_rom_entry *device_rom_region() const override ATTR_COLD;
 	static const uint8_t vdg_t1_fontdata8x12[];
 	static const uint8_t vdg_fontdata8x12[];
 	static const uint8_t semigraphics4_fontdata8x12[];
@@ -255,6 +256,7 @@ protected:
 	get_char_rom_delegate m_charrom_cb;
 
 	// incidentals
+	required_memory_region m_mask_rom;
 	character_map m_character_map;
 	artifacter m_artifacter;
 

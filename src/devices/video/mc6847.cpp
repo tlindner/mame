@@ -180,6 +180,7 @@ mc6847_friend_device::mc6847_friend_device(const machine_config &mconfig, device
 	, m_write_hsync(*this)
 	, m_write_fsync(*this)
 	, m_charrom_cb(*this)
+	, m_mask_rom(*this, "charrom")
 	, m_character_map(fontdata, is_mc6847t1)
 	, m_tpfs(tpfs)
 	, m_divider(divider)
@@ -195,6 +196,16 @@ mc6847_friend_device::mc6847_friend_device(const machine_config &mconfig, device
 }
 
 
+ROM_START( mc6847 )
+	ROM_REGION( 0x0118, "charrom", 0 )
+	ROM_LOAD("mc6847.bin", 0x0000, 0x0118, CRC(3b22d071) SHA1(5e9d68e55e73cae3d28adaff34fe115e00029009)) // verified both from datasheet patrial listing and decap
+ROM_END
+
+
+const tiny_rom_entry *mc6847_friend_device::device_rom_region() const
+{
+	return ROM_NAME(mc6847);
+}
 
 //-------------------------------------------------
 //  device_start - device-specific startup
