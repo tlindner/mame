@@ -193,19 +193,10 @@ mc6847_friend_device::mc6847_friend_device(const machine_config &mconfig, device
 {
 	// Note: field_sync_falling_edge_scanline is parameterized because the MC6847
 	// and the GIME apply field sync on different scanlines
+
+	fprintf(stderr, "mc6847_friend_device constructor\n");
 }
 
-
-ROM_START( mc6847 )
-	ROM_REGION( 0x0118, "charrom", 0 )
-	ROM_LOAD("mc6847.bin", 0x0000, 0x0118, CRC(3b22d071) SHA1(5e9d68e55e73cae3d28adaff34fe115e00029009)) // verified both from datasheet patrial listing and decap
-ROM_END
-
-
-const tiny_rom_entry *mc6847_friend_device::device_rom_region() const
-{
-	return ROM_NAME(mc6847);
-}
 
 //-------------------------------------------------
 //  device_start - device-specific startup
@@ -1059,6 +1050,9 @@ uint32_t mc6847_base_device::screen_update(screen_device &screen, bitmap_rgb32 &
 
 mc6847_friend_device::character_map::character_map(const uint8_t *text_fontdata, bool is_mc6847t1)
 {
+	fprintf(stderr, "character_map constructor\n");
+	m_text_fontdata[0] = 0;
+
 	int mode, i;
 
 	// set up font data
@@ -1748,6 +1742,30 @@ void mc6847_base_device::artifacter::create_color_blend_table( const pixel_t *pa
 	m_palcolorblendmap.insert(std::pair<std::pair<pixel_t,pixel_t>,pixel_t>(std::pair<pixel_t,pixel_t>(palette[7],palette[0]),rgb_t(0xad, 0xbc, 0x22))); /* ORANGE-GREEN */
 }
 
+
+//**************************************************************************
+//  ROMs
+//**************************************************************************
+
+ROM_START( mc6847 )
+	ROM_REGION( 0x0118, "charrom", 0 )
+	// verified both from datasheet patrial listing and decap
+	ROM_LOAD("mc6847.bin", 0x0000, 0x0118, CRC(3b22d071) SHA1(5e9d68e55e73cae3d28adaff34fe115e00029009))
+ROM_END
+
+ROM_START( mc6847t1 )
+	ROM_REGION( 0x0195, "charrom", 0 )
+	// Created by hand using same format as 6847
+	ROM_LOAD("mc6847t1.bin", 0x0000, 0x0195, NO_DUMP CRC(0) SHA1(0))
+ROM_END
+
+ROM_START( s68047 )
+	ROM_REGION( 0x0118, "charrom", 0 )
+	// Created by hand using same format as 6847
+	ROM_LOAD("s68047.bin", 0x0000, 0x0118, NO_DUMP CRC(0) SHA1(0))
+ROM_END
+
+
 //**************************************************************************
 //  VARIATIONS
 //**************************************************************************
@@ -1772,6 +1790,11 @@ mc6847_ntsc_device::mc6847_ntsc_device(const machine_config &mconfig, const char
 {
 }
 
+const tiny_rom_entry *mc6847_ntsc_device::device_rom_region() const
+{
+	return ROM_NAME(mc6847);
+}
+
 
 
 //-------------------------------------------------
@@ -1782,6 +1805,11 @@ mc6847_pal_device::mc6847_pal_device(const machine_config &mconfig, const char *
 	: mc6847_base_device(mconfig, MC6847_PAL, tag, owner, clock, vdg_fontdata8x12, 312.0, true)
 {
 	m_artifacter.set_pal_artifacting(true);
+}
+
+const tiny_rom_entry *mc6847_pal_device::device_rom_region() const
+{
+	return ROM_NAME(mc6847);
 }
 
 
@@ -1795,6 +1823,11 @@ mc6847y_ntsc_device::mc6847y_ntsc_device(const machine_config &mconfig, const ch
 {
 }
 
+const tiny_rom_entry *mc6847y_ntsc_device::device_rom_region() const
+{
+	return ROM_NAME(mc6847);
+}
+
 
 
 //-------------------------------------------------
@@ -1805,6 +1838,11 @@ mc6847y_pal_device::mc6847y_pal_device(const machine_config &mconfig, const char
 	: mc6847_base_device(mconfig, MC6847Y_PAL, tag, owner, clock, vdg_fontdata8x12, 312.0, true)
 {
 	m_artifacter.set_pal_artifacting(true);
+}
+
+const tiny_rom_entry *mc6847y_pal_device::device_rom_region() const
+{
+	return ROM_NAME(mc6847);
 }
 
 
@@ -1842,6 +1880,11 @@ uint8_t mc6847t1_ntsc_device::border_value(uint8_t mode)
 	}
 }
 
+const tiny_rom_entry *mc6847t1_ntsc_device::device_rom_region() const
+{
+	return ROM_NAME(mc6847);
+}
+
 
 
 //-------------------------------------------------
@@ -1852,6 +1895,11 @@ mc6847t1_pal_device::mc6847t1_pal_device(const machine_config &mconfig, const ch
 	: mc6847t1_ntsc_device(mconfig, MC6847T1_PAL, tag, owner, clock, vdg_t1_fontdata8x12, 312.0, true)
 {
 	m_artifacter.set_pal_artifacting(true);
+}
+
+const tiny_rom_entry *mc6847t1_pal_device::device_rom_region() const
+{
+	return ROM_NAME(mc6847);
 }
 
 
@@ -1926,6 +1974,11 @@ uint32_t s68047_device::emit_samples(uint8_t mode, const uint8_t *data, int leng
 		return emit_mc6847_samples<1>(mode, data, length, pixels, palette, get_char_rom, x, y);
 }
 
+const tiny_rom_entry *s68047_device::device_rom_region() const
+{
+	return ROM_NAME(mc6847);
+}
+
 
 
 //-------------------------------------------------
@@ -1935,4 +1988,9 @@ uint32_t s68047_device::emit_samples(uint8_t mode, const uint8_t *data, int leng
 m5c6847p1_device::m5c6847p1_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock)
 	: mc6847_base_device(mconfig, M5C6847P1, tag, owner, clock, vdg_fontdata8x12, 262.5, false)
 {
+}
+
+const tiny_rom_entry *m5c6847p1_device::device_rom_region() const
+{
+	return ROM_NAME(mc6847);
 }

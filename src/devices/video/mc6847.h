@@ -62,13 +62,12 @@ protected:
 			bool supports_partial_body_scanlines, bool pal);
 
 	// fonts
-	virtual const tiny_rom_entry *device_rom_region() const override ATTR_COLD;
 	static const uint8_t vdg_t1_fontdata8x12[];
 	static const uint8_t vdg_fontdata8x12[];
 	static const uint8_t semigraphics4_fontdata8x12[];
 	static const uint8_t semigraphics6_fontdata8x12[];
 	static const uint8_t s68047_fontdata8x12[];
-	static const uint8_t stripes[];
+// 	static const uint8_t stripes[];
 
 	// pixel definitions
 	typedef uint32_t pixel_t;
@@ -143,6 +142,7 @@ protected:
 		entry m_entries[128];
 
 		// text font data calculated on startup
+		uint8_t m_text_fontdata[96*12];
 		uint8_t m_text_fontdata_inverse[64*12];
 		uint8_t m_text_fontdata_lower_case[64*12];
 		uint8_t m_text_fontdata_lower_case_inverse[64*12];
@@ -609,24 +609,32 @@ class mc6847_ntsc_device : public mc6847_base_device
 {
 public:
 	mc6847_ntsc_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
+protected:
+	virtual const tiny_rom_entry *device_rom_region() const override ATTR_COLD;
 };
 
 class mc6847_pal_device : public mc6847_base_device
 {
 public:
 	mc6847_pal_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
+protected:
+	virtual const tiny_rom_entry *device_rom_region() const override ATTR_COLD;
 };
 
 class mc6847y_ntsc_device : public mc6847_base_device
 {
 public:
 	mc6847y_ntsc_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
+protected:
+	virtual const tiny_rom_entry *device_rom_region() const override ATTR_COLD;
 };
 
 class mc6847y_pal_device : public mc6847_base_device
 {
 public:
 	mc6847y_pal_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
+protected:
+	virtual const tiny_rom_entry *device_rom_region() const override ATTR_COLD;
 };
 
 class mc6847t1_ntsc_device : public mc6847_base_device
@@ -638,12 +646,16 @@ protected:
 	mc6847t1_ntsc_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock, const uint8_t *fontdata, double tpfs, bool pal);
 
 	virtual uint8_t border_value(uint8_t mode) override;
+protected:
+	virtual const tiny_rom_entry *device_rom_region() const override ATTR_COLD;
 };
 
 class mc6847t1_pal_device : public mc6847t1_ntsc_device
 {
 public:
 	mc6847t1_pal_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
+protected:
+	virtual const tiny_rom_entry *device_rom_region() const override ATTR_COLD;
 };
 
 class s68047_device : public mc6847_base_device
@@ -659,6 +671,8 @@ protected:
 	virtual void record_body_scanline(uint8_t mode, uint16_t physical_scanline, uint16_t scanline, int32_t start_pos, int32_t end_pos) override;
 	virtual uint8_t border_value(uint8_t mode) override;
 
+	virtual const tiny_rom_entry *device_rom_region() const override ATTR_COLD;
+
 private:
 	static const uint32_t s_s68047_palette[16];
 };
@@ -667,6 +681,8 @@ class m5c6847p1_device : public mc6847_base_device
 {
 public:
 	m5c6847p1_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
+protected:
+	virtual const tiny_rom_entry *device_rom_region() const override ATTR_COLD;
 };
 
 
