@@ -173,7 +173,7 @@ const uint32_t mc6847_base_device::s_palette[mc6847_base_device::PALETTE_LENGTH]
 //-------------------------------------------------
 
 mc6847_friend_device::mc6847_friend_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock,
-		const uint8_t *fontdata, bool is_mc6847t1, double tpfs, int field_sync_falling_edge_scanline, int divider,
+		bool is_mc6847t1, double tpfs, int field_sync_falling_edge_scanline, int divider,
 		bool supports_partial_body_scanlines, bool pal)
 	: device_t(mconfig, type, tag, owner, clock)
 	, device_video_interface(mconfig, *this)
@@ -181,7 +181,7 @@ mc6847_friend_device::mc6847_friend_device(const machine_config &mconfig, device
 	, m_write_fsync(*this)
 	, m_charrom_cb(*this)
 	, m_mask_rom(*this, "charrom")
-	, m_character_map(fontdata, is_mc6847t1)
+	, m_character_map(is_mc6847t1)
 	, m_tpfs(tpfs)
 	, m_divider(divider)
 	, m_field_sync_falling_edge_scanline(pal ? field_sync_falling_edge_scanline + LINES_PADDING_TOP_PAL : field_sync_falling_edge_scanline)
@@ -623,7 +623,7 @@ mc6847_base_device::mc6847_base_device(
 		const uint8_t *fontdata,
 		double tpfs,
 		bool pal) :
-	mc6847_friend_device(mconfig, type, tag, owner, clock, fontdata, (type == MC6847T1_NTSC) || (type == MC6847T1_PAL),
+	mc6847_friend_device(mconfig, type, tag, owner, clock, (type == MC6847T1_NTSC) || (type == MC6847T1_PAL),
 		tpfs, LINES_TOP_BORDER + LINES_ACTIVE_VIDEO - 1, 1, true, pal),
 	m_input_cb(*this, 0),
 	m_black_and_white(false),
@@ -1048,7 +1048,7 @@ uint32_t mc6847_base_device::screen_update(screen_device &screen, bitmap_rgb32 &
 //  CHARACTER MAP
 //**************************************************************************
 
-mc6847_friend_device::character_map::character_map(const uint8_t *text_fontdata, bool is_mc6847t1)
+mc6847_friend_device::character_map::character_map(bool is_mc6847t1)
 {
 	fprintf(stderr, "character_map constructor\n");
 	m_text_fontdata[0] = 0;
@@ -1058,8 +1058,8 @@ mc6847_friend_device::character_map::character_map(const uint8_t *text_fontdata,
 	// set up font data
 	for (i = 0; i < 64*12; i++)
 	{
-		m_text_fontdata_inverse[i]              = text_fontdata[i] ^ 0xFF;
-		m_text_fontdata_lower_case[i]           = text_fontdata[i + (i < 32*12 ? 64*12 : 0)] ^ (i < 32*12 ? 0xFF : 0x00);
+		m_text_fontdata_inverse[i]              = m_text_fontdata[i] ^ 0xFF;
+		m_text_fontdata_lower_case[i]           = m_text_fontdata[i + (i < 32*12 ? 64*12 : 0)] ^ (i < 32*12 ? 0xFF : 0x00);
 		m_text_fontdata_lower_case_inverse[i]   = m_text_fontdata_lower_case[i] ^ 0xFF;
 	}
 	for (int i = 0; i < 128*12; i++)
@@ -1115,7 +1115,7 @@ mc6847_friend_device::character_map::character_map(const uint8_t *text_fontdata,
 			bool is_inverse     = (is_inverse1 && !is_inverse2) || (!is_inverse1 && is_inverse2);
 			fontdata            = is_inverse
 									? (is_lower_case ? m_text_fontdata_lower_case_inverse : m_text_fontdata_inverse)
-									: (is_lower_case ? m_text_fontdata_lower_case : text_fontdata);
+									: (is_lower_case ? m_text_fontdata_lower_case : m_text_fontdata);
 			character_mask      = 0x3F;
 			color_base_0        = (mode & MODE_CSS ? 14 : 12);
 			color_base_1        = (mode & MODE_CSS ? 15 : 13);
