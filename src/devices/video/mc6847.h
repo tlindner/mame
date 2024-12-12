@@ -62,12 +62,8 @@ protected:
 			bool supports_partial_body_scanlines, bool pal);
 
 	// fonts
-	static const uint8_t vdg_t1_fontdata8x12[];
-	static const uint8_t vdg_fontdata8x12[];
 	static const uint8_t semigraphics4_fontdata8x12[];
 	static const uint8_t semigraphics6_fontdata8x12[];
-	static const uint8_t s68047_fontdata8x12[];
-// 	static const uint8_t stripes[];
 
 	// pixel definitions
 	typedef uint32_t pixel_t;
@@ -83,77 +79,72 @@ protected:
 		return mode & ~((mode & MODE_AG) ? (MODE_AS | MODE_INV) : 0);
 	}
 
-	// internal class that represents a MC6847 character map
-	class character_map
-	{
 	public:
-		// constructor that sets up the font data
-		character_map(bool is_mc6847t1);
-
-		// optimized template function that emits a single character
-		template<int xscale>
-		ATTR_FORCE_INLINE void emit_character(uint8_t mode, const uint8_t *data, int length, pixel_t *RESTRICT pixels, int y, const pixel_t *palette)
+	// optimized template function that emits a single character
+	template<int xscale>
+	ATTR_FORCE_INLINE void emit_character(uint8_t mode, const uint8_t *data, int length, pixel_t *RESTRICT pixels, int y, const pixel_t *palette)
+	{
+		for (int i = 0; i < length; i++)
 		{
-			for (int i = 0; i < length; i++)
+			// get the character
+			uint8_t character = data[i];
+
+			// based on the mode, determine which entry to use
+			const entry *e = &m_entries[mode % std::size(m_entries)];
+
+			// identify the character in the font data
+			const uint8_t *font_character = e->m_fontdata + (character & e->m_character_mask) * 12;
+
+			// get the particular slice out
+			uint8_t font_character_slice = font_character[y % 12];
+
+			// get the two colors
+			uint16_t color_base_0 = e->m_color_base_0 + ((character >> e->m_color_shift_0) & e->m_color_mask_0);
+			uint16_t color_base_1 = e->m_color_base_1 + ((character >> e->m_color_shift_1) & e->m_color_mask_1);
+			pixel_t color_0 = palette[color_base_0];
+			pixel_t color_1 = palette[color_base_1];
+
+			// emit the bits
+			for (int j = 0; j < 8; j++)
 			{
-				// get the character
-				uint8_t character = data[i];
-
-				// based on the mode, determine which entry to use
-				const entry *e = &m_entries[mode % std::size(m_entries)];
-
-				// identify the character in the font data
-				const uint8_t *font_character = e->m_fontdata + (character & e->m_character_mask) * 12;
-
-				// get the particular slice out
-				uint8_t font_character_slice = font_character[y % 12];
-
-				// get the two colors
-				uint16_t color_base_0 = e->m_color_base_0 + ((character >> e->m_color_shift_0) & e->m_color_mask_0);
-				uint16_t color_base_1 = e->m_color_base_1 + ((character >> e->m_color_shift_1) & e->m_color_mask_1);
-				pixel_t color_0 = palette[color_base_0];
-				pixel_t color_1 = palette[color_base_1];
-
-				// emit the bits
-				for (int j = 0; j < 8; j++)
+				for (int k = 0; k < xscale; k++)
 				{
-					for (int k = 0; k < xscale; k++)
-					{
-						pixels[(i * 8 + j) * xscale + k] = bit_test(font_character_slice, j, color_0, color_1);
-					}
+					pixels[(i * 8 + j) * xscale + k] = bit_test(font_character_slice, j, color_0, color_1);
 				}
 			}
 		}
+	}
 
 	private:
-		struct entry
-		{
-			const uint8_t *m_fontdata;
-			uint8_t m_character_mask;
-			uint8_t m_color_shift_0;
-			uint8_t m_color_shift_1;
-			uint8_t m_color_mask_0;
-			uint8_t m_color_mask_1;
-			uint16_t m_color_base_0;
-			uint16_t m_color_base_1;
-		};
-
-		// lookup table for MC6847 modes to determine font data and color
-		entry m_entries[128];
-
-		// text font data calculated on startup
-		uint8_t m_text_fontdata[96*12];
-		uint8_t m_text_fontdata_inverse[64*12];
-		uint8_t m_text_fontdata_lower_case[64*12];
-		uint8_t m_text_fontdata_lower_case_inverse[64*12];
-		uint8_t m_stripes[128*12];
-
-		// optimized function that tests a single bit
-		ATTR_FORCE_INLINE pixel_t bit_test(uint8_t data, int shift, pixel_t color_0, pixel_t color_1)
-		{
-			return data & (0x80 >> shift) ? color_1 : color_0;
-		}
+	struct entry
+	{
+		const uint8_t *m_fontdata;
+		uint8_t m_character_mask;
+		uint8_t m_color_shift_0;
+		uint8_t m_color_shift_1;
+		uint8_t m_color_mask_0;
+		uint8_t m_color_mask_1;
+		uint16_t m_color_base_0;
+		uint16_t m_color_base_1;
 	};
+
+	// lookup table for MC6847 modes to determine font data and color
+	entry m_entries[128];
+
+	// text font data calculated on startup
+	uint8_t m_text_fontdata[96*12];
+	uint8_t m_text_fontdata_inverse[64*12];
+	uint8_t m_text_fontdata_lower_case[64*12];
+	uint8_t m_text_fontdata_lower_case_inverse[64*12];
+	uint8_t m_stripes[128*12];
+
+	// optimized function that tests a single bit
+	ATTR_FORCE_INLINE pixel_t bit_test(uint8_t data, int shift, pixel_t color_0, pixel_t color_1)
+	{
+		return data & (0x80 >> shift) ? color_1 : color_0;
+	}
+
+protected:
 
 	// artificater internal class
 	class artifacter
@@ -257,7 +248,6 @@ protected:
 
 	// incidentals
 	required_memory_region m_mask_rom;
-	character_map m_character_map;
 	artifacter m_artifacter;
 
 	// device-level overrides
@@ -413,7 +403,7 @@ protected:
 		else
 		{
 			/* text/semigraphics */
-			m_character_map.emit_character<xscale>(mode, data, length, pixels, y, palette);
+			emit_character<xscale>(mode, data, length, pixels, y, palette);
 			result = length * 8 * xscale;
 		}
 		return result;
@@ -507,7 +497,7 @@ public:
 	void set_palette(const uint32_t *palette) { m_palette = (palette) ? palette : default_palette(); }
 
 protected:
-	mc6847_base_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock, const uint8_t *fontdata, double tpfs, bool pal);
+	mc6847_base_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock, double tpfs, bool pal);
 
 	// device-level overrides
 	virtual void device_config_complete() override;
@@ -643,7 +633,7 @@ public:
 	mc6847t1_ntsc_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
 protected:
-	mc6847t1_ntsc_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock, const uint8_t *fontdata, double tpfs, bool pal);
+	mc6847t1_ntsc_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock, double tpfs, bool pal);
 
 	virtual uint8_t border_value(uint8_t mode) override;
 protected:
