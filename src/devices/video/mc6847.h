@@ -58,7 +58,7 @@ public:
 
 protected:
 	mc6847_friend_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock,
-			bool is_mc6847t1, double tpfs, int field_sync_falling_edge_scanline, int divider,
+			double tpfs, int field_sync_falling_edge_scanline, int divider,
 			bool supports_partial_body_scanlines, bool pal);
 
 	// fonts

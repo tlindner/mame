@@ -173,7 +173,7 @@ const uint32_t mc6847_base_device::s_palette[mc6847_base_device::PALETTE_LENGTH]
 //-------------------------------------------------
 
 mc6847_friend_device::mc6847_friend_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock,
-		bool is_mc6847t1, double tpfs, int field_sync_falling_edge_scanline, int divider,
+		double tpfs, int field_sync_falling_edge_scanline, int divider,
 		bool supports_partial_body_scanlines, bool pal)
 	: device_t(mconfig, type, tag, owner, clock)
 	, device_video_interface(mconfig, *this)
@@ -193,46 +193,62 @@ mc6847_friend_device::mc6847_friend_device(const machine_config &mconfig, device
 	// Note: field_sync_falling_edge_scanline is parameterized because the MC6847
 	// and the GIME apply field sync on different scanlines
 
-	int rom_character_count, horiz_offset, vert_offset, width, height, position;
 
+}
+
+
+//-------------------------------------------------
+//  device_start - device-specific startup
+//-------------------------------------------------
+
+void mc6847_friend_device::device_start()
+{
+	int rom_character_count, horiz_offset, vert_offset, width, height, position;
+	bool is_mc6847t1;
+
+	memset(m_text_fontdata, 0, std::size(m_text_fontdata));
+
+	// convert rom characters to 8x12 matrix
 	switch(m_mask_rom->bytes() )
 	{
 		case 280:
+			is_mc6847t1 = false;
 			rom_character_count = 64;
-			horiz_offset = 3;
 			vert_offset = 2;
+			horiz_offset = 3;
 			width = 5;
 			height = 7;
 			break;
 
-		case 405:
+		case 540:
+			is_mc6847t1 = true;
 			rom_character_count = 96;
-			horiz_offset = 1;
-			vert_offset = 2;
+			vert_offset = 1;
+			horiz_offset = 2;
 			width = 5;
 			height = 9;
+			break;
 
 		default:
 			fatalerror("Unsupported ROM size\n");
 			break;
-
 	}
 
 	uint8_t mask, *out_buf = m_mask_rom->base();
 	int row_span = (rom_character_count / 8);
 	int group_span = row_span * height;
 
-	for( int h=0; h<width; h++ )
+	for (int h=0; h<width; h++)
 	{
 		mask = 0x01<<(h+(8-(horiz_offset+width)));
 
-		for( int i=0; i<height; i++ )
+		for (int i=0; i<height; i++)
 		{
 			position = i;
-			for( int j=0; j<row_span; j++ )
+			for (int j=0; j<row_span; j++)
 			{
 				uint8_t value = out_buf[h*group_span+(i*row_span)+j];
-				for( uint8_t k=0x80; k!=0; k>>=1)
+				for (uint8_t k=0x80; k!=0; k>>=1)
 				{
 					if ((value & k)) m_text_fontdata[vert_offset+position] |= mask;
 					position += 12;
@@ -241,10 +257,8 @@ mc6847_friend_device::mc6847_friend_device(const machine_config &mconfig, device
 		}
 	}
 
-	int mode, i;
-
 	// set up font data
-	for (i = 0; i < 64*12; i++)
+	for (int i = 0; i < 64*12; i++)
 	{
 		m_text_fontdata_inverse[i]              = m_text_fontdata[i] ^ 0xFF;
 		m_text_fontdata_lower_case[i]           = m_text_fontdata[i + (i < 32*12 ? 64*12 : 0)] ^ (i < 32*12 ? 0xFF : 0x00);
@@ -255,7 +269,7 @@ mc6847_friend_device::mc6847_friend_device(const machine_config &mconfig, device
 		m_stripes[i] = ~(i / 12);
 
 	// loop through all modes
-	for (mode = 0; mode < std::size(m_entries); mode++)
+	for (int mode = 0; mode < std::size(m_entries); mode++)
 	{
 		const uint8_t *fontdata;
 		uint8_t character_mask;
@@ -322,15 +336,6 @@ mc6847_friend_device::mc6847_friend_device(const machine_config &mconfig, device
 		m_entries[mode].m_color_base_1      = color_base_1;
 	}
 
-}
-
-
-//-------------------------------------------------
-//  device_start - device-specific startup
-//-------------------------------------------------
-
-void mc6847_friend_device::device_start()
-{
 	/* create the timers */
 	m_hsync_on_timer = timer_alloc(FUNC(mc6847_friend_device::change_horizontal_sync), this);
 	m_hsync_off_timer = timer_alloc(FUNC(mc6847_friend_device::change_horizontal_sync), this);
@@ -749,8 +754,7 @@ mc6847_base_device::mc6847_base_device(
 		uint32_t clock,
 		double tpfs,
 		bool pal) :
-	mc6847_friend_device(mconfig, type, tag, owner, clock, (type == MC6847T1_NTSC) || (type == MC6847T1_PAL),
-		tpfs, LINES_TOP_BORDER + LINES_ACTIVE_VIDEO - 1, 1, true, pal),
+	mc6847_friend_device(mconfig, type, tag, owner, clock, tpfs, LINES_TOP_BORDER + LINES_ACTIVE_VIDEO - 1, 1, true, pal),
 	m_input_cb(*this, 0),
 	m_black_and_white(false),
 	m_fixed_mode(0),
@@ -1463,15 +1467,15 @@ ROM_START( mc6847 )
 ROM_END
 
 ROM_START( mc6847t1 )
-	ROM_REGION( 0x0195, "charrom", 0 )
+	ROM_REGION( 0x021c, "charrom", 0 )
 	// Created by hand using same format as 6847
-	ROM_LOAD("mc6847t1.bin", 0x0000, 0x0195, NO_DUMP CRC(0) SHA1(0))
+	ROM_LOAD("mc6847t1.bin", 0x0000, 0x021c, CRC(c79cd02c) SHA1(69ec713ace8422d572c1c1c6036a727011b0443a))
 ROM_END
 
 ROM_START( s68047 )
 	ROM_REGION( 0x0118, "charrom", 0 )
 	// Created by hand using same format as 6847
-	ROM_LOAD("s68047.bin", 0x0000, 0x0118, NO_DUMP CRC(0) SHA1(0))
+	ROM_LOAD("s68047.bin", 0x0000, 0x0118, CRC(0) SHA1(0))
 ROM_END
 
 

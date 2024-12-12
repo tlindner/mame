@@ -141,7 +141,7 @@
 //-------------------------------------------------
 
 gime_device::gime_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock, const uint8_t *fontdata, bool pal)
-	: mc6847_friend_device(mconfig, type, tag, owner, clock, true, 262, 25+192+26+1, 8, false, pal)
+	: mc6847_friend_device(mconfig, type, tag, owner, clock, 262, 25+192+26+1, 8, false, pal)
 	, sam6883_friend_device_interface(mconfig, *this, 8)
 	, m_write_irq(*this)
 	, m_write_firq(*this)
