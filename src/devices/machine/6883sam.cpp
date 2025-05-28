@@ -93,6 +93,8 @@ sam6883_device::sam6883_device(const machine_config &mconfig, const char *tag, d
 	: device_t(mconfig, SAM6883, tag, owner, clock)
 	, device_memory_interface(mconfig, *this)
 	, sam6883_friend_device_interface(mconfig, *this, 4)
+	, m_ram(*this, finder_base::DUMMY_TAG)
+	, m_cart_device(*this, finder_base::DUMMY_TAG)
 	, m_ram_config("ram", ENDIANNESS_BIG, 8, 16, 0)
 	, m_rom0_config("rom0", ENDIANNESS_BIG, 8, 13, 0)
 	, m_rom1_config("rom1", ENDIANNESS_BIG, 8, 13, 0)

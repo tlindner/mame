@@ -516,16 +516,6 @@ void coco12_state::coco(machine_config &config)
 	m_pia_1->irqa_handler().set(m_firqs, FUNC(input_merger_device::in_w<0>));
 	m_pia_1->irqb_handler().set(m_firqs, FUNC(input_merger_device::in_w<1>));
 
-	SAM6883(config, m_sam, XTAL(14'318'181), m_maincpu);
-	m_sam->set_addrmap(0, &coco12_state::coco_ram);
-	m_sam->set_addrmap(1, &coco12_state::coco_rom0);
-	m_sam->set_addrmap(2, &coco12_state::coco_rom1);
-	m_sam->set_addrmap(3, &coco12_state::coco_rom2);
-	m_sam->set_addrmap(4, &coco12_state::coco_io0);
-	m_sam->set_addrmap(5, &coco12_state::coco_io1);
-	m_sam->set_addrmap(6, &coco12_state::coco_io2);
-	m_sam->set_addrmap(7, &coco12_state::coco_ff60);
-
 	// Becker Port device
 	COCO_DWSOCK(config, m_beckerport, 0);
 
@@ -560,6 +550,16 @@ void coco12_state::coco(machine_config &config)
 	m_cococart->cart_callback().set([this] (int state) { cart_w(state != 0); }); // lambda because name is overloaded
 	m_cococart->nmi_callback().set_inputline(m_maincpu, INPUT_LINE_NMI);
 	m_cococart->halt_callback().set_inputline(m_maincpu, INPUT_LINE_HALT);
+
+	SAM6883(config, m_sam, XTAL(14'318'181), m_maincpu, m_ram, m_cococart);
+	m_sam->set_addrmap(0, &coco12_state::coco_ram);
+	m_sam->set_addrmap(1, &coco12_state::coco_rom0);
+	m_sam->set_addrmap(2, &coco12_state::coco_rom1);
+	m_sam->set_addrmap(3, &coco12_state::coco_rom2);
+	m_sam->set_addrmap(4, &coco12_state::coco_io0);
+	m_sam->set_addrmap(5, &coco12_state::coco_io1);
+	m_sam->set_addrmap(6, &coco12_state::coco_io2);
+	m_sam->set_addrmap(7, &coco12_state::coco_ff60);
 
 	// software lists
 	SOFTWARE_LIST(config, "coco_cart_list").set_original("coco_cart").set_filter("COCO");

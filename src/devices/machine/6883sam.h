@@ -18,6 +18,9 @@
 //  SAM6883 CORE
 //**************************************************************************
 
+#include "machine/ram.h"
+#include "bus/coco/cococart.h"
+
 // base class so that GIME emulation can use some functionality
 class sam6883_friend_device_interface : public device_interface
 {
@@ -81,11 +84,13 @@ protected:
 class sam6883_device : public device_t, public device_memory_interface, public sam6883_friend_device_interface
 {
 public:
-	template <typename T>
-	sam6883_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock, T &&cpu_tag)
+	template <typename T, typename U, typename V>
+	sam6883_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock, T &&cpu_tag, U &&ram_tag, V &&cart_tag)
 		: sam6883_device(mconfig, tag, owner, clock)
 	{
 		m_cpu.set_tag(std::forward<T>(cpu_tag));
+		m_ram.set_tag(std::forward<U>(ram_tag));
+		m_cart_device.set_tag(std::forward<V>(cart_tag));
 	}
 
 	sam6883_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
@@ -129,6 +134,9 @@ protected:
 	virtual space_config_vector memory_space_config() const override;
 
 private:
+	required_device<ram_device> m_ram;
+	optional_device<cococart_slot_device> m_cart_device;
+
 	// memory space configuration
 	address_space_config        m_ram_config;
 	address_space_config        m_rom0_config;
