@@ -123,6 +123,7 @@ public:
 	}
 
 	void hs_w(int state);
+	void sam_mem(address_map &map) ATTR_COLD;
 
 protected:
 	// device-level overrides
@@ -136,6 +137,9 @@ protected:
 private:
 	required_device<ram_device> m_ram;
 	optional_device<cococart_slot_device> m_cart_device;
+	required_device<memory_view> m_ram_view;
+	required_device<memory_view> m_rom_view;
+	required_device<memory_view> m_io_view;
 
 	// memory space configuration
 	address_space_config        m_ram_config;

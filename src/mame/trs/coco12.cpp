@@ -37,7 +37,8 @@
 
 void coco12_state::coco_mem(address_map &map)
 {
-	map(0x0000, 0xffff).rw(m_sam, FUNC(sam6883_device::read), FUNC(sam6883_device::write));
+// 	map(0x0000, 0xffff).rw(m_sam, FUNC(sam6883_device::read), FUNC(sam6883_device::write));
+	map(0x0000, 0xffff).m(m_sam, FUNC(sam6883_device::sam_mem));
 }
 
 void coco12_state::coco_ram(address_map &map)
@@ -490,7 +491,6 @@ void coco12_state::coco(machine_config &config)
 
 	// basic machine hardware
 	MC6809E(config, m_maincpu, DERIVED_CLOCK(1, 1));
-	m_maincpu->set_addrmap(AS_PROGRAM, &coco12_state::coco_mem);
 	m_maincpu->set_dasm_override(FUNC(coco_state::dasm_override));
 
 	// devices
@@ -560,6 +560,8 @@ void coco12_state::coco(machine_config &config)
 	m_sam->set_addrmap(5, &coco12_state::coco_io1);
 	m_sam->set_addrmap(6, &coco12_state::coco_io2);
 	m_sam->set_addrmap(7, &coco12_state::coco_ff60);
+
+	m_maincpu->set_addrmap(AS_PROGRAM, &coco12_state::coco_mem);
 
 	// software lists
 	SOFTWARE_LIST(config, "coco_cart_list").set_original("coco_cart").set_filter("COCO");
