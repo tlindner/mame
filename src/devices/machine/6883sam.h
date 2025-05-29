@@ -124,6 +124,9 @@ public:
 
 	void hs_w(int state);
 	void sam_mem(address_map &map) ATTR_COLD;
+	memory_view get_rom_view() {return m_rom_view; }
+	memory_view get_io_view() {return m_io_view; }
+	void set_endc_line(int line) {m_endc = line; update_memory();}
 
 protected:
 	// device-level overrides
@@ -139,7 +142,6 @@ private:
 
 	optional_device<cococart_slot_device> m_cart_device;
 	required_shared_ptr<u8> m_rd_ram;
-	memory_view m_ram_view;
 	memory_view m_rom_view;
 	memory_view m_io_view;
 
@@ -164,6 +166,8 @@ private:
 	uint16_t                    m_counter = 0;
 	uint8_t                     m_counter_xdiv = 0;
 	uint8_t                     m_counter_ydiv = 0;
+
+	int							m_enc = 0;
 
 	// typically called by CPU
 	void internal_write(offs_t offset, uint8_t data);

@@ -99,7 +99,7 @@ sam6883_device::sam6883_device(const machine_config &mconfig, const char *tag, d
 	, m_ram_view(*this, "ram_v")
 	, m_rom_view(*this, "rom_v")
 	, m_io_view(*this, "io_v")
-	, m_ram_config("ram", ENDIANNESS_BIG, 8, 16, 0)
+	, m_ram_config("ram0", ENDIANNESS_BIG, 8, 16, 0)
 	, m_rom0_config("rom0", ENDIANNESS_BIG, 8, 13, 0)
 	, m_rom1_config("rom1", ENDIANNESS_BIG, 8, 13, 0)
 	, m_rom2_config("rom2", ENDIANNESS_BIG, 8, 14, 0)
@@ -160,6 +160,7 @@ void sam6883_device::device_start()
 	save_item(NAME(m_counter));
 	save_item(NAME(m_counter_xdiv));
 	save_item(NAME(m_counter_ydiv));
+	save_item(NAME(m_endc));
 }
 
 
@@ -197,19 +198,11 @@ void sam6883_device::sam_mem(address_map &map)
 
 	// setup rom view
 	map(0x8000, 0xfeff).view(m_rom_view);
-
-	m_rom_view[0](0x0000, 0x1fff).m(m_rom0_config.m_internal_map);
-// 	m_rom_view[0](0x0000, 0x1fff).m(parent, xxxx:rom0_mem);
-// 	m_rom_view[0](0x2000, 0x3fff).m(parent, xxxx:rom1_mem);
-// 	m_rom_view[0](0x4000, 0x7eff).m(parent, xxxx:rom2_mem);
-	m_rom_view.select(0);
+	m_rom_view[0](0x0000, 0x7eff).unmaprw();
 
 	// setup i/o view
 	map(0xff00, 0xff5f).view(m_io_view);
-// 	m_io_view[0](0x0000, 0x001f).m(parent, xxxx:io0_mem);
-// 	m_io_view[0](0x0020, 0x003f).m(parent, xxxx:io1_mem);
-// 	m_io_view[0](0x0040, 0x005f).m(parent, xxxx:io2_mem);
-	m_io_view.select(0);
+	m_io_view[0](0x00, 0x5f).unmaprw();
 
 	// setup sam
 	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write));
@@ -309,6 +302,7 @@ void sam6883_device::device_reset()
 	m_counter_xdiv = 0;
 	m_counter_ydiv = 0;
 	m_sam_state = 0x0000;
+	m_endc = 0;
 	update_state();
 }
 
@@ -344,17 +338,19 @@ void sam6883_device::update_state()
 
 void sam6883_device::update_memory()
 {
+	int ram_view_select = 0;
+
 	// Memory size - allowed restricting memory accesses to something less than
 	// 32k
 	//
 	// This was a SAM switch that occupied 4 addresses:
 	//
-	//      $FFDD   (set)   R1
-	//      $FFDC   (clear) R1
-	//      $FFDB   (set)   R0
-	//      $FFDA   (clear) R0
+	//      $FFDD   (set)   M1
+	//      $FFDC   (clear) M1
+	//      $FFDB   (set)   M0
+	//      $FFDA   (clear) M0
 	//
-	// R1:R0 formed the following states:
+	// M1:M0 formed the following states:
 	//      00  - 4k
 	//      01  - 16k
 	//      10  - 64k
@@ -362,10 +358,6 @@ void sam6883_device::update_memory()
 	//
 	// If something less than 64k was set, the low RAM would be smaller and
 	// mirror the other parts of the RAM
-	//
-	// TODO:  Find out what "static RAM" is
-	// TODO:  This should affect _all_ memory accesses, not just video ram
-	// TODO:  Verify that the CoCo 3 ignored this
 
 	// switch depending on the M1/M0 variables
 	switch(m_sam_state & (SAM_STATE_M1|SAM_STATE_M0))
@@ -373,11 +365,13 @@ void sam6883_device::update_memory()
 		case 0:
 			// 4K mode
 			m_counter_mask = 0x0FFF;
+			ram_view_select = 0;
 			break;
 
 		case SAM_STATE_M0:
 			// 16K mode
 			m_counter_mask = 0x3FFF;
+			ram_view_select = 1;
 			break;
 
 		case SAM_STATE_M1:
@@ -387,8 +381,32 @@ void sam6883_device::update_memory()
 			// full 64k RAM or ROM/RAM
 			// CoCo Max requires these two be treated the same
 			m_counter_mask = 0xfFFF;
+			ram_view_select = 2;
+			if( m_sam_state & (SAM_STATE_P1)) ram_view_select = 3;
 			break;
 	}
+
+	if(m_endc)
+	{
+		/* turn off all S line decoding */
+		ram_view_select += 4;
+		m_rom_view.disable();
+		m_io_view.disable();
+	}
+	else if (m_sam_state & (SAM_STATE_TY))
+	{
+		/* turn on S line decoding and all RAM Mode */
+		m_rom_view.disable();
+		m_io_view.select(0);
+	}
+	else
+	{
+		/* turn off S line decoding. RAM / ROM mode */
+		m_rom_view.select(0);
+		m_io_view.select(0);
+	}
+
+	m_ram_view.select(ram_view_select);
 }
 
 
