@@ -141,7 +141,7 @@ private:
 	required_device<ram_device> m_ram;
 
 	optional_device<cococart_slot_device> m_cart_device;
-	required_shared_ptr<u8> m_rd_ram;
+	memory_view m_ram_view;
 	memory_view m_rom_view;
 	memory_view m_io_view;
 

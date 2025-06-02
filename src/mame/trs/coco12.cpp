@@ -184,6 +184,21 @@ INPUT_PORTS_END
 
 
 //-------------------------------------------------
+//  INPUT_PORTS( coco_ramsize )
+//-------------------------------------------------
+
+INPUT_PORTS_START( coco_ramsize )
+	PORT_START(RAMSIZE_TAG)
+	PORT_CONFNAME( 0x02, 0x00, "RAM Size" )
+	PORT_CONFSETTING(    0x00, "Automatic")
+	PORT_CONFSETTING(    0x01, "Low")
+	PORT_CONFSETTING(    0x02, "Match")
+	PORT_CONFSETTING(    0x03, "High")
+INPUT_PORTS_END
+
+
+
+//-------------------------------------------------
 //  INPUT_PORTS( coco_keyboard )
 //-------------------------------------------------
 //
@@ -279,6 +294,7 @@ static INPUT_PORTS_START( coco )
 	PORT_INCLUDE( coco_joystick )
 	PORT_INCLUDE( coco_analog_control )
 	PORT_INCLUDE( coco_beckerport )
+	PORT_INCLUDE( coco_ramsize )
 INPUT_PORTS_END
 
 
@@ -552,16 +568,16 @@ void coco12_state::coco(machine_config &config)
 	m_cococart->halt_callback().set_inputline(m_maincpu, INPUT_LINE_HALT);
 
 	SAM6883(config, m_sam, XTAL(14'318'181), m_maincpu, m_ram, m_cococart);
-	m_sam->set_addrmap(0, &coco12_state::coco_ram);
-	m_sam->set_addrmap(1, &coco12_state::coco_rom0);
-	m_sam->set_addrmap(2, &coco12_state::coco_rom1);
-	m_sam->set_addrmap(3, &coco12_state::coco_rom2);
-	m_sam->set_addrmap(4, &coco12_state::coco_io0);
-	m_sam->set_addrmap(5, &coco12_state::coco_io1);
-	m_sam->set_addrmap(6, &coco12_state::coco_io2);
-	m_sam->set_addrmap(7, &coco12_state::coco_ff60);
-
 	m_maincpu->set_addrmap(AS_PROGRAM, &coco12_state::coco_mem);
+
+// 	m_sam->set_addrmap(0, &coco12_state::coco_ram);
+// 	m_sam->set_addrmap(1, &coco12_state::coco_rom0);
+// 	m_sam->set_addrmap(2, &coco12_state::coco_rom1);
+// 	m_sam->set_addrmap(3, &coco12_state::coco_rom2);
+// 	m_sam->set_addrmap(4, &coco12_state::coco_io0);
+// 	m_sam->set_addrmap(5, &coco12_state::coco_io1);
+// 	m_sam->set_addrmap(6, &coco12_state::coco_io2);
+// 	m_sam->set_addrmap(7, &coco12_state::coco_ff60);
 
 	// software lists
 	SOFTWARE_LIST(config, "coco_cart_list").set_original("coco_cart").set_filter("COCO");

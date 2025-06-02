@@ -18,7 +18,7 @@
 void coco12_state::device_start()
 {
 	coco_state::device_start();
-	configure_sam();
+// 	configure_sam();
 }
 
 

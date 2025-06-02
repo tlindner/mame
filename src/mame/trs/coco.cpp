@@ -86,6 +86,7 @@ coco_state::coco_state(const machine_config &mconfig, device_type type, const ch
 	m_vhd_1(*this, "vhd1"),
 	m_beckerport(*this, "dwsock"),
 	m_beckerportconfig(*this, BECKERPORT_TAG),
+	m_ramsizeconfig(*this, RAMSIZE_TAG),
 	m_irqs(*this, "irqs"),
 	m_firqs(*this, "firqs"),
 	m_keyboard(*this, "row%u", 0),
@@ -432,6 +433,26 @@ uint8_t coco_state::pia1_pb_r()
 	//  the full 64K, as this uses Color Basic 1.2, which can configure 64K rams
 	bool memory_sense = (ram_size >= 0x4000 && ram_size <= 0x7FFF)
 		|| (ram_size >= 0x8000 && (pia_0().b_output() & 0x40));
+
+	switch (m_ramsizeconfig.read_safe(0))
+	{
+		case 0:
+			/* automatic */
+			break;
+		case 1:
+			/* always low */
+			memory_sense = 0;
+			break;
+		case 2:
+			/* match */
+			memory_sense = pia_0().b_output() & 0x40;
+			break;
+		case 3:
+		default:
+			/* High */
+			memory_sense = 1;
+			break;
+	}
 
 	// serial in (PB0)
 	bool serial_in = (m_rs232 != nullptr) && (m_rs232->rxd_r() ? true : false);

@@ -95,7 +95,6 @@ sam6883_device::sam6883_device(const machine_config &mconfig, const char *tag, d
 	, sam6883_friend_device_interface(mconfig, *this, 4)
 	, m_ram(*this, finder_base::DUMMY_TAG)
 	, m_cart_device(*this, finder_base::DUMMY_TAG)
-	, m_rd_ram(*this, "ram")
 	, m_ram_view(*this, "ram_v")
 	, m_rom_view(*this, "rom_v")
 	, m_io_view(*this, "io_v")
@@ -145,6 +144,15 @@ device_memory_interface::space_config_vector sam6883_device::memory_space_config
 
 void sam6883_device::device_start()
 {
+	if (!m_ram->started())
+		throw device_missing_dependencies();
+
+	if (!m_cart_device->started())
+		throw device_missing_dependencies();
+
+	if (!m_cpu->started())
+		throw device_missing_dependencies();
+
 	// get spaces
 	space(0).cache(m_ram_space);
 	for (int i = 0; i < 3; i++)
@@ -152,6 +160,45 @@ void sam6883_device::device_start()
 	for (int i = 0; i < 3; i++)
 		space(i + 4).specific(m_io_space[i]);
 	space(7).cache(m_boot_space);
+
+	// setup ram view
+	fprintf(stderr,"sam6883_device::device_start filling views\n");
+	int sam_ram[] = {4*1024, 16*1024, 32*1024, 32*1024};
+	for (int i=0; i<4; i++)
+	{
+		if (m_ram->size() == sam_ram[i])
+		{
+			// RAM provided matches SAM setting
+			m_ram_view[i  ].install_ram      (0x0000, m_ram->mask(), m_ram->pointer());
+			m_ram_view[i+4].install_writeonly(0x0000, m_ram->mask(), m_ram->pointer());
+		}
+		else if (m_ram->size() == sam_ram[i]*2)
+		{
+			// RAM provided matched double SAM setting
+			if(i<2)
+			{
+				// P=0
+				m_ram_view[i  ].install_ram      (0x0000, m_ram->mask(), m_ram->pointer());
+				m_ram_view[i+4].install_writeonly(0x0000, m_ram->mask(), m_ram->pointer());
+			}
+			else
+			{
+				// P=1
+				m_ram_view[i  ].install_ram      (0x0000, 0x7fff, m_ram->pointer()+0x8000);
+				m_ram_view[i  ].install_ram      (0x8000, 0xfeff, m_ram->pointer()+0x8000);
+				m_ram_view[i+4].install_writeonly(0x0000, 0x7fff, m_ram->pointer()+0x8000);
+				m_ram_view[i+4].install_writeonly(0x8000, 0xfeff, m_ram->pointer()+0x8000);
+			}
+		}
+		{
+			// RAM provided is a mismatch for SAM setting
+			for( int j=0; j<0x10000; j += 0x100 )
+			{
+
+			}
+
+		}
+	}
 
 	// save state support
 	save_item(NAME(m_sam_state));
@@ -170,45 +217,49 @@ void sam6883_device::device_start()
 
 void sam6883_device::sam_mem(address_map &map)
 {
-
 	// setup views
-
-	// setup ram view
-// 		return &m_ram->pointer()[address % m_ram->size()];
-
-	int max_ram[] = {4*1024, 16*1024, 32*1024, 32*1024};
+	fprintf( stderr, "sam6883_device::sam_mem setup views\n");
 
 	map(0x0000, 0xfeff).view(m_ram_view);
 
 	for( int i=0; i<4; i++ )
 	{
-		if( m_ram->size() == max_ram[i])
-		{
-			m_ram_view[i](0x0000, m_ram->mask()).ram().share(m_rd_ram);
-			m_ram_view[i+4](0x0000, m_ram->mask()).writeonly().share(m_rd_ram);
-		}
-		else if( m_ram->size() == max_ram[i]*2)
-		{
-			m_ram_view[i](0x0000, m_ram->mask()).ram().share(m_rd_ram);
-			m_ram_view[i+4](0x0000, m_ram->mask()).writeonly().share(m_rd_ram);
-		}
+		m_ram_view[i  ](0x0000, 0xfeff).unmaprw();
+		m_ram_view[i+4](0x0000, 0xfeff).unmaprw();
 	}
 
 	m_ram_view.select(0);
 
 	// setup rom view
 	map(0x8000, 0xfeff).view(m_rom_view);
+<<<<<<< HEAD
 	m_rom_view[0](0x0000, 0x7eff).unmaprw();
 
 	// setup i/o view
 	map(0xff00, 0xff5f).view(m_io_view);
 	m_io_view[0](0x00, 0x5f).unmaprw();
+=======
+	m_rom_view[0](0x8000, 0xfeff).unmaprw();
+// 	m_rom_view[0](0x0000, 0x1fff).m(m_rom0_config.m_internal_map);
+// 	m_rom_view[0](0x0000, 0x1fff).m(parent, xxxx:rom0_mem);
+// 	m_rom_view[0](0x2000, 0x3fff).m(parent, xxxx:rom1_mem);
+// 	m_rom_view[0](0x4000, 0x7eff).m(parent, xxxx:rom2_mem);
+// 	m_rom_view.select(0);
+
+	// setup i/o view
+	map(0xff00, 0xff5f).view(m_io_view);
+	m_io_view[0](0xff00, 0xff5f).unmaprw();
+// 	m_io_view[0](0x0000, 0x001f).m(parent, xxxx:io0_mem);
+// 	m_io_view[0](0x0020, 0x003f).m(parent, xxxx:io1_mem);
+// 	m_io_view[0](0x0040, 0x005f).m(parent, xxxx:io2_mem);
+// 	m_io_view.select(0);
+>>>>>>> b18b2782efc (four)
 
 	// setup sam
 	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write));
 
 	// setup reset vectors
-	map(0xffe0, 0xffff).rom().region(....);
+// 	map(0xffe0, 0xffff).rom().region(....);
 }
 
 
