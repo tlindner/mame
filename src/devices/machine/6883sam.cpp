@@ -91,9 +91,9 @@ bool sam_misconfigured( int index, u32 ram_size )
 #define LOG_MBITS   (1U << 5)
 #define LOG_RBITS   (1U << 6)
 
-#define VERBOSE (0)
+// #define VERBOSE (0)
 // #define VERBOSE (LOG_FBITS)
-// #define VERBOSE (LOG_FBITS | LOG_VBITS | LOG_PBITS | LOG_TBITS | LOG_MBITS | LOG_RBITS)
+#define VERBOSE (LOG_FBITS | LOG_VBITS | LOG_PBITS | LOG_TBITS | LOG_MBITS | LOG_RBITS)
 
 #include "logmacro.h"
 
@@ -180,16 +180,14 @@ void sam6883_device::endc_write(offs_t offset, uint8_t data)
 
 void sam6883_device::sam_mem(address_map &map)
 {
-	// endc is the signal from the SAM datasheet that disables S line decoding
+	// endc is the signal, described in the SAM datasheet, that disables S line decoding
  	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
 	map(0x0000, 0xfeff).view(m_ram_view);
 	map(0x8000, 0xffff).view(m_rom_view);
 
 	// These intentionally cut a gap in the ROM view
-	map(0xff00, 0xff5f).view(m_io_view);
-	map(0xff60, 0xffdf).w(FUNC(sam6883_device::internal_write));
-
-	update_views();
+	map(0xff00, 0xffbf).view(m_io_view);
+	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write));
 }
 
 void sam6883_device::update_views()
@@ -199,12 +197,11 @@ void sam6883_device::update_views()
 	m_ram_view.select(0);
 
 	if(BIT(m_sam_state, 15))
-		m_rom_view.select(0);
-	else
 		m_rom_view.disable();
+	else
+		m_rom_view.select(0);
 
 	m_io_view.select(0);
-
 }
 
 
@@ -362,11 +359,11 @@ uint8_t sam6883_device::rom_read(offs_t offset)
 	if(offset < 0x2000)
 		return m_rom_space[0].read_byte(offset);
 	else if(offset < 0x4000)
-		return m_rom_space[1].read_byte(offset - 0x4000);
+		return m_rom_space[1].read_byte(offset - 0x2000);
 	else if(offset < 0x7ff0)
-		return m_rom_space[2].read_byte(offset - 0x6000);
+		return m_rom_space[2].read_byte(offset - 0x4000);
 	else
-		return m_rom_space[1].read_byte(offset - 0x4000);
+		return m_rom_space[1].read_byte(offset - 0x6000);
 
 }
 
@@ -375,9 +372,9 @@ void sam6883_device::rom_write(offs_t offset, uint8_t data)
 	if(offset < 0x2000)
 		m_rom_space[0].write_byte(offset, data);
 	else if(offset < 0x4000)
-		m_rom_space[1].write_byte(offset - 0x4000, data);
+		m_rom_space[1].write_byte(offset - 0x2000, data);
 	else if(offset < 0x7ff0)
-		m_rom_space[2].write_byte(offset - 0x6000, data);
+		m_rom_space[2].write_byte(offset - 0x4000, data);
 	else
 		m_rom_space[1].write_byte(offset - 0x6000, data);
 }
@@ -387,9 +384,12 @@ uint8_t sam6883_device::io_read(offs_t offset)
 	if(offset < 0x20)
 		return m_io_space[0].read_byte(offset);
 	else if(offset < 0x40)
-		return m_io_space[1].read_byte(offset - 0x40);
+		return m_io_space[1].read_byte(offset - 0x20);
+	else if(offset < 0x60)
+		return m_io_space[2].read_byte(offset - 0x40);
 	else
-		return m_io_space[2].read_byte(offset - 0x60);
+		return m_reserved_space.read_byte(offset - 0x60);
+
 }
 
 void sam6883_device::io_write(offs_t offset, uint8_t data)
@@ -397,9 +397,11 @@ void sam6883_device::io_write(offs_t offset, uint8_t data)
 	if(offset < 0x20)
 		m_io_space[0].write_byte(offset, data);
 	else if(offset < 0x40)
-		m_io_space[1].write_byte(offset - 0x40, data);
+		m_io_space[1].write_byte(offset - 0x20, data);
+	else if(offset < 0x60)
+		m_io_space[2].write_byte(offset - 0x40, data);
 	else
-		m_io_space[2].write_byte(offset - 0x60, data);
+		m_reserved_space.write_byte(offset - 0x60, data);
 }
 
 

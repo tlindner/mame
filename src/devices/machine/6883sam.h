@@ -179,6 +179,8 @@ public:
 				counter_carry_bit3();
 		}
 		return m_ram_space[BIT(m_sam_state, SAM_BIT_M0, 2)].read_byte(m_counter);
+
+>>>>>>> c36e36f7614 (More progress)
 	}
 
 	void hs_w(int state);
