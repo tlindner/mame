@@ -13,6 +13,7 @@
 
 #pragma once
 
+#include "machine/ram.h"
 
 //**************************************************************************
 //  SAM6883 CORE
@@ -45,6 +46,8 @@ protected:
 
 	// incidentals
 	required_device<cpu_device> m_cpu;
+	required_device<ram_device> m_ram;
+
 
 	// device state
 	uint16_t m_sam_state;
@@ -81,11 +84,12 @@ protected:
 class sam6883_device : public device_t, public device_memory_interface, public sam6883_friend_device_interface
 {
 public:
-	template <typename T>
-	sam6883_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock, T &&cpu_tag)
+	template <typename T, typename U>
+	sam6883_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock, T &&cpu_tag, U &&ram_tag)
 		: sam6883_device(mconfig, tag, owner, clock)
 	{
 		m_cpu.set_tag(std::forward<T>(cpu_tag));
+		m_ram.set_tag(std::forward<U>(ram_tag));
 	}
 
 	sam6883_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
@@ -93,6 +97,18 @@ public:
 	// CPU read/write handlers
 	uint8_t read(offs_t offset);
 	void write(offs_t offset, uint8_t data);
+
+	// Disabled S decoding handlers
+	uint8_t endc_read(offs_t offset);
+	void endc_write(offs_t offset, uint8_t data);
+	void update_views();
+
+	uint8_t rom_read(offs_t offset);
+	void rom_write(offs_t offset, uint8_t data);
+	uint8_t io_read(offs_t offset);
+	void io_write(offs_t offset, uint8_t data);
+
+	void sam_mem(address_map &map);
 
 	// typically called by VDG
 	ATTR_FORCE_INLINE uint8_t display_read(offs_t offset)
@@ -119,6 +135,16 @@ public:
 
 	void hs_w(int state);
 
+// 	void add_map(int s_value, const address_map_constructor &map, device_t *relative_to = nullptr);
+// 	template <typename T> void add_map(int s_value, void (T::*map)(address_map &map), const char *name) {
+// 		address_map_constructor delegate(map, name, static_cast<T *>(this));
+// 		add_map(s_value, delegate);
+// 	}
+// 	template <typename T> void add_map(int s_value, T &device, void (T::*map)(address_map &map), const char *name) {
+// 		address_map_constructor delegate(map, name, &device);
+// 		add_map(s_value, delegate, &device);
+// 	}
+
 protected:
 	// device-level overrides
 	virtual void device_start() override ATTR_COLD;
@@ -129,21 +155,25 @@ protected:
 	virtual space_config_vector memory_space_config() const override;
 
 private:
+	memory_view m_ram_view;
+	memory_view m_rom_view;
+	memory_view m_io_view;
+
 	// memory space configuration
-	address_space_config        m_ram_config;
-	address_space_config        m_rom0_config;
-	address_space_config        m_rom1_config;
-	address_space_config        m_rom2_config;
-	address_space_config        m_io0_config;
-	address_space_config        m_io1_config;
-	address_space_config        m_io2_config;
-	address_space_config        m_boot_config;
+	address_space_config        m_s0_ram_config;
+	address_space_config        m_s1_rom0_config;
+	address_space_config        m_s2_rom1_config;
+	address_space_config        m_s3_rom2_config;
+	address_space_config        m_s4_io0_config;
+	address_space_config        m_s5_io1_config;
+	address_space_config        m_s6_io2_config;
+	address_space_config        m_s7_reserved_config;
 
 	// memory spaces
 	memory_access<16, 0, 0, ENDIANNESS_BIG>::cache m_ram_space;
 	memory_access<14, 0, 0, ENDIANNESS_BIG>::cache m_rom_space[3];
 	memory_access< 5, 0, 0, ENDIANNESS_BIG>::specific m_io_space[3];
-	memory_access< 7, 0, 0, ENDIANNESS_BIG>::cache m_boot_space;
+	memory_access< 7, 0, 0, ENDIANNESS_BIG>::cache m_reserved_space;
 	uint16_t                    m_counter_mask = 0;
 
 	// SAM state
