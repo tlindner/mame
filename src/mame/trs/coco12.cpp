@@ -37,8 +37,8 @@
 
 void coco12_state::coco_mem(address_map &map)
 {
-	// mapped by SAM device_start
-	m_sam->sam_mem(map);
+	// SAM controls all
+	map(0x0000, 0xffff).m(m_sam, FUNC(sam6883_device::sam_mem));
 }
 
 void coco12_state::coco_s0_ram(address_map &map)
