@@ -130,7 +130,9 @@ public:
 			if (bit3_carry)
 				counter_carry_bit3();
 		}
-		return m_ram_space.read_byte(m_counter & m_counter_mask);
+		return m_ram_view.space()->read_byte(m_counter & m_counter_mask);
+// 		return m_ram_space.read_byte(m_counter & m_counter_mask);
+
 	}
 
 	void hs_w(int state);
