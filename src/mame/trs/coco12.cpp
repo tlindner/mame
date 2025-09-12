@@ -37,33 +37,34 @@
 
 void coco12_state::coco_mem(address_map &map)
 {
-	map(0x0000, 0xffff).rw(m_sam, FUNC(sam6883_device::read), FUNC(sam6883_device::write));
+	// mapped by SAM device_start
+	m_sam->sam_mem(map);
 }
 
-void coco12_state::coco_ram(address_map &map)
+void coco12_state::coco_s0_ram(address_map &map)
 {
-	// mapped by configure_sam
+	// mapped by SAM device_start
 }
 
-void coco12_state::coco_rom0(address_map &map)
+void coco12_state::coco_s1_rom0(address_map &map)
 {
 	// $8000-$9FFF
 	map(0x0000, 0x1fff).rom().region(MAINCPU_TAG, 0x0000).nopw();
 }
 
-void coco12_state::coco_rom1(address_map &map)
+void coco12_state::coco_s2_rom1(address_map &map)
 {
 	// $A000-$BFFF
 	map(0x0000, 0x1fff).rom().region(MAINCPU_TAG, 0x2000).nopw();
 }
 
-void coco12_state::coco_rom2(address_map &map)
+void coco12_state::coco_s3_rom2(address_map &map)
 {
 	// $C000-$FEFF
 	map(0x0000, 0x3eff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
 }
 
-void deluxecoco_state::deluxecoco_rom2(address_map &map)
+void deluxecoco_state::deluxecoco_s3_rom2(address_map &map)
 {
 	// $C000-$FEFF
 	map(0x0000, 0x3eff).view(m_rom_view);
@@ -72,38 +73,38 @@ void deluxecoco_state::deluxecoco_rom2(address_map &map)
 	m_rom_view[1](0x0000, 0x3eff).rom().region(MAINCPU_TAG, 0x4000).nopw();
 }
 
-void coco12_state::coco_io0(address_map &map)
+void coco12_state::coco_s4_io0(address_map &map)
 {
 	// $FF00-$FF1F
 	map(0x00, 0x03).mirror(0x1c).rw(m_pia_0, FUNC(pia6821_device::read), FUNC(pia6821_device::write));
 }
 
-void coco12_state::coco_io1(address_map &map)
+void coco12_state::coco_s5_io1(address_map &map)
 {
 	// $FF20-$FF3F
 	map(0x00, 0x03).mirror(0x1c).r(m_pia_1, FUNC(pia6821_device::read)).w(FUNC(coco12_state::ff20_write));
 }
 
-void coco12_state::coco_io2(address_map &map)
+void coco12_state::coco_s6_io2(address_map &map)
 {
 	// $FF40-$FF5F
 	map(0x00, 0x1f).rw(FUNC(coco12_state::ff40_read), FUNC(coco12_state::ff40_write));
 }
 
-void coco12_state::coco_ff60(address_map &map)
+void coco12_state::coco_s7_reserved(address_map &map)
 {
 	// $FF60-$FFDF
 	map(0x00, 0x7f).rw(FUNC(coco12_state::ff60_read), FUNC(coco12_state::ff60_write));
 }
 
-void coco12_state::ms1600_rom2(address_map &map)
+void coco12_state::ms1600_s3_rom2(address_map &map)
 {
 	// $C000-$FEFF
 	map(0x0000, 0x2fff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
 	map(0x3000, 0x3eff).rom().region(MAINCPU_TAG, 0x7000).nopw();
 }
 
-void deluxecoco_state::deluxecoco_io1(address_map &map)
+void deluxecoco_state::deluxecoco_s5_io1(address_map &map)
 {
 	// $FF20-$FF3F
 	map(0x00, 0x03).r(m_pia_1, FUNC(pia6821_device::read)).w(FUNC(coco12_state::ff20_write));
@@ -490,7 +491,18 @@ void coco12_state::coco(machine_config &config)
 
 	// basic machine hardware
 	MC6809E(config, m_maincpu, DERIVED_CLOCK(1, 1));
-	m_maincpu->set_addrmap(AS_PROGRAM, &coco12_state::coco_mem);
+
+	SAM6883(config, m_sam, XTAL(14'318'181), m_maincpu, m_ram);
+	m_sam->set_addrmap(0, &coco12_state::coco_s0_ram);
+	m_sam->set_addrmap(1, &coco12_state::coco_s1_rom0);
+	m_sam->set_addrmap(2, &coco12_state::coco_s2_rom1);
+	m_sam->set_addrmap(3, &coco12_state::coco_s3_rom2);
+	m_sam->set_addrmap(4, &coco12_state::coco_s4_io0);
+	m_sam->set_addrmap(5, &coco12_state::coco_s5_io1);
+	m_sam->set_addrmap(6, &coco12_state::coco_s6_io2);
+	m_sam->set_addrmap(7, &coco12_state::coco_s7_reserved);
+
+ 	m_maincpu->set_addrmap(AS_PROGRAM, &coco12_state::coco_mem);
 	m_maincpu->set_dasm_override(FUNC(coco_state::dasm_override));
 
 	// devices
@@ -515,16 +527,6 @@ void coco12_state::coco(machine_config &config)
 	m_pia_1->cb2_handler().set(FUNC(coco_state::pia1_cb2_w));
 	m_pia_1->irqa_handler().set(m_firqs, FUNC(input_merger_device::in_w<0>));
 	m_pia_1->irqb_handler().set(m_firqs, FUNC(input_merger_device::in_w<1>));
-
-	SAM6883(config, m_sam, XTAL(14'318'181), m_maincpu);
-	m_sam->set_addrmap(0, &coco12_state::coco_ram);
-	m_sam->set_addrmap(1, &coco12_state::coco_rom0);
-	m_sam->set_addrmap(2, &coco12_state::coco_rom1);
-	m_sam->set_addrmap(3, &coco12_state::coco_rom2);
-	m_sam->set_addrmap(4, &coco12_state::coco_io0);
-	m_sam->set_addrmap(5, &coco12_state::coco_io1);
-	m_sam->set_addrmap(6, &coco12_state::coco_io2);
-	m_sam->set_addrmap(7, &coco12_state::coco_ff60);
 
 	// Becker Port device
 	COCO_DWSOCK(config, m_beckerport, 0);
@@ -606,8 +608,8 @@ void deluxecoco_state::deluxecoco(machine_config &config)
 	m_psg->add_route(ALL_OUTPUTS, "speaker", 1.0);
 
 	// Adjust Memory Map
-	m_sam->set_addrmap(3, &deluxecoco_state::deluxecoco_rom2);
-	m_sam->set_addrmap(5, &deluxecoco_state::deluxecoco_io1);
+	m_sam->set_addrmap(3, &deluxecoco_state::deluxecoco_s3_rom2);
+	m_sam->set_addrmap(5, &deluxecoco_state::deluxecoco_s5_io1);
 
 	// Configure Timer
 	TIMER(config, m_timer).configure_generic(FUNC(deluxecoco_state::perodic_timer));
@@ -660,7 +662,7 @@ void coco12_state::ms1600(machine_config &config)
 {
 	coco(config);
 
-	m_sam->set_addrmap(3, &coco12_state::ms1600_rom2);
+	m_sam->set_addrmap(3, &coco12_state::ms1600_s3_rom2);
 }
 
 //**************************************************************************
