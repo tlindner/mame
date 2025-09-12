@@ -146,6 +146,18 @@ public:
 	void sam_mem(address_map &map);
 	void internal_rom_map(address_map &map);
 
+	// Disabled S decoding handlers
+	uint8_t endc_read(offs_t offset);
+	void endc_write(offs_t offset, uint8_t data);
+	void update_views();
+
+	uint8_t rom_read(offs_t offset);
+	void rom_write(offs_t offset, uint8_t data);
+	uint8_t io_read(offs_t offset);
+	void io_write(offs_t offset, uint8_t data);
+
+	void sam_mem(address_map &map);
+
 	// typically called by VDG
 	ATTR_FORCE_INLINE uint8_t display_read(offs_t offset)
 	{
@@ -166,11 +178,20 @@ public:
 			if (bit3_carry)
 				counter_carry_bit3();
 		}
-// 		return m_ram_space[BIT(m_sam_state, SAM_BIT_M0, 2)].read_byte(m_counter & m_counter_mask);
 		return m_ram_space[BIT(m_sam_state, SAM_BIT_M0, 2)].read_byte(m_counter);
 	}
 
 	void hs_w(int state);
+
+// 	void add_map(int s_value, const address_map_constructor &map, device_t *relative_to = nullptr);
+// 	template <typename T> void add_map(int s_value, void (T::*map)(address_map &map), const char *name) {
+// 		address_map_constructor delegate(map, name, static_cast<T *>(this));
+// 		add_map(s_value, delegate);
+// 	}
+// 	template <typename T> void add_map(int s_value, T &device, void (T::*map)(address_map &map), const char *name) {
+// 		address_map_constructor delegate(map, name, &device);
+// 		add_map(s_value, delegate, &device);
+// 	}
 
 protected:
 	// device-level overrides
@@ -196,7 +217,6 @@ private:
 	// memory spaces
 	memory_access<16, 0, 0, ENDIANNESS_BIG>::cache m_ram_space[4];
 	memory_access<14, 0, 0, ENDIANNESS_BIG>::cache m_rom_space;
-// 	uint16_t                    m_counter_mask = 0;
 
 	// SAM state
 	uint16_t                    m_counter = 0;

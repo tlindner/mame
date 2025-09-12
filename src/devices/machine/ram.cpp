@@ -173,6 +173,7 @@ void ram_device::device_start()
 	// allocate space for the ram
 	m_pointer = std::make_unique<u8 []>(m_size);
 	std::fill_n(m_pointer.get(), m_size, m_default_value);
+	fprintf( stderr, "Ram allocated!\n");
 
 	// register for state saving
 	save_item(NAME(m_size));

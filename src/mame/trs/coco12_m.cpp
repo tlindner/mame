@@ -97,11 +97,11 @@ void coco12_state::pia1_pb_changed(uint8_t data)
 
 void deluxecoco_state::device_start()
 {
-	coco12_state::device_start();
-	configure_sam();
-
-	m_ram_view.disable();
-	m_rom_view.select(0);
+// 	coco12_state::device_start();
+// 	configure_sam();
+//
+// 	m_ram_view.disable();
+// 	m_rom_view.select(0);
 }
 
 
@@ -112,12 +112,12 @@ void deluxecoco_state::device_start()
 
 void deluxecoco_state::configure_sam()
 {
-	m_sam->space(0).install_view(0x4000, 0x7fff, m_ram_view);
-
-	m_ram_view[0].install_ram(0x4000, 0x7fff, m_ram->pointer() + 0x0000);
-	m_ram_view[1].install_ram(0x4000, 0x7fff, m_ram->pointer() + 0x4000);
-	m_ram_view[2].install_ram(0x4000, 0x7fff, m_ram->pointer() + 0x8000);
-	m_ram_view[3].install_ram(0x4000, 0x7fff, m_ram->pointer() + 0xc000);
+// 	m_sam->space(0).install_view(0x4000, 0x7fff, m_ram_view);
+//
+// 	m_ram_view[0].install_ram(0x4000, 0x7fff, m_ram->pointer() + 0x0000);
+// 	m_ram_view[1].install_ram(0x4000, 0x7fff, m_ram->pointer() + 0x4000);
+// 	m_ram_view[2].install_ram(0x4000, 0x7fff, m_ram->pointer() + 0x8000);
+// 	m_ram_view[3].install_ram(0x4000, 0x7fff, m_ram->pointer() + 0xc000);
 }
 
 
