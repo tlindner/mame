@@ -69,15 +69,15 @@ protected:
 	required_device<sam6883_device> m_sam;
 
 	void coco_mem(address_map &map) ATTR_COLD;
-	void coco_ram(address_map &map) ATTR_COLD;
-	void coco_rom0(address_map &map) ATTR_COLD;
-	void coco_rom1(address_map &map) ATTR_COLD;
-	void coco_rom2(address_map &map) ATTR_COLD;
-	void coco_io0(address_map &map) ATTR_COLD;
-	void coco_io1(address_map &map) ATTR_COLD;
-	void coco_io2(address_map &map) ATTR_COLD;
-	void coco_ff60(address_map &map) ATTR_COLD;
-	void ms1600_rom2(address_map &map) ATTR_COLD;
+	void coco_s0_ram(address_map &map) ATTR_COLD;
+	void coco_s1_rom0(address_map &map) ATTR_COLD;
+	void coco_s2_rom1(address_map &map) ATTR_COLD;
+	void coco_s3_rom2(address_map &map) ATTR_COLD;
+	void coco_s4_io0(address_map &map) ATTR_COLD;
+	void coco_s5_io1(address_map &map) ATTR_COLD;
+	void coco_s6_io2(address_map &map) ATTR_COLD;
+	void coco_s7_reserved(address_map &map) ATTR_COLD;
+	void ms1600_s3_rom2(address_map &map) ATTR_COLD;
 
 protected:
 	required_device<mc6847_base_device> m_vdg;
@@ -102,8 +102,8 @@ public:
 protected:
 	virtual void device_start() override ATTR_COLD;
 	void configure_sam();
-	void deluxecoco_rom2(address_map &map) ATTR_COLD;
-	void deluxecoco_io1(address_map &map) ATTR_COLD;
+	void deluxecoco_s3_rom2(address_map &map) ATTR_COLD;
+	void deluxecoco_s5_io1(address_map &map) ATTR_COLD;
 
 	required_device<mos6551_device> m_acia;
 	required_device<ay8913_device> m_psg;
