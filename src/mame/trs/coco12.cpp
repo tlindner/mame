@@ -93,8 +93,8 @@ void coco12_state::coco_s6_io2(address_map &map)
 
 void coco12_state::coco_s7_reserved(address_map &map)
 {
-	// $FF60-$FFDF
-	map(0x00, 0x7f).rw(FUNC(coco12_state::ff60_read), FUNC(coco12_state::ff60_write));
+	// $FF60-$FFBF
+	map(0x00, 0x5f).rw(FUNC(coco12_state::ff60_read), FUNC(coco12_state::ff60_write));
 }
 
 void coco12_state::ms1600_s3_rom2(address_map &map)
