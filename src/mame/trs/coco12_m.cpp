@@ -97,9 +97,9 @@ void coco12_state::pia1_pb_changed(uint8_t data)
 
 void deluxecoco_state::device_start()
 {
-// 	coco12_state::device_start();
-// 	configure_sam();
-//
+	coco12_state::device_start();
+	configure_sam();
+
 // 	m_ram_view.disable();
 // 	m_rom_view.select(0);
 }

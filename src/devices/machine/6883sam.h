@@ -73,6 +73,23 @@ protected:
 	static constexpr int SAM_BIT_M1 = 14;
 	static constexpr int SAM_BIT_TY = 15;
 
+	static constexpr int SAM_BIT_V0 = 0;
+	static constexpr int SAM_BIT_V1 = 1;
+	static constexpr int SAM_BIT_V2 = 2;
+	static constexpr int SAM_BIT_F0 = 3;
+	static constexpr int SAM_BIT_F1 = 4;
+	static constexpr int SAM_BIT_F2 = 5;
+	static constexpr int SAM_BIT_F3 = 6;
+	static constexpr int SAM_BIT_F4 = 7;
+	static constexpr int SAM_BIT_F5 = 8;
+	static constexpr int SAM_BIT_F6 = 9;
+	static constexpr int SAM_BIT_P1 = 10;
+	static constexpr int SAM_BIT_R0 = 11;
+	static constexpr int SAM_BIT_R1 = 12;
+	static constexpr int SAM_BIT_M0 = 13;
+	static constexpr int SAM_BIT_M1 = 14;
+	static constexpr int SAM_BIT_TY = 15;
+
 	// incidentals
 	required_device<cpu_device> m_cpu;
 	required_device<ram_device> m_ram;
@@ -184,16 +201,6 @@ public:
 	}
 
 	void hs_w(int state);
-
-// 	void add_map(int s_value, const address_map_constructor &map, device_t *relative_to = nullptr);
-// 	template <typename T> void add_map(int s_value, void (T::*map)(address_map &map), const char *name) {
-// 		address_map_constructor delegate(map, name, static_cast<T *>(this));
-// 		add_map(s_value, delegate);
-// 	}
-// 	template <typename T> void add_map(int s_value, T &device, void (T::*map)(address_map &map), const char *name) {
-// 		address_map_constructor delegate(map, name, &device);
-// 		add_map(s_value, delegate, &device);
-// 	}
 
 protected:
 	// device-level overrides

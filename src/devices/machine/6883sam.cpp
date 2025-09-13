@@ -184,20 +184,22 @@ void sam6883_device::sam_mem(address_map &map)
  	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
 	map(0x0000, 0xfeff).view(m_ram_view);
 	map(0x8000, 0xffff).view(m_rom_view);
+	m_rom_view[0](0x8000, 0xffff).rw(FUNC(sam6883_device::rom_read), FUNC(sam6883_device::rom_write));
 
-	// These intentionally cut a gap in the ROM view
+	// This intentionally cuts a gap in the ROM view
 	map(0xff00, 0xffbf).view(m_io_view);
+	m_io_view[0](0xff00, 0xffbf).rw(FUNC(sam6883_device::io_read), FUNC(sam6883_device::io_write));
+
+	// These intentionally cuts a gap in the endc
 	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write));
 }
 
 void sam6883_device::update_views()
 {
-	fprintf( stderr, "M bits: %d\n", BIT(m_sam_state,13,2));
-
 	m_ram_view.select(0);
 
-	if(BIT(m_sam_state, 15))
-		m_rom_view.disable();
+	if(BIT(m_sam_state, SAM_BIT_TY))
+		m_rom_view.select(0);
 	else
 		m_rom_view.select(0);
 
@@ -360,10 +362,18 @@ uint8_t sam6883_device::rom_read(offs_t offset)
 		return m_rom_space[0].read_byte(offset);
 	else if(offset < 0x4000)
 		return m_rom_space[1].read_byte(offset - 0x2000);
-	else if(offset < 0x7ff0)
+	else if(offset < 0x7f00)
 		return m_rom_space[2].read_byte(offset - 0x4000);
+	else if(offset < 0x7fe0)
+	{
+		fprintf( stderr, "rom_read should never happen\n");
+		return 0;
+	}
 	else
+	{
+		fprintf( stderr, "read vectors?: %4x\n", offset - 0x6000);
 		return m_rom_space[1].read_byte(offset - 0x6000);
+	}
 
 }
 
@@ -373,10 +383,17 @@ void sam6883_device::rom_write(offs_t offset, uint8_t data)
 		m_rom_space[0].write_byte(offset, data);
 	else if(offset < 0x4000)
 		m_rom_space[1].write_byte(offset - 0x2000, data);
-	else if(offset < 0x7ff0)
+	else if(offset < 0x7f00)
 		m_rom_space[2].write_byte(offset - 0x4000, data);
+	else if(offset < 0x7fe0)
+	{
+		fprintf( stderr, "rom_write should never happen\n");
+	}
 	else
+	{
+		fprintf( stderr, "writ vectors?: %4x\n", offset - 0x6000);
 		m_rom_space[1].write_byte(offset - 0x6000, data);
+	}
 }
 
 uint8_t sam6883_device::io_read(offs_t offset)
@@ -389,7 +406,6 @@ uint8_t sam6883_device::io_read(offs_t offset)
 		return m_io_space[2].read_byte(offset - 0x40);
 	else
 		return m_reserved_space.read_byte(offset - 0x60);
-
 }
 
 void sam6883_device::io_write(offs_t offset, uint8_t data)
@@ -488,6 +504,7 @@ void sam6883_device::device_post_load()
 void sam6883_device::update_state()
 {
 	update_memory();
+	update_views();
 	update_cpu_clock();
 }
 
@@ -516,6 +533,7 @@ void sam6883_device::update_memory()
 	//      11  - 64k static
 
 	// switch depending on the M1/M0 variables
+
 	switch(BIT(m_sam_state, SAM_BIT_M0, 2))
 	{
 		case 0:
