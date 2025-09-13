@@ -133,20 +133,22 @@ void sam6883_device::sam_mem(address_map &map)
  	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
 	map(0x0000, 0xfeff).view(m_ram_view);
 	map(0x8000, 0xffff).view(m_rom_view);
+	m_rom_view[0](0x8000, 0xffff).rw(FUNC(sam6883_device::rom_read), FUNC(sam6883_device::rom_write));
 
-	// These intentionally cut a gap in the ROM view
+	// This intentionally cuts a gap in the ROM view
 	map(0xff00, 0xffbf).view(m_io_view);
+	m_io_view[0](0xff00, 0xffbf).rw(FUNC(sam6883_device::io_read), FUNC(sam6883_device::io_write));
+
+	// These intentionally cuts a gap in the endc
 	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write));
 }
 
 void sam6883_device::update_views()
 {
-	fprintf( stderr, "M bits: %d\n", BIT(m_sam_state,13,2));
-
 	m_ram_view.select(0);
 
-	if(BIT(m_sam_state, 15))
-		m_rom_view.disable();
+	if(BIT(m_sam_state, SAM_BIT_TY))
+		m_rom_view.select(0);
 	else
 		m_rom_view.select(0);
 
@@ -199,12 +201,11 @@ void sam6883_device::device_start()
 
 	int ram_end = std::min(m_ram->mask(), 0xfeffU);
 
-	fprintf( stderr, "size %x\n", m_ram->size());
 	m_ram_view[0].install_ram(0x0000, ram_end, m_ram->pointer());
 	m_ram_view[1].install_ram(0x0000, ram_end, m_ram->pointer());
 	m_ram_view[2].install_ram(0x0000, ram_end, m_ram->pointer());
-	m_rom_view[0].install_readwrite_handler(0x8000, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::rom_read)), emu::rw_delegate(*this, FUNC(sam6883_device::rom_write)));
-	m_io_view[0].install_readwrite_handler(0xff00, 0xffbf, emu::rw_delegate(*this, FUNC(sam6883_device::io_read)), emu::rw_delegate(*this, FUNC(sam6883_device::io_write)));
+// 	m_rom_view[0].install_readwrite_handler(0x8000, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::rom_read)), emu::rw_delegate(*this, FUNC(sam6883_device::rom_write)));
+// 	m_io_view[0].install_readwrite_handler(0xff00, 0xffbf, emu::rw_delegate(*this, FUNC(sam6883_device::io_read)), emu::rw_delegate(*this, FUNC(sam6883_device::io_write)));
 	update_views();
 
 	// save state support
@@ -222,10 +223,18 @@ uint8_t sam6883_device::rom_read(offs_t offset)
 		return m_rom_space[0].read_byte(offset);
 	else if(offset < 0x4000)
 		return m_rom_space[1].read_byte(offset - 0x2000);
-	else if(offset < 0x7ff0)
+	else if(offset < 0x7f00)
 		return m_rom_space[2].read_byte(offset - 0x4000);
+	else if(offset < 0x7fe0)
+	{
+		fprintf( stderr, "rom_read should never happen\n");
+		return 0;
+	}
 	else
+	{
+		fprintf( stderr, "read vectors?: %4x\n", offset - 0x6000);
 		return m_rom_space[1].read_byte(offset - 0x6000);
+	}
 
 }
 
@@ -235,10 +244,17 @@ void sam6883_device::rom_write(offs_t offset, uint8_t data)
 		m_rom_space[0].write_byte(offset, data);
 	else if(offset < 0x4000)
 		m_rom_space[1].write_byte(offset - 0x2000, data);
-	else if(offset < 0x7ff0)
+	else if(offset < 0x7f00)
 		m_rom_space[2].write_byte(offset - 0x4000, data);
+	else if(offset < 0x7fe0)
+	{
+		fprintf( stderr, "rom_write should never happen\n");
+	}
 	else
+	{
+		fprintf( stderr, "writ vectors?: %4x\n", offset - 0x6000);
 		m_rom_space[1].write_byte(offset - 0x6000, data);
+	}
 }
 
 uint8_t sam6883_device::io_read(offs_t offset)
@@ -251,7 +267,6 @@ uint8_t sam6883_device::io_read(offs_t offset)
 		return m_io_space[2].read_byte(offset - 0x40);
 	else
 		return m_reserved_space.read_byte(offset - 0x60);
-
 }
 
 void sam6883_device::io_write(offs_t offset, uint8_t data)
@@ -381,6 +396,7 @@ void sam6883_device::device_post_load()
 void sam6883_device::update_state()
 {
 	update_memory();
+	update_views();
 	update_cpu_clock();
 }
 
@@ -416,7 +432,8 @@ void sam6883_device::update_memory()
 	// TODO:  Verify that the CoCo 3 ignored this
 
 	// switch depending on the M1/M0 variables
-	switch(m_sam_state & (SAM_STATE_M1|SAM_STATE_M0))
+// 	switch(m_sam_state & (SAM_STATE_M1|SAM_STATE_M0))
+	switch(BIT(m_sam_state, SAM_BIT_M0, 2))
 	{
 		case 0:
 			// 4K mode
@@ -470,7 +487,8 @@ void sam6883_friend_device_interface::update_cpu_clock()
 	// TODO:  Make the overclock more accurate.  In dual speed, ROM was a fast
 	// access but RAM was not.  I don't know how to simulate this.
 
-	int speed = (m_sam_state & (SAM_STATE_R1|SAM_STATE_R0)) / SAM_STATE_R0;
+// 	int speed = (m_sam_state & (SAM_STATE_R1|SAM_STATE_R0)) / SAM_STATE_R0;
+	int speed = (BIT(m_sam_state, SAM_BIT_R0, 2));
 	m_cpu->owner()->set_unscaled_clock(device().clock() / (m_divider * (speed ? 2 : 4)));
 }
 
@@ -509,35 +527,40 @@ void sam6883_device::internal_write(offs_t offset, uint8_t data)
 	{
 		LOGVBITS("%s: SAM V Bits: $%02x\n",
 			machine().describe_context(),
-			(m_sam_state & (SAM_STATE_V0|SAM_STATE_V1|SAM_STATE_V2)));
+			BIT(m_sam_state, SAM_BIT_V0, 3));
+// 			(m_sam_state & (SAM_STATE_V0|SAM_STATE_V1|SAM_STATE_V2)));
 	}
 
 	if (xorval & (SAM_STATE_P1))
 	{
 		LOGPBITS("%s: SAM P1 Bit: $%02x\n",
 			machine().describe_context(),
-			(m_sam_state & (SAM_STATE_P1)) >> 10);
+			BIT(m_sam_state, SAM_BIT_P1));
+// 			(m_sam_state & (SAM_STATE_P1)) >> 10);
 	}
 
 	if (xorval & (SAM_STATE_TY))
 	{
 		LOGTBITS("%s: SAM TY Bit: $%02x\n",
 			machine().describe_context(),
-			(m_sam_state & (SAM_STATE_TY)) >> 15);
+			BIT(m_sam_state, SAM_BIT_TY));
+// 			(m_sam_state & (SAM_STATE_TY)) >> 15);
 	}
 
 	if (xorval & (SAM_STATE_M0|SAM_STATE_M1))
 	{
 		LOGMBITS("%s: SAM M Bits: $%02x\n",
 			machine().describe_context(),
-			(m_sam_state & (SAM_STATE_M0|SAM_STATE_M1)) >> 13);
+			BIT(m_sam_state, SAM_BIT_M0, 2));
+// 			(m_sam_state & (SAM_STATE_M0|SAM_STATE_M1)) >> 13);
 	}
 
 	if (xorval & (SAM_STATE_R0|SAM_STATE_R1))
 	{
 		LOGRBITS("%s: SAM R Bits: $%02x\n",
 			machine().describe_context(),
-			(m_sam_state & (SAM_STATE_R0|SAM_STATE_R1)) >> 11);
+			BIT(m_sam_state, SAM_BIT_R0, 2));
+// 			(m_sam_state & (SAM_STATE_R0|SAM_STATE_R1)) >> 11);
 	}
 }
 
