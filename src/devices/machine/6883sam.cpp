@@ -182,17 +182,14 @@ void sam6883_device::endc_write(offs_t offset, uint8_t data)
 
 void sam6883_device::sam_mem(address_map &map)
 {
-	// endc is the signal, described in the SAM datasheet, that disables S line decoding
 	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
 	map(0x0000, 0xffff).view(m_ram_view);
 	map(0x8000, 0xffff).view(m_rom_view);
 	m_rom_view[0](0x8000, 0xffff).rw(FUNC(sam6883_device::rom_read), FUNC(sam6883_device::rom_write));
-
 	// This intentionally cuts a gap in the ROM view
 	map(0xff00, 0xffbf).view(m_io_view);
 	m_io_view[0](0xff00, 0xffbf).rw(FUNC(sam6883_device::io_read), FUNC(sam6883_device::io_write));
-
-	// This intentionally cuts a gap in the endc
+	// This intentionally cuts a gap in the ROM view and endc
 	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write));
 }
 
