@@ -183,12 +183,7 @@ void sam6883_device::endc_write(offs_t offset, uint8_t data)
 void sam6883_device::sam_mem(address_map &map)
 {
 	// endc is the signal, described in the SAM datasheet, that disables S line decoding
-//	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
-//	map(0x0000, 0x7fff).view(m_ram_view);
-//	map(0x8000, 0xfeff).view(m_rom_view);
-	// m_rom_view[0](0x8000, 0xfeff).rw(FUNC(sam6883_device::rom_read), FUNC(sam6883_device::rom_write));
-
-//	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
+	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
 	map(0x0000, 0xffff).view(m_ram_view);
 	map(0x8000, 0xffff).view(m_rom_view);
 	m_rom_view[0](0x8000, 0xffff).rw(FUNC(sam6883_device::rom_read), FUNC(sam6883_device::rom_write));
@@ -199,22 +194,18 @@ void sam6883_device::sam_mem(address_map &map)
 
 	// This intentionally cuts a gap in the endc
 	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write));
-
-// 	map(0xffe0, 0xffff).view(m_vector_view);
-// 	m_vector_view[0](0xffe0, 0xffff).rw(FUNC(sam6883_device::vector_read), FUNC(sam6883_device::vector_write));
 }
 
 void sam6883_device::update_views()
 {
-// 	m_ram_view.select(0);
-//
-// 	if(BIT(m_sam_state, SAM_BIT_TY))
-// 		m_rom_view.select(0);
-// 	else
-// 		m_rom_view.select(0);
-//
-// 	m_io_view.select(0);
-// 	m_vector_view.select(0);
+	m_ram_view.select(0);
+
+	if(BIT(m_sam_state, SAM_BIT_TY))
+		m_rom_view.select(0);
+	else
+		m_rom_view.select(0);
+
+	m_io_view.select(0);
 }
 
 
@@ -433,7 +424,6 @@ void sam6883_device::vector_write(offs_t offset, uint8_t data)
 {
 	m_rom_space[1].write_byte(0x1fe0 + offset, data);
 }
-
 
 //-------------------------------------------------
 //  endc_read - temporary endc read handler

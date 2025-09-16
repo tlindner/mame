@@ -172,8 +172,6 @@ public:
 	void rom_write(offs_t offset, uint8_t data);
 	uint8_t io_read(offs_t offset);
 	void io_write(offs_t offset, uint8_t data);
-	uint8_t vector_read(offs_t offset);
-	void vector_write(offs_t offset, uint8_t data);
 
 	void sam_mem(address_map &map);
 
@@ -217,7 +215,6 @@ private:
 	memory_view m_ram_view;
 	memory_view m_rom_view;
 	memory_view m_io_view;
-// 	memory_view m_vector_view;
 
 	// memory space configuration
 	address_space_config        m_m0_config;
