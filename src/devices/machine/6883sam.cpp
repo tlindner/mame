@@ -43,9 +43,20 @@
          1  Set     V0  VDG Mode
          0  Clear   V0  VDG Mode
 
-    All parts of the SAM are fully emulated except R1/R0 (the changes in the
-    MPU rate are approximated) and M1/M0
+	Memory Layout:
 
+	SAM Handler:                                    <-------->
+	I/O View[0]:                           <-------->
+	ROM View[0]:                <----------+--------+--------+--------->
+	RAM View[0]:  <--4k/8k------+----------+--------+--------+--------->
+	RAM View[1]:  <--16k/32k----+----------+--------+--------+--------->
+	RAM View[2]:  <--32k/64k----+----------+--------+--------+--------->
+	RAM View[3]:  <--64k, P1=1--+----------+--------+--------+--------->
+	ENDC Handler: <-------------+----------+--------+--------+--------->
+	             $0000         $8000      $FF00    $FFC0    $FFE0     $FFFF
+
+	ENDC is a signal first described in the MC6883 SAM datasheet.
+	It inhibits the 74LS138 decoding of the three "Select" lines.
 ***************************************************************************/
 
 
@@ -98,7 +109,6 @@ sam6883_device::sam6883_device(const machine_config &mconfig, const char *tag, d
 	, m_ram_view(*this, "sam_ram_view")
 	, m_rom_view(*this, "sam_rom_view")
 	, m_io_view(*this, "sam_io_view")
-// 	, m_vector_view(*this, "sam_vector_view")
 	, m_s0_ram_config("ram", ENDIANNESS_BIG, 8, 16, 0)
 	, m_s1_rom0_config("rom0", ENDIANNESS_BIG, 8, 13, 0)
 	, m_s2_rom1_config("rom1", ENDIANNESS_BIG, 8, 13, 0)
@@ -133,12 +143,7 @@ void sam6883_device::endc_write(offs_t offset, uint8_t data)
 void sam6883_device::sam_mem(address_map &map)
 {
 	// endc is the signal, described in the SAM datasheet, that disables S line decoding
-//	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
-//	map(0x0000, 0x7fff).view(m_ram_view);
-//	map(0x8000, 0xfeff).view(m_rom_view);
-	// m_rom_view[0](0x8000, 0xfeff).rw(FUNC(sam6883_device::rom_read), FUNC(sam6883_device::rom_write));
-
-//	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
+	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
 	map(0x0000, 0xffff).view(m_ram_view);
 	map(0x8000, 0xffff).view(m_rom_view);
 	m_rom_view[0](0x8000, 0xffff).rw(FUNC(sam6883_device::rom_read), FUNC(sam6883_device::rom_write));
@@ -149,22 +154,18 @@ void sam6883_device::sam_mem(address_map &map)
 
 	// This intentionally cuts a gap in the endc
 	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write));
-
-// 	map(0xffe0, 0xffff).view(m_vector_view);
-// 	m_vector_view[0](0xffe0, 0xffff).rw(FUNC(sam6883_device::vector_read), FUNC(sam6883_device::vector_write));
 }
 
 void sam6883_device::update_views()
 {
-// 	m_ram_view.select(0);
-//
-// 	if(BIT(m_sam_state, SAM_BIT_TY))
-// 		m_rom_view.select(0);
-// 	else
-// 		m_rom_view.select(0);
-//
-// 	m_io_view.select(0);
-// 	m_vector_view.select(0);
+	m_ram_view.select(0);
+
+	if(BIT(m_sam_state, SAM_BIT_TY))
+		m_rom_view.select(0);
+	else
+		m_rom_view.select(0);
+
+	m_io_view.select(0);
 }
 
 
@@ -211,14 +212,7 @@ void sam6883_device::device_start()
 		space(i + 4).specific(m_io_space[i]);
 	space(7).cache(m_reserved_space);
 
-// 	int ram_end = std::min(m_ram->mask(), 0xffffU);
-// 	ram_end = std::min(m_ram->mask(), 0x7fffU);
-
 	m_ram_view[0].install_ram(0x0000, m_ram->mask(), m_ram->pointer());
-// 	m_ram_view[1].install_ram(0x0000, m_ram->mask(), m_ram->pointer());
-// 	m_ram_view[2].install_ram(0x0000, m_ram->mask(), m_ram->pointer());
-// 	m_rom_view[0].install_readwrite_handler(0x8000, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::rom_read)), emu::rw_delegate(*this, FUNC(sam6883_device::rom_write)));
-// 	m_io_view[0].install_readwrite_handler(0xff00, 0xffbf, emu::rw_delegate(*this, FUNC(sam6883_device::io_read)), emu::rw_delegate(*this, FUNC(sam6883_device::io_write)));
 	update_views();
 
 	m_ram_view.select(0);
@@ -285,16 +279,6 @@ void sam6883_device::io_write(offs_t offset, uint8_t data)
 		m_io_space[2].write_byte(offset - 0x40, data);
 	else
 		m_reserved_space.write_byte(offset - 0x60, data);
-}
-
-uint8_t sam6883_device::vector_read(offs_t offset)
-{
-	return m_rom_space[1].read_byte(0x1fe0 + offset);
-}
-
-void sam6883_device::vector_write(offs_t offset, uint8_t data)
-{
-	m_rom_space[1].write_byte(0x1fe0 + offset, data);
 }
 
 //-------------------------------------------------
