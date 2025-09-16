@@ -43,7 +43,7 @@
          1  Set     V0  VDG Mode
          0  Clear   V0  VDG Mode
 
-	Memory Layout:
+	Memory Layout (top layers overide bottom layers):
 
 	SAM Handler:                                    <-------->
 	I/O View[0]:                           <-------->
