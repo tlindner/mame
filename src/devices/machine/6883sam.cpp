@@ -65,6 +65,20 @@
 
 #include <algorithm>
 
+bool sam_misconfigured( int index, u32 ram_size )
+{
+	if (index==0 && ram_size == 4096) return false;
+	if (index==0 && ram_size == 8192) return false;
+
+	if (index==1 && ram_size == 16384) return false;
+	if (index==1 && ram_size == 32768) return false;
+
+	if (index==2 && ram_size == 65536) return false;
+
+	if (index==3 && ram_size == 65536) return false;
+
+	return true;
+}
 
 //**************************************************************************
 //  CONSTANTS
@@ -155,10 +169,14 @@ void sam6883_device::sam_mem(address_map &map)
 
 void sam6883_device::update_views()
 {
-	m_ram_view.select(0);
+	int which = BIT(m_sam_state, SAM_BIT_M0, 2);
+	if (which>2) which = 2;
+	if ((which == 2) && BIT(m_sam_state, SAM_BIT_P1)) which = 3;
+
+	m_ram_view.select(which);
 
 	if(BIT(m_sam_state, SAM_BIT_TY))
-		m_rom_view.select(0);
+		m_rom_view.disable();
 	else
 		m_rom_view.select(0);
 
@@ -209,7 +227,42 @@ void sam6883_device::device_start()
 		space(i + 4).specific(m_io_space[i]);
 	space(7).cache(m_reserved_space);
 
-	m_ram_view[0].install_ram(0x0000, m_ram->mask(), m_ram->pointer());
+	for (int i = 0; i<4; i++)
+	{
+		if (! sam_misconfigured( i, m_ram->size()))
+		{
+			if (i == 3)
+			{
+				// 64k of ram with P1 set
+				m_ram_view[i].install_ram(0x0000, 0x7fff, 0x8000, m_ram->pointer()+0x8000);
+			}
+			else
+			{
+				// All other properly configured ram
+				m_ram_view[i].install_ram(0x0000, m_ram->mask(), m_ram->pointer());
+				if(m_ram->mask() < 0xffff) m_ram_view[i].nop_readwrite(m_ram->size(), 0xffff);
+			}
+		}
+		else
+		{
+			// misconfigured ram
+			int start = 0;
+			int end = 0xff;
+			for (int j = 0; j < (m_ram->size()/0x200); j++)
+			{
+				fprintf( stderr, "i=%d, start=%4x, end=%4x\n", i, start, end);
+				m_ram_view[i].install_ram(start, end, 0x0100, m_ram->pointer()+start);
+				start += 0x200;
+				end += 0x200;
+			}
+		}
+
+
+	}
+
+// 	m_ram_view[0].install_view(0x8000, 0xffff, m_rom_view);
+// 	m_rom_view[0](0x8000, 0xffff).rw(FUNC(sam6883_device::rom_read), FUNC(sam6883_device::rom_write));
+
 	update_views();
 
 	m_ram_view.select(0);
@@ -234,7 +287,7 @@ uint8_t sam6883_device::rom_read(offs_t offset)
 	else if(offset < 0x7f00)
 		return m_rom_space[2].read_byte(offset - 0x4000);
 	else if(offset < 0x7fe0)
-		return fprintf(stderr, "%s sam6883_device::rom_read: %4x\n", machine().describe_context().c_str(), offset);
+		{return 0;}//return fprintf(stderr, "%s sam6883_device::rom_read: %4x\n", machine().describe_context().c_str(), offset);
 	else
 		return m_rom_space[1].read_byte(offset - 0x2000);
 
@@ -249,7 +302,7 @@ void sam6883_device::rom_write(offs_t offset, uint8_t data)
 	else if(offset < 0x7f00)
 		m_rom_space[2].write_byte(offset - 0x4000, data);
 	else if(offset < 0x7fe0)
-		fprintf(stderr, "%s sam6883_device::rom_write: %4x\n", machine().describe_context().c_str(), offset);
+		{}//fprintf(stderr, "%s sam6883_device::rom_write: %4x\n", machine().describe_context().c_str(), offset);
 	else
 		m_rom_space[1].write_byte(offset - 0x2000, data);
 }
