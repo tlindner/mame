@@ -195,10 +195,14 @@ void sam6883_device::sam_mem(address_map &map)
 
 void sam6883_device::update_views()
 {
-	m_ram_view.select(0);
+	int which = BIT(m_sam_state, SAM_BIT_M0, 2);
+	if (which>2) which = 2;
+	if ((which == 2) && BIT(m_sam_state, SAM_BIT_P1)) which = 3;
+
+	m_ram_view.select(which);
 
 	if(BIT(m_sam_state, SAM_BIT_TY))
-		m_rom_view.select(0);
+		m_rom_view.disable();
 	else
 		m_rom_view.select(0);
 
@@ -368,7 +372,7 @@ uint8_t sam6883_device::rom_read(offs_t offset)
 	else if(offset < 0x7f00)
 		return m_rom_space[2].read_byte(offset - 0x4000);
 	else if(offset < 0x7fe0)
-		return fprintf(stderr, "%s sam6883_device::rom_read: %4x\n", machine().describe_context().c_str(), offset);
+		{return 0;}//return fprintf(stderr, "%s sam6883_device::rom_read: %4x\n", machine().describe_context().c_str(), offset);
 	else
 		return m_rom_space[1].read_byte(offset - 0x2000);
 
@@ -383,7 +387,7 @@ void sam6883_device::rom_write(offs_t offset, uint8_t data)
 	else if(offset < 0x7f00)
 		m_rom_space[2].write_byte(offset - 0x4000, data);
 	else if(offset < 0x7fe0)
-		fprintf(stderr, "%s sam6883_device::rom_write: %4x\n", machine().describe_context().c_str(), offset);
+		{}//fprintf(stderr, "%s sam6883_device::rom_write: %4x\n", machine().describe_context().c_str(), offset);
 	else
 		m_rom_space[1].write_byte(offset - 0x2000, data);
 }
