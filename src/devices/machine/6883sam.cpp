@@ -167,23 +167,6 @@ void sam6883_device::sam_mem(address_map &map)
 	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write));
 }
 
-void sam6883_device::update_views()
-{
-	int which = BIT(m_sam_state, SAM_BIT_M0, 2);
-	if (which>2) which = 2;
-	if ((which == 2) && BIT(m_sam_state, SAM_BIT_P1)) which = 3;
-
-	m_ram_view.select(which);
-
-	if(BIT(m_sam_state, SAM_BIT_TY))
-		m_rom_view.disable();
-	else
-		m_rom_view.select(0);
-
-	m_io_view.select(0);
-}
-
-
 //-------------------------------------------------
 //  memory_space_config - return the configuration
 //  for the address spaces
@@ -250,24 +233,15 @@ void sam6883_device::device_start()
 			int end = 0xff;
 			for (int j = 0; j < (m_ram->size()/0x200); j++)
 			{
-				fprintf( stderr, "i=%d, start=%4x, end=%4x\n", i, start, end);
 				m_ram_view[i].install_ram(start, end, 0x0100, m_ram->pointer()+start);
 				start += 0x200;
 				end += 0x200;
 			}
 		}
-
-
 	}
 
 // 	m_ram_view[0].install_view(0x8000, 0xffff, m_rom_view);
 // 	m_rom_view[0](0x8000, 0xffff).rw(FUNC(sam6883_device::rom_read), FUNC(sam6883_device::rom_write));
-
-	update_views();
-
-	m_ram_view.select(0);
-	m_rom_view.select(0);
-	m_io_view.select(0);
 
 	// save state support
 	save_item(NAME(m_sam_state));
@@ -445,7 +419,6 @@ void sam6883_device::device_post_load()
 void sam6883_device::update_state()
 {
 	update_memory();
-	update_views();
 	update_cpu_clock();
 }
 
@@ -468,30 +441,24 @@ void sam6883_device::update_memory()
 	//      $FFDA   (clear) R0
 	//
 	// R1:R0 formed the following states:
-	//      00  - 4k
-	//      01  - 16k
-	//      10  - 64k
-	//      11  - static RAM (??)
-	//
-	// If something less than 64k was set, the low RAM would be smaller and
-	// mirror the other parts of the RAM
-	//
-	// TODO:  Find out what "static RAM" is
-	// TODO:  This should affect _all_ memory accesses, not just video ram
-	// TODO:  Verify that the CoCo 3 ignored this
+	//      00  - 4k dynamic
+	//      01  - 16k dynamic
+	//      10  - 64k dynamic
+	//      11  - 64k static
 
 	// switch depending on the M1/M0 variables
-// 	switch(m_sam_state & (SAM_STATE_M1|SAM_STATE_M0))
 	switch(BIT(m_sam_state, SAM_BIT_M0, 2))
 	{
 		case 0:
 			// 4K mode
 			m_counter_mask = 0x0FFF;
+			m_ram_view.select(0);
 			break;
 
 		case SAM_STATE_M0:
 			// 16K mode
 			m_counter_mask = 0x3FFF;
+			m_ram_view.select(1);
 			break;
 
 		case SAM_STATE_M1:
@@ -500,9 +467,24 @@ void sam6883_device::update_memory()
 			// 64k mode (static)
 			// full 64k RAM or ROM/RAM
 			// CoCo Max requires these two be treated the same
+
+			m_ram_view.select(2);
 			m_counter_mask = 0xfFFF;
+
+			if BIT(m_sam_state, SAM_BIT_P1))
+			{
+				m_ram_view.select(2);
+			}
 			break;
 	}
+
+	// Manage other views
+	if(BIT(m_sam_state, SAM_BIT_TY))
+		m_rom_view.disable();
+	else
+		m_rom_view.select(0);
+
+	m_io_view.select(0);
 }
 
 
@@ -524,17 +506,17 @@ void sam6883_friend_device_interface::update_cpu_clock()
 	//      $FFD6   (clear) R0
 	//
 	// R1:R0 formed the following states:
-	//      00  - slow          0.89 MHz
-	//      01  - dual speed    ???
-	//      1x  - fast          1.78 MHz
+	//      00  - slow               0.89 MHz
+	//      01  - address dependent; RAM: 0.89 MHz, ROM: 1.78 MHz
+	//      1x  - fast               1.78 MHz
 	//
 	// R1 controlled whether the video addressing was speeded up and R0
 	// did the same for the CPU.  On pre-CoCo 3 machines, setting R1 caused
 	// the screen to display garbage because the M6847 could not display
 	// fast enough.
 	//
-	// TODO:  Make the overclock more accurate.  In dual speed, ROM was a fast
-	// access but RAM was not.  I don't know how to simulate this.
+	// TODO:  In dual speed, ROM was a fast access but RAM was not.
+	// I don't know how to simulate this.
 
 // 	int speed = (m_sam_state & (SAM_STATE_R1|SAM_STATE_R0)) / SAM_STATE_R0;
 	int speed = (BIT(m_sam_state, SAM_BIT_R0, 2));
@@ -559,7 +541,6 @@ void sam6883_device::internal_write(offs_t offset, uint8_t data)
 	if (xorval & (SAM_STATE_TY|SAM_STATE_M1|SAM_STATE_M0|SAM_STATE_P1))
 	{
 		update_memory();
-		update_views();
 	}
 
 	if (xorval & (SAM_STATE_R1|SAM_STATE_R0))
