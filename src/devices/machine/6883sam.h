@@ -167,13 +167,12 @@ public:
 	uint8_t endc_read(offs_t offset);
 	void endc_write(offs_t offset, uint8_t data);
 
+	// Internal vector handler
 	uint8_t vector_read(offs_t offset);
-	uint8_t rom_read(offs_t offset);
-	void rom_write(offs_t offset, uint8_t data);
-	uint8_t io_read(offs_t offset);
-	void io_write(offs_t offset, uint8_t data);
 
+	// Address maps
 	void sam_mem(address_map &map);
+	void internal_rom_map(address_map &map);
 
 	// typically called by VDG
 	ATTR_FORCE_INLINE uint8_t display_read(offs_t offset)
@@ -196,8 +195,6 @@ public:
 				counter_carry_bit3();
 		}
 		return m_ram_space[BIT(m_sam_state, SAM_BIT_M0, 2)].read_byte(m_counter);
-
->>>>>>> c36e36f7614 (More progress)
 	}
 
 	void hs_w(int state);

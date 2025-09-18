@@ -169,24 +169,18 @@ void sam6883_device::sam_mem(address_map &map)
 	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write)).nopr();
 }
 
-uint8_t sam6883_device::endc_read(offs_t offset)
-{
-	fprintf(stderr,"sam6883_device::endc_read: %4x\n", offset);
-	return 0;
-}
 
-void sam6883_device::endc_write(offs_t offset, uint8_t data)
-{
-	fprintf(stderr,"sam6883_device::endc_write: %4x\n", offset);
-}
+
+//-------------------------------------------------
+//  function - description
+//-------------------------------------------------
 
 void sam6883_device::sam_mem(address_map &map)
 {
 	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
-	map(0x0000, 0xffff).view(m_ram_view);
+	map(0x0000, 0xfeff).view(m_ram_view);
 	map(0x8000, 0xffff).view(m_rom_view);
 
-// 	m_rom_view[0](0x8000, 0xffff).rw(FUNC(sam6883_device::rom_read), FUNC(sam6883_device::rom_write));
 	m_rom_view[0](0x8000, 0x9fff).m(*m_host, FUNC(device_sam_map_host_interface::s1_rom0_map));
 	m_rom_view[0](0xa000, 0xbfff).m(*m_host, FUNC(device_sam_map_host_interface::s2_rom1_map));
 	m_rom_view[0](0xc000, 0xfeff).m(*m_host, FUNC(device_sam_map_host_interface::s3_rom2_map));
@@ -194,15 +188,15 @@ void sam6883_device::sam_mem(address_map &map)
 
 	// This intentionally cuts a gap in the ROM view
 	map(0xff00, 0xffbf).view(m_io_view);
-// 	m_io_view[0](0xff00, 0xffbf).rw(FUNC(sam6883_device::io_read), FUNC(sam6883_device::io_write));
 	m_io_view[0](0xff00, 0xff1f).m(*m_host, FUNC(device_sam_map_host_interface::s4_io0_map));
 	m_io_view[0](0xff20, 0xff3f).m(*m_host, FUNC(device_sam_map_host_interface::s5_io1_map));
 	m_io_view[0](0xff40, 0xff5f).m(*m_host, FUNC(device_sam_map_host_interface::s6_io2_map));
 	m_io_view[0](0xff60, 0xffbf).m(*m_host, FUNC(device_sam_map_host_interface::s7_res_map));
 
-
 	// This intentionally cuts a gap in the ROM view and endc
 	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write)).nopr();
+
+	// Internal spaces
 }
 
 void sam6883_device::update_views()
@@ -311,7 +305,6 @@ void sam6883_device::device_start()
 		}
 		else
 		{
-			fprintf( stderr, "%d configured\n", i);
 			if (i == 3)
 			{
 				// 64k of ram with P1 set
@@ -375,9 +368,38 @@ void sam6883_device::device_start()
 	save_item(NAME(m_counter_ydiv));
 }
 
+
+
+//-------------------------------------------------
+//  function - description
+//-------------------------------------------------
+
+uint8_t sam6883_device::endc_read(offs_t offset)
+{
+	fprintf(stderr,"sam6883_device::endc_read: %4x\n", offset);
+	return 0;
+}
+
+
+
+//-------------------------------------------------
+//  function - description
+//-------------------------------------------------
+
+void sam6883_device::endc_write(offs_t offset, uint8_t data)
+{
+	fprintf(stderr,"sam6883_device::endc_write: %4x\n", offset);
+}
+
+
+
+//-------------------------------------------------
+//  function - description
+//-------------------------------------------------
+
 uint8_t sam6883_device::vector_read(offs_t offset)
 {
-	return m_rom_view.space()->read_byte(offset+0xBFE0);
+	return m_rom_space.read_byte(offset+0x1fe0);
 }
 
 uint8_t sam6883_device::rom_read(offs_t offset)
