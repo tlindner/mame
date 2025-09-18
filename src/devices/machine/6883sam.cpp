@@ -43,7 +43,7 @@
          1  Set     V0  VDG Mode
          0  Clear   V0  VDG Mode
 
-	Memory Layout (top layers overide bottom layers):
+	Host Memory Layout (top layers overide bottom layers):
 
 	SAM Handler:                                    ≤-------->
 	I/O View[0]:                           ≤-------->
@@ -73,6 +73,7 @@ bool sam_misconfigured( int index, u32 ram_size )
 	if (index==1 && ram_size == 16384) return false;
 	if (index==1 && ram_size == 32768) return false;
 
+	if (index==2 && ram_size == 32768) return false;
 	if (index==2 && ram_size == 65536) return false;
 
 	if (index==3 && ram_size == 65536) return false;
@@ -228,17 +229,20 @@ void sam6883_device::device_start()
 		if (sam_misconfigured( i, m_ram->size()))
 		{
 			// misconfigured ram
+			fprintf( stderr, "%d misconfigured\n", i);
 			int start = 0;
 			int end = 0xff;
 			for (int j = 0; j < (m_ram->size()/0x200); j++)
 			{
 				m_ram_view[i].install_ram(start, end, 0x0100, m_ram->pointer()+start);
+				fprintf( stderr, "  %d = %04x - %04x\n", i, start, end );
 				start += 0x200;
 				end += 0x200;
 			}
 		}
 		else
 		{
+			fprintf( stderr, "%d configured\n", i);
 			if (i == 3)
 			{
 				// 64k of ram with P1 set
