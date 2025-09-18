@@ -2663,8 +2663,6 @@ public:
 
 	const std::string &name() const { return m_name; }
 
-	address_space * space() { return m_space; }
-
 private:
 	device_t &                                      m_device;
 	std::string                                     m_name;
