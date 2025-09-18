@@ -65,6 +65,7 @@ void coco_cart(device_slot_interface &device);
 #define DIECOM_LIGHTGUN_LX_TAG      "dclg_lx"
 #define DIECOM_LIGHTGUN_LY_TAG      "dclg_ly"
 #define DIECOM_LIGHTGUN_BUTTONS_TAG "dclg_triggers"
+#define RAMSIZE_TAG                 "ramsize"
 
 
 //**************************************************************************
@@ -221,6 +222,7 @@ protected:
 	optional_device<coco_vhd_image_device> m_vhd_1;
 	optional_device<beckerport_device> m_beckerport;
 	optional_ioport m_beckerportconfig;
+	optional_ioport m_ramsiz_config;
 	required_device<input_merger_device> m_irqs;
 	required_device<input_merger_device> m_firqs;
 

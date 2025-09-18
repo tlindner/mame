@@ -184,6 +184,21 @@ INPUT_PORTS_END
 
 
 //-------------------------------------------------
+//  INPUT_PORTS( coco_ram_size )
+//-------------------------------------------------
+
+INPUT_PORTS_START( coco_ram_size )
+	PORT_START(RAMSIZE_TAG)
+	PORT_CONFNAME( 0x03, 0x00, "RAM Size Jumper" )
+	PORT_CONFSETTING(    0x00, "Automatic")
+	PORT_CONFSETTING(    0x01, "Tie pia1 pb3 high")
+	PORT_CONFSETTING(    0x02, "Tie pia1 pb3 low")
+	PORT_CONFSETTING(    0x03, "Tie pia1 pb3 to pia0 pb6")
+INPUT_PORTS_END
+
+
+
+//-------------------------------------------------
 //  INPUT_PORTS( coco_keyboard )
 //-------------------------------------------------
 //
@@ -279,6 +294,7 @@ static INPUT_PORTS_START( coco )
 	PORT_INCLUDE( coco_joystick )
 	PORT_INCLUDE( coco_analog_control )
 	PORT_INCLUDE( coco_beckerport )
+	PORT_INCLUDE( coco_ram_size )
 INPUT_PORTS_END
 
 
@@ -552,7 +568,7 @@ void coco12_state::coco(machine_config &config)
 	m_vdg->input_callback().set(FUNC(coco12_state::sam_read));
 
 	// internal ram
-	RAM(config, m_ram).set_default_size("64K").set_extra_options("4K,16K,32K");
+	RAM(config, m_ram).set_default_size("64K").set_extra_options("4K,8K,16K,32K");
 
 	// floating space
 	coco_floating(config);
