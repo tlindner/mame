@@ -72,7 +72,9 @@ void coco_cart(device_slot_interface &device);
 //  TYPE DEFINITIONS
 //**************************************************************************
 
-class coco_state : public driver_device, public device_cococart_host_interface
+class coco_state :
+	public driver_device,
+	public device_cococart_host_interface
 {
 public:
 	coco_state(const machine_config &mconfig, device_type type, const char *tag);
