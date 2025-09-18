@@ -123,22 +123,18 @@ public:
 	}
 
 	sam6883_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
-
-	// CPU read/write handlers
-	uint8_t read(offs_t offset);
-	void write(offs_t offset, uint8_t data);
+	virtual void device_add_mconfig(machine_config &config) override ATTR_COLD;
 
 	// Disabled S decoding handlers
 	uint8_t endc_read(offs_t offset);
 	void endc_write(offs_t offset, uint8_t data);
 
+	// Internal vector handler
 	uint8_t vector_read(offs_t offset);
-	uint8_t rom_read(offs_t offset);
-	void rom_write(offs_t offset, uint8_t data);
-	uint8_t io_read(offs_t offset);
-	void io_write(offs_t offset, uint8_t data);
 
+	// Address maps
 	void sam_mem(address_map &map);
+	void internal_rom_map(address_map &map);
 
 	// typically called by VDG
 	ATTR_FORCE_INLINE uint8_t display_read(offs_t offset)
@@ -160,8 +156,8 @@ public:
 			if (bit3_carry)
 				counter_carry_bit3();
 		}
-		return m_ram_view.space()->read_byte(m_counter & m_counter_mask);
-// 		return m_ram_space.read_byte(m_counter & m_counter_mask);
+		return m_ram_space[BIT(m_sam_state, SAM_BIT_M0, 2)].read_byte(m_counter & m_counter_mask);
+
 
 	}
 
@@ -182,20 +178,15 @@ private:
 	memory_view m_io_view;
 
 	// memory space configuration
-	address_space_config        m_s0_ram_config;
-	address_space_config        m_s1_rom0_config;
-	address_space_config        m_s2_rom1_config;
-	address_space_config        m_s3_rom2_config;
-	address_space_config        m_s4_io0_config;
-	address_space_config        m_s5_io1_config;
-	address_space_config        m_s6_io2_config;
-	address_space_config        m_s7_reserved_config;
+	address_space_config        m_m0_config;
+	address_space_config        m_m1_config;
+	address_space_config        m_m2_config;
+	address_space_config        m_m3_config;
+	address_space_config        m_s2_config;
 
 	// memory spaces
-	memory_access<16, 0, 0, ENDIANNESS_BIG>::cache m_ram_space;
-	memory_access<14, 0, 0, ENDIANNESS_BIG>::cache m_rom_space[3];
-	memory_access< 5, 0, 0, ENDIANNESS_BIG>::specific m_io_space[3];
-	memory_access< 7, 0, 0, ENDIANNESS_BIG>::cache m_reserved_space;
+	memory_access<16, 0, 0, ENDIANNESS_BIG>::cache m_ram_space[4];
+	memory_access<14, 0, 0, ENDIANNESS_BIG>::cache m_rom_space;
 	uint16_t                    m_counter_mask = 0;
 
 	// SAM state
@@ -210,7 +201,6 @@ private:
 	ATTR_FORCE_INLINE void counter_carry_bit3()
 	{
 		uint8_t x_division;
-// 		switch((m_sam_state & (SAM_STATE_V2|SAM_STATE_V1|SAM_STATE_V0)) / SAM_STATE_V0)
 		switch(BIT(m_sam_state, SAM_BIT_V0, 3))
 		{
 			case 0x00:  x_division = 1; break;
@@ -239,7 +229,6 @@ private:
 	ATTR_FORCE_INLINE void counter_carry_bit4()
 	{
 		uint8_t y_division;
-// 		switch((m_sam_state & (SAM_STATE_V2|SAM_STATE_V1|SAM_STATE_V0)) / SAM_STATE_V0)
 		switch(BIT(m_sam_state, SAM_BIT_V0, 3))
 		{
 			case 0x00:  y_division = 12;    break;
