@@ -151,13 +151,12 @@ sam6883_friend_device_interface::sam6883_friend_device_interface(const machine_c
 void sam6883_device::sam_mem(address_map &map)
 {
 	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
-	map(0x0000, 0xfeff).view(m_ram_view); // see device_start()
+	map(0x0000, 0xffff).view(m_ram_view); // see device_start()
 	map(0x8000, 0xffff).view(m_rom_view);
 
 	m_rom_view[0](0x8000, 0x9fff).m(*m_host, FUNC(device_sam_map_host_interface::s1_rom0_map));
 	m_rom_view[0](0xa000, 0xbfff).m(*m_host, FUNC(device_sam_map_host_interface::s2_rom1_map));
 	m_rom_view[0](0xc000, 0xfeff).m(*m_host, FUNC(device_sam_map_host_interface::s3_rom2_map));
-	m_rom_view[0](0xffe0, 0xffff).r(FUNC(sam6883_device::vector_read)).nopw();
 
 	// This intentionally cuts a gap in the ROM view
 	map(0xff00, 0xffbf).view(m_io_view);
@@ -228,9 +227,11 @@ void sam6883_device::device_start()
 	auto it = std::find(supported_configurations.begin(), supported_configurations.end(), m_ram->size());
 	if (it == supported_configurations.end())
 	{
-		throw emu_fatalerror("MC6883 only support RAM configurations of 4096, 8192, 16384, 32768, or 65536 bytes.");
+		throw emu_fatalerror("MC6883 only supports RAM configurations of 4096, 8192, 16384, 32768, or 65536 bytes.");
 	}
 
+	// setup ram views
+#if 0
 	for (int i = 0; i<4; i++)
 	{
 		if (sam_misconfigured( i, m_ram->size()))
@@ -271,6 +272,21 @@ void sam6883_device::device_start()
 			}
 		}
 	}
+#endif
+
+	m_ram_view[0].install_ram(0x0000, 0xfeff, m_ram->pointer());
+	m_ram_view[0].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
+	m_ram_view[1].install_ram(0x0000, 0xfeff, m_ram->pointer());
+	m_ram_view[1].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
+	m_ram_view[2].install_ram(0x0000, 0xfeff, m_ram->pointer());
+	m_ram_view[2].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
+	m_ram_view[3].install_ram(0x0000, 0xfeff, m_ram->pointer());
+	m_ram_view[3].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
+
+	space(0).install_ram(0x0000, 0xffff, m_ram->pointer());
+	space(1).install_ram(0x0000, 0xffff, m_ram->pointer());
+	space(2).install_ram(0x0000, 0xffff, m_ram->pointer());
+	space(3).install_ram(0x0000, 0xffff, m_ram->pointer());
 
 	// get spaces
 	space(0).cache(m_ram_space[0]);
@@ -296,7 +312,7 @@ void sam6883_device::device_start()
 
 uint8_t sam6883_device::endc_read(offs_t offset)
 {
-	fprintf(stderr,"sam6883_device::endc_read: %4x\n", offset);
+// 	fprintf(stderr,"sam6883_device::endc_read: %4x\n", offset);
 	return 0;
 }
 
@@ -308,7 +324,7 @@ uint8_t sam6883_device::endc_read(offs_t offset)
 
 void sam6883_device::endc_write(offs_t offset, uint8_t data)
 {
-	fprintf(stderr,"sam6883_device::endc_write: %4x\n", offset);
+// 	fprintf(stderr,"sam6883_device::endc_write: %4x\n", offset);
 }
 
 
