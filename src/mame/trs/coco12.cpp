@@ -41,30 +41,25 @@ void coco12_state::coco_mem(address_map &map)
 	map(0x0000, 0xffff).m(m_sam, FUNC(sam6883_device::sam_mem));
 }
 
-void coco12_state::coco_s0_ram(address_map &map)
-{
-	// mapped by SAM device_start
-}
-
-void coco12_state::coco_s1_rom0(address_map &map)
+void coco12_state::s1_rom0_map(address_map &map)
 {
 	// $8000-$9FFF
 	map(0x0000, 0x1fff).rom().region(MAINCPU_TAG, 0x0000).nopw();
 }
 
-void coco12_state::coco_s2_rom1(address_map &map)
+void coco12_state::s2_rom1_map(address_map &map)
 {
 	// $A000-$BFFF
 	map(0x0000, 0x1fff).rom().region(MAINCPU_TAG, 0x2000).nopw();
 }
 
-void coco12_state::coco_s3_rom2(address_map &map)
+void coco12_state::s3_rom2_map(address_map &map)
 {
 	// $C000-$FEFF
 	map(0x0000, 0x3eff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
 }
 
-void deluxecoco_state::deluxecoco_s3_rom2(address_map &map)
+void deluxecoco_state::s3_rom2_map(address_map &map)
 {
 	// $C000-$FEFF
 	map(0x0000, 0x3eff).view(m_rom_view);
@@ -73,38 +68,38 @@ void deluxecoco_state::deluxecoco_s3_rom2(address_map &map)
 	m_rom_view[1](0x0000, 0x3eff).rom().region(MAINCPU_TAG, 0x4000).nopw();
 }
 
-void coco12_state::coco_s4_io0(address_map &map)
+void coco12_state::s4_io0_map(address_map &map)
 {
 	// $FF00-$FF1F
 	map(0x00, 0x03).mirror(0x1c).rw(m_pia_0, FUNC(pia6821_device::read), FUNC(pia6821_device::write));
 }
 
-void coco12_state::coco_s5_io1(address_map &map)
+void coco12_state::s5_io1_map(address_map &map)
 {
 	// $FF20-$FF3F
 	map(0x00, 0x03).mirror(0x1c).r(m_pia_1, FUNC(pia6821_device::read)).w(FUNC(coco12_state::ff20_write));
 }
 
-void coco12_state::coco_s6_io2(address_map &map)
+void coco12_state::s6_io2_map(address_map &map)
 {
 	// $FF40-$FF5F
 	map(0x00, 0x1f).rw(FUNC(coco12_state::ff40_read), FUNC(coco12_state::ff40_write));
 }
 
-void coco12_state::coco_s7_reserved(address_map &map)
+void coco12_state::s7_res_map(address_map &map)
 {
 	// $FF60-$FFBF
 	map(0x00, 0x5f).rw(FUNC(coco12_state::ff60_read), FUNC(coco12_state::ff60_write));
 }
 
-void coco12_state::ms1600_s3_rom2(address_map &map)
+void ms1600_state::s3_rom2_map(address_map &map)
 {
 	// $C000-$FEFF
 	map(0x0000, 0x2fff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
 	map(0x3000, 0x3eff).rom().region(MAINCPU_TAG, 0x7000).nopw();
 }
 
-void deluxecoco_state::deluxecoco_s5_io1(address_map &map)
+void deluxecoco_state::s5_io1_map(address_map &map)
 {
 	// $FF20-$FF3F
 	map(0x00, 0x03).r(m_pia_1, FUNC(pia6821_device::read)).w(FUNC(coco12_state::ff20_write));
@@ -509,14 +504,14 @@ void coco12_state::coco(machine_config &config)
 	MC6809E(config, m_maincpu, DERIVED_CLOCK(1, 1));
 
 	SAM6883(config, m_sam, XTAL(14'318'181), m_maincpu, m_ram);
-	m_sam->set_addrmap(0, &coco12_state::coco_s0_ram);
-	m_sam->set_addrmap(1, &coco12_state::coco_s1_rom0);
-	m_sam->set_addrmap(2, &coco12_state::coco_s2_rom1);
-	m_sam->set_addrmap(3, &coco12_state::coco_s3_rom2);
-	m_sam->set_addrmap(4, &coco12_state::coco_s4_io0);
-	m_sam->set_addrmap(5, &coco12_state::coco_s5_io1);
-	m_sam->set_addrmap(6, &coco12_state::coco_s6_io2);
-	m_sam->set_addrmap(7, &coco12_state::coco_s7_reserved);
+// 	m_sam->set_addrmap(0, &coco12_state::coco_s0_ram);
+// 	m_sam->set_addrmap(1, &coco12_state::coco_s1_rom0);
+// 	m_sam->set_addrmap(2, &coco12_state::coco_s2_rom1);
+// 	m_sam->set_addrmap(3, &coco12_state::coco_s3_rom2);
+// 	m_sam->set_addrmap(4, &coco12_state::coco_s4_io0);
+// 	m_sam->set_addrmap(5, &coco12_state::coco_s5_io1);
+// 	m_sam->set_addrmap(6, &coco12_state::coco_s6_io2);
+// 	m_sam->set_addrmap(7, &coco12_state::coco_s7_reserved);
 
  	m_maincpu->set_addrmap(AS_PROGRAM, &coco12_state::coco_mem);
 	m_maincpu->set_dasm_override(FUNC(coco_state::dasm_override));
@@ -618,14 +613,17 @@ void deluxecoco_state::deluxecoco(machine_config &config)
 	rs232.dsr_handler().set(m_acia, FUNC(mos6551_device::write_dsr));
 	rs232.cts_handler().set(m_acia, FUNC(mos6551_device::write_cts));
 
+	// internal ram
+	RAM(config.replace(), m_ram).set_default_size("64K");
+
 	// Programable Sound Generator
 	AY8913(config, m_psg, DERIVED_CLOCK(2, 1));
 	m_psg->set_flags(AY8910_SINGLE_OUTPUT);
 	m_psg->add_route(ALL_OUTPUTS, "speaker", 1.0);
 
 	// Adjust Memory Map
-	m_sam->set_addrmap(3, &deluxecoco_state::deluxecoco_s3_rom2);
-	m_sam->set_addrmap(5, &deluxecoco_state::deluxecoco_s5_io1);
+// 	m_sam->set_addrmap(3, &deluxecoco_state::deluxecoco_s3_rom2);
+// 	m_sam->set_addrmap(5, &deluxecoco_state::deluxecoco_s5_io1);
 
 	// Configure Timer
 	TIMER(config, m_timer).configure_generic(FUNC(deluxecoco_state::perodic_timer));
@@ -640,6 +638,8 @@ void coco12_state::coco2b(machine_config &config)
 	m_vdg->hsync_wr_callback().set(FUNC(coco12_state::horizontal_sync));
 	m_vdg->fsync_wr_callback().set(FUNC(coco12_state::field_sync));
 	m_vdg->input_callback().set(FUNC(coco12_state::sam_read));
+
+	RAM(config.replace(), m_ram).set_default_size("64K").set_extra_options("16K");
 }
 
 void coco12_state::coco2bh(machine_config &config)
@@ -674,12 +674,12 @@ void coco12_state::cd6809(machine_config &config)
 	m_cococart->set_default_option("cd6809_fdc");
 }
 
-void coco12_state::ms1600(machine_config &config)
-{
-	coco(config);
-
-	m_sam->set_addrmap(3, &coco12_state::ms1600_s3_rom2);
-}
+// void coco12_state::ms1600(machine_config &config)
+// {
+// 	coco(config);
+//
+// 	m_sam->set_addrmap(3, &coco12_state::ms1600_s3_rom2);
+// }
 
 //**************************************************************************
 //  ROMS
@@ -793,4 +793,4 @@ COMP( 1984,  mx1600,     coco,   0,      coco,       coco,       coco12_state,  
 COMP( 1986,  t4426,      coco,   0,      t4426,      coco,       coco12_state,     empty_init, "Terco AB",                     "Terco 4426 CNC Programming station",  MACHINE_SUPPORTS_SAVE )
 COMP( 1983,  lzcolor64,  coco,   0,      coco,       coco,       coco12_state,     empty_init, "Novo Tempo / LZ Equipamentos", "Color64",                             MACHINE_SUPPORTS_SAVE )
 COMP( 1983,  cd6809,     coco,   0,      cd6809,     coco,       coco12_state,     empty_init, "Codimex",                      "CD-6809",                             MACHINE_SUPPORTS_SAVE )
-COMP( 1987,  ms1600,     coco,   0,      ms1600,     coco,       coco12_state,     empty_init, "ILCE / SEP",                   "Micro-SEP 1600",                      MACHINE_SUPPORTS_SAVE )
+COMP( 1987,  ms1600,     coco,   0,      coco,       coco,       ms1600_state,     empty_init, "ILCE / SEP",                   "Micro-SEP 1600",                      MACHINE_SUPPORTS_SAVE )

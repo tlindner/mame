@@ -56,7 +56,7 @@
 	             $0000         $8000      $FF00    $FFC0    $FFE0     $FFFF
 
 	ENDC is a signal first described in the MC6883 SAM datasheet.
-	It inhibits the 74LS138 decoding of the three "Select" lines.
+	It inhibits the 74LS138 decoding of the three S (select) lines.
 ***************************************************************************/
 
 
@@ -140,6 +140,7 @@ sam6883_friend_device_interface::sam6883_friend_device_interface(const machine_c
 	, m_ram(device, finder_base::DUMMY_TAG)
 	, m_sam_state(0x0000)
 	, m_divider(divider)
+	, m_host(dynamic_cast<device_sam_map_host_interface *>(device.owner()))
 {
 }
 
@@ -159,12 +160,24 @@ void sam6883_device::sam_mem(address_map &map)
 	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
 	map(0x0000, 0xffff).view(m_ram_view);
 	map(0x8000, 0xffff).view(m_rom_view);
-	m_rom_view[0](0x8000, 0xffff).rw(FUNC(sam6883_device::rom_read), FUNC(sam6883_device::rom_write));
+
+// 	m_rom_view[0](0x8000, 0xffff).rw(FUNC(sam6883_device::rom_read), FUNC(sam6883_device::rom_write));
+	m_rom_view[0](0x8000, 0x9fff).m(*m_host, FUNC(device_sam_map_host_interface::s1_rom0_map));
+	m_rom_view[0](0xa000, 0xbfff).m(*m_host, FUNC(device_sam_map_host_interface::s2_rom1_map));
+	m_rom_view[0](0xc000, 0xfeff).m(*m_host, FUNC(device_sam_map_host_interface::s3_rom2_map));
+	m_rom_view[0](0xffe0, 0xffff).r(FUNC(sam6883_device::vector_read)).nopw();
+
 	// This intentionally cuts a gap in the ROM view
 	map(0xff00, 0xffbf).view(m_io_view);
-	m_io_view[0](0xff00, 0xffbf).rw(FUNC(sam6883_device::io_read), FUNC(sam6883_device::io_write));
+// 	m_io_view[0](0xff00, 0xffbf).rw(FUNC(sam6883_device::io_read), FUNC(sam6883_device::io_write));
+	m_io_view[0](0xff00, 0xff1f).m(*m_host, FUNC(device_sam_map_host_interface::s4_io0_map));
+	m_io_view[0](0xff20, 0xff3f).m(*m_host, FUNC(device_sam_map_host_interface::s5_io1_map));
+	m_io_view[0](0xff40, 0xff5f).m(*m_host, FUNC(device_sam_map_host_interface::s6_io2_map));
+	m_io_view[0](0xff60, 0xffbf).m(*m_host, FUNC(device_sam_map_host_interface::s7_res_map));
+
+
 	// This intentionally cuts a gap in the ROM view and endc
-	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write));
+	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write)).nopr();
 }
 
 //-------------------------------------------------
@@ -212,7 +225,19 @@ void sam6883_device::device_start()
 
 	for (int i = 0; i<4; i++)
 	{
-		if (! sam_misconfigured( i, m_ram->size()))
+		if (sam_misconfigured( i, m_ram->size()))
+		{
+			// misconfigured ram
+			int start = 0;
+			int end = 0xff;
+			for (int j = 0; j < (m_ram->size()/0x200); j++)
+			{
+				m_ram_view[i].install_ram(start, end, 0x0100, m_ram->pointer()+start);
+				start += 0x200;
+				end += 0x200;
+			}
+		}
+		else
 		{
 			if (i == 3)
 			{
@@ -224,18 +249,6 @@ void sam6883_device::device_start()
 				// All other properly configured ram
 				m_ram_view[i].install_ram(0x0000, m_ram->mask(), m_ram->pointer());
 				if(m_ram->mask() < 0xffff) m_ram_view[i].nop_readwrite(m_ram->size(), 0xffff);
-			}
-		}
-		else
-		{
-			// misconfigured ram
-			int start = 0;
-			int end = 0xff;
-			for (int j = 0; j < (m_ram->size()/0x200); j++)
-			{
-				m_ram_view[i].install_ram(start, end, 0x0100, m_ram->pointer()+start);
-				start += 0x200;
-				end += 0x200;
 			}
 		}
 	}
@@ -250,6 +263,11 @@ void sam6883_device::device_start()
 	save_item(NAME(m_counter));
 	save_item(NAME(m_counter_xdiv));
 	save_item(NAME(m_counter_ydiv));
+}
+
+uint8_t sam6883_device::vector_read(offs_t offset)
+{
+	return m_rom_view.space()->read_byte(offset+0xBFE0);
 }
 
 uint8_t sam6883_device::rom_read(offs_t offset)
@@ -471,10 +489,8 @@ void sam6883_device::update_memory()
 			m_ram_view.select(2);
 			m_counter_mask = 0xfFFF;
 
-			if BIT(m_sam_state, SAM_BIT_P1))
-			{
-				m_ram_view.select(2);
-			}
+			if (BIT(m_sam_state, SAM_BIT_P1))
+				m_ram_view.select(3);
 			break;
 	}
 

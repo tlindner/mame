@@ -34,7 +34,8 @@
 //  TYPE DEFINITIONS
 //**************************************************************************
 
-class coco12_state : public coco_state
+class coco12_state : public coco_state, public device_sam_map_host_interface
+
 {
 public:
 	coco12_state(const machine_config &mconfig, device_type type, const char *tag)
@@ -56,7 +57,7 @@ public:
 	void cp400(machine_config &config);
 	void t4426(machine_config &config);
 	void cd6809(machine_config &config);
-	void ms1600(machine_config &config);
+// 	void ms1600(machine_config &config);
 
 protected:
 	virtual void device_start() override ATTR_COLD;
@@ -69,15 +70,13 @@ protected:
 	required_device<sam6883_device> m_sam;
 
 	void coco_mem(address_map &map) ATTR_COLD;
-	void coco_s0_ram(address_map &map) ATTR_COLD;
-	void coco_s1_rom0(address_map &map) ATTR_COLD;
-	void coco_s2_rom1(address_map &map) ATTR_COLD;
-	void coco_s3_rom2(address_map &map) ATTR_COLD;
-	void coco_s4_io0(address_map &map) ATTR_COLD;
-	void coco_s5_io1(address_map &map) ATTR_COLD;
-	void coco_s6_io2(address_map &map) ATTR_COLD;
-	void coco_s7_reserved(address_map &map) ATTR_COLD;
-	void ms1600_s3_rom2(address_map &map) ATTR_COLD;
+	virtual void s1_rom0_map(address_map &map) override ATTR_COLD;
+	virtual void s2_rom1_map(address_map &map) override ATTR_COLD;
+	virtual void s3_rom2_map(address_map &map) override ATTR_COLD;
+	virtual void s4_io0_map(address_map &map) override ATTR_COLD;
+	virtual void s5_io1_map(address_map &map) override ATTR_COLD;
+	virtual void s6_io2_map(address_map &map) override ATTR_COLD;
+	virtual void s7_res_map(address_map &map) override ATTR_COLD;
 
 protected:
 	required_device<mc6847_base_device> m_vdg;
@@ -102,8 +101,9 @@ public:
 protected:
 	virtual void device_start() override ATTR_COLD;
 	void configure_sam();
-	void deluxecoco_s3_rom2(address_map &map) ATTR_COLD;
-	void deluxecoco_s5_io1(address_map &map) ATTR_COLD;
+
+	virtual void s3_rom2_map(address_map &map) override ATTR_COLD;
+	virtual void s5_io1_map(address_map &map) override ATTR_COLD;
 
 	required_device<mos6551_device> m_acia;
 	required_device<ay8913_device> m_psg;
@@ -114,6 +114,17 @@ protected:
 private:
 	memory_view m_ram_view;
 	memory_view m_rom_view;
+};
+
+class ms1600_state : public coco12_state
+{
+public:
+	ms1600_state(const machine_config &mconfig, device_type type, const char *tag)
+		: coco12_state(mconfig, type, tag)
+	{
+	}
+protected:
+	virtual void s3_rom2_map(address_map &map) override ATTR_COLD;
 };
 
 #endif // MAME_TRS_COCO12_H

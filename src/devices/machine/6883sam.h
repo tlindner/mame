@@ -19,6 +19,18 @@
 //  SAM6883 CORE
 //**************************************************************************
 
+class device_sam_map_host_interface
+{
+public:
+	virtual void s1_rom0_map(address_map &map) {};
+	virtual void s2_rom1_map(address_map &map) {};
+	virtual void s3_rom2_map(address_map &map) {};
+	virtual void s4_io0_map(address_map &map) {};
+	virtual void s5_io1_map(address_map &map) {};
+	virtual void s6_io2_map(address_map &map) {};
+	virtual void s7_res_map(address_map &map) {};
+};
+
 // base class so that GIME emulation can use some functionality
 class sam6883_friend_device_interface : public device_interface
 {
@@ -96,6 +108,7 @@ protected:
 	}
 
 	void update_cpu_clock();
+	device_sam_map_host_interface *m_host;
 };
 
 class sam6883_device : public device_t, public device_memory_interface, public sam6883_friend_device_interface
@@ -118,8 +131,8 @@ public:
 	// Disabled S decoding handlers
 	uint8_t endc_read(offs_t offset);
 	void endc_write(offs_t offset, uint8_t data);
-	void update_views();
 
+	uint8_t vector_read(offs_t offset);
 	uint8_t rom_read(offs_t offset);
 	void rom_write(offs_t offset, uint8_t data);
 	uint8_t io_read(offs_t offset);
