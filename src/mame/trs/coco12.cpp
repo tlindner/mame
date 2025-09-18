@@ -563,7 +563,7 @@ void coco12_state::coco(machine_config &config)
 	m_vdg->input_callback().set(FUNC(coco12_state::sam_read));
 
 	// internal ram
-	RAM(config, m_ram).set_default_size("64K").set_extra_options("4K,16K,32K");
+	RAM(config, m_ram).set_default_size("64K").set_extra_options("4K,8K,16K,32K");
 
 	// floating space
 	coco_floating(config);

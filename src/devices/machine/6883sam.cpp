@@ -232,7 +232,6 @@ void sam6883_device::device_add_mconfig(machine_config &config)
 }
 
 
-
 //-------------------------------------------------
 //  memory_space_config - return the configuration
 //  for the address spaces
@@ -508,7 +507,6 @@ void sam6883_device::device_post_load()
 void sam6883_device::update_state()
 {
 	update_memory();
-	update_views();
 	update_cpu_clock();
 }
 
