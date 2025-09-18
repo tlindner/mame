@@ -20,10 +20,10 @@
         24  Clear   R1  MPU Rate            01: Dual    11: Fast
         23  Set     R0  MPU Rate
         22  Clear   R0  MPU Rate
-        21  Set     P1  Page #1             0: Low      1: High
+        21  Set     P1  Page #1             0: Normal      1: A15 = 1
         20  Clear   P1  Page #1
-        19  Set     F6  Display Offset
-        18  Clear   F6  Display Offset
+        19  Set     F6  Display Offset      Display Address =
+        18  Clear   F6  Display Offset          Display Offset << 9
         17  Set     F5  Display Offset
         16  Clear   F5  Display Offset
         15  Set     F4  Display Offset
@@ -36,11 +36,11 @@
          8  Clear   F1  Display Offset
          7  Set     F0  Display Offset
          6  Clear   F0  Display Offset
-         5  Set     V2  VDG Mode
-         4  Clear   V2  VDG Mode
-         3  Set     V1  VDG Mode
-         2  Clear   V1  VDG Mode
-         1  Set     V0  VDG Mode
+         5  Set     V2  VDG Mode            Video buffer size =
+         4  Clear   V2  VDG Mode            000: 512 bytes    001: 1024 bytes
+         3  Set     V1  VDG Mode            010: 2048 bytes   011: 1536 bytes
+         2  Clear   V1  VDG Mode            100: 3072 bytes   101: 3072 bytes
+         1  Set     V0  VDG Mode            110: 6144 bytes   111: not used
          0  Clear   V0  VDG Mode
 
 	Host Memory Layout (top layers overide bottom layers):
@@ -124,14 +124,11 @@ sam6883_device::sam6883_device(const machine_config &mconfig, const char *tag, d
 	, m_ram_view(*this, "sam_ram_view")
 	, m_rom_view(*this, "sam_rom_view")
 	, m_io_view(*this, "sam_io_view")
-	, m_s0_ram_config("ram", ENDIANNESS_BIG, 8, 16, 0)
-	, m_s1_rom0_config("rom0", ENDIANNESS_BIG, 8, 13, 0)
-	, m_s2_rom1_config("rom1", ENDIANNESS_BIG, 8, 13, 0)
-	, m_s3_rom2_config("rom2", ENDIANNESS_BIG, 8, 14, 0)
-	, m_s4_io0_config("io0", ENDIANNESS_BIG, 8, 5, 0)
-	, m_s5_io1_config("io1", ENDIANNESS_BIG, 8, 5, 0)
-	, m_s6_io2_config("io2", ENDIANNESS_BIG, 8, 5, 0)
-	, m_s7_reserved_config("reserved", ENDIANNESS_BIG, 8, 7, 0)
+	, m_m0_config("ram0", ENDIANNESS_BIG, 8, 16, 0)
+	, m_m1_config("ram1", ENDIANNESS_BIG, 8, 16, 0)
+	, m_m2_config("ram2", ENDIANNESS_BIG, 8, 16, 0)
+	, m_m3_config("ram3", ENDIANNESS_BIG, 8, 16, 0)
+	, m_s2_config("rom0", ENDIANNESS_BIG, 8, 13, 0)
 {
 }
 
@@ -145,24 +142,18 @@ sam6883_friend_device_interface::sam6883_friend_device_interface(const machine_c
 {
 }
 
-uint8_t sam6883_device::endc_read(offs_t offset)
-{
-	fprintf(stderr,"sam6883_device::endc_read: %4x\n", offset);
-	return 0;
-}
 
-void sam6883_device::endc_write(offs_t offset, uint8_t data)
-{
-	fprintf(stderr,"sam6883_device::endc_write: %4x\n", offset);
-}
+
+//-------------------------------------------------
+//  function - description
+//-------------------------------------------------
 
 void sam6883_device::sam_mem(address_map &map)
 {
 	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
-	map(0x0000, 0xffff).view(m_ram_view);
+	map(0x0000, 0xfeff).view(m_ram_view);
 	map(0x8000, 0xffff).view(m_rom_view);
 
-// 	m_rom_view[0](0x8000, 0xffff).rw(FUNC(sam6883_device::rom_read), FUNC(sam6883_device::rom_write));
 	m_rom_view[0](0x8000, 0x9fff).m(*m_host, FUNC(device_sam_map_host_interface::s1_rom0_map));
 	m_rom_view[0](0xa000, 0xbfff).m(*m_host, FUNC(device_sam_map_host_interface::s2_rom1_map));
 	m_rom_view[0](0xc000, 0xfeff).m(*m_host, FUNC(device_sam_map_host_interface::s3_rom2_map));
@@ -170,16 +161,40 @@ void sam6883_device::sam_mem(address_map &map)
 
 	// This intentionally cuts a gap in the ROM view
 	map(0xff00, 0xffbf).view(m_io_view);
-// 	m_io_view[0](0xff00, 0xffbf).rw(FUNC(sam6883_device::io_read), FUNC(sam6883_device::io_write));
 	m_io_view[0](0xff00, 0xff1f).m(*m_host, FUNC(device_sam_map_host_interface::s4_io0_map));
 	m_io_view[0](0xff20, 0xff3f).m(*m_host, FUNC(device_sam_map_host_interface::s5_io1_map));
 	m_io_view[0](0xff40, 0xff5f).m(*m_host, FUNC(device_sam_map_host_interface::s6_io2_map));
 	m_io_view[0](0xff60, 0xffbf).m(*m_host, FUNC(device_sam_map_host_interface::s7_res_map));
 
-
 	// This intentionally cuts a gap in the ROM view and endc
 	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write)).nopr();
+
+	// Internal spaces
 }
+
+
+
+//-------------------------------------------------
+//  function - description
+//-------------------------------------------------
+
+void sam6883_device::internal_rom_map(address_map &map)
+{
+	map(0x0000, 0x1fff).m(*m_host, FUNC(device_sam_map_host_interface::s2_rom1_map));
+}
+
+
+
+//-------------------------------------------------
+//  function - description
+//-------------------------------------------------
+
+void sam6883_device::device_add_mconfig(machine_config &config)
+{
+	set_addrmap(4, &sam6883_device::internal_rom_map);
+}
+
+
 
 //-------------------------------------------------
 //  memory_space_config - return the configuration
@@ -189,16 +204,14 @@ void sam6883_device::sam_mem(address_map &map)
 device_memory_interface::space_config_vector sam6883_device::memory_space_config() const
 {
 	return space_config_vector {
-		std::make_pair(0, &m_s0_ram_config),
-		std::make_pair(1, &m_s1_rom0_config),
-		std::make_pair(2, &m_s2_rom1_config),
-		std::make_pair(3, &m_s3_rom2_config),
-		std::make_pair(4, &m_s4_io0_config),
-		std::make_pair(5, &m_s5_io1_config),
-		std::make_pair(6, &m_s6_io2_config),
-		std::make_pair(7, &m_s7_reserved_config)
+		std::make_pair(0, &m_m0_config),
+		std::make_pair(1, &m_m1_config),
+		std::make_pair(2, &m_m2_config),
+		std::make_pair(3, &m_m3_config),
+		std::make_pair(4, &m_s2_config)
 	};
 }
+
 
 
 //-------------------------------------------------
@@ -213,52 +226,60 @@ void sam6883_device::device_start()
 	if (!m_cpu->started())
 		throw device_missing_dependencies();
 
-	assert(m_ram->size() <= 0x10000);
-	assert(m_ram->size() >= 0x1000);
-
-	// get spaces
-	space(0).cache(m_ram_space);
-	for (int i = 0; i < 3; i++)
-		space(i + 1).cache(m_rom_space[i]);
-	for (int i = 0; i < 3; i++)
-		space(i + 4).specific(m_io_space[i]);
-	space(7).cache(m_reserved_space);
+	std::list<u32> supported_configurations = {4096, 8192, 16384, 32768, 65536};
+	auto it = std::find(supported_configurations.begin(), supported_configurations.end(), m_ram->size());
+	if (it == supported_configurations.end())
+	{
+		throw emu_fatalerror("MC6883 only support RAM configurations of 4096, 8192, 16384, 32768, or 65536 bytes.");
+	}
 
 	for (int i = 0; i<4; i++)
 	{
 		if (sam_misconfigured( i, m_ram->size()))
 		{
 			// misconfigured ram
-			fprintf( stderr, "%d misconfigured\n", i);
-			int start = 0;
-			int end = 0xff;
+			u32 start = 0, end = 0xff;
 			for (int j = 0; j < (m_ram->size()/0x200); j++)
 			{
-				m_ram_view[i].install_ram(start, end, 0x0100, m_ram->pointer()+start);
-				fprintf( stderr, "  %d = %04x - %04x\n", i, start, end );
+				if (start<0xfe00)
+					m_ram_view[i].install_ram(start, std::min(end, 0xfeffU), 0x0100, m_ram->pointer()+start);
+				else
+					m_ram_view[i].install_ram(start, std::min(end, 0xfeffU), m_ram->pointer()+start);
+
+				space(i).install_ram(start, end, 0x0100, m_ram->pointer()+start);
 				start += 0x200;
 				end += 0x200;
 			}
 		}
 		else
 		{
-			fprintf( stderr, "%d configured\n", i);
 			if (i == 3)
 			{
 				// 64k of ram with P1 set
-				m_ram_view[i].install_ram(0x0000, 0x7fff, 0x8000, m_ram->pointer()+0x8000);
+				m_ram_view[i].install_ram(0x0000, 0x7fff, m_ram->pointer()+0x8000);
+				m_ram_view[i].install_ram(0x8000, 0xfeff, m_ram->pointer()+0x8000);
+				space(i).install_ram(0x0000, 0xffff, m_ram->pointer());
 			}
 			else
 			{
 				// All other properly configured ram
-				m_ram_view[i].install_ram(0x0000, m_ram->mask(), m_ram->pointer());
-				if(m_ram->mask() < 0xffff) m_ram_view[i].nop_readwrite(m_ram->size(), 0xffff);
+				m_ram_view[i].install_ram(0x0000, std::min(m_ram->mask(), 0xfeffU), m_ram->pointer());
+				space(i).install_ram(0x0000, m_ram->mask(), m_ram->pointer());
+				if(m_ram->mask() < 0xffff)
+				{
+					m_ram_view[i].nop_readwrite(m_ram->size(), 0xfeff);
+					space(i).nop_readwrite(m_ram->size(), 0xffff);
+				}
 			}
 		}
 	}
 
-// 	m_ram_view[0].install_view(0x8000, 0xffff, m_rom_view);
-// 	m_rom_view[0](0x8000, 0xffff).rw(FUNC(sam6883_device::rom_read), FUNC(sam6883_device::rom_write));
+	// get spaces
+	space(0).cache(m_ram_space[0]);
+	space(1).cache(m_ram_space[1]);
+	space(2).cache(m_ram_space[2]);
+	space(3).cache(m_ram_space[3]);
+	space(4).cache(m_rom_space);
 
 	// save state support
 	save_item(NAME(m_sam_state));
@@ -269,142 +290,40 @@ void sam6883_device::device_start()
 	save_item(NAME(m_counter_ydiv));
 }
 
+
+
+//-------------------------------------------------
+//  function - description
+//-------------------------------------------------
+
+uint8_t sam6883_device::endc_read(offs_t offset)
+{
+	fprintf(stderr,"sam6883_device::endc_read: %4x\n", offset);
+	return 0;
+}
+
+
+
+//-------------------------------------------------
+//  function - description
+//-------------------------------------------------
+
+void sam6883_device::endc_write(offs_t offset, uint8_t data)
+{
+	fprintf(stderr,"sam6883_device::endc_write: %4x\n", offset);
+}
+
+
+
+//-------------------------------------------------
+//  function - description
+//-------------------------------------------------
+
 uint8_t sam6883_device::vector_read(offs_t offset)
 {
-	return m_rom_view.space()->read_byte(offset+0xBFE0);
+	return m_rom_space.read_byte(offset+0x1fe0);
 }
 
-uint8_t sam6883_device::rom_read(offs_t offset)
-{
-	if(offset < 0x2000)
-		return m_rom_space[0].read_byte(offset);
-	else if(offset < 0x4000)
-		return m_rom_space[1].read_byte(offset - 0x2000);
-	else if(offset < 0x7f00)
-		return m_rom_space[2].read_byte(offset - 0x4000);
-	else if(offset < 0x7fe0)
-		{return 0;}//return fprintf(stderr, "%s sam6883_device::rom_read: %4x\n", machine().describe_context().c_str(), offset);
-	else
-		return m_rom_space[1].read_byte(offset - 0x2000);
-
-}
-
-void sam6883_device::rom_write(offs_t offset, uint8_t data)
-{
-	if(offset < 0x2000)
-		m_rom_space[0].write_byte(offset, data);
-	else if(offset < 0x4000)
-		m_rom_space[1].write_byte(offset - 0x2000, data);
-	else if(offset < 0x7f00)
-		m_rom_space[2].write_byte(offset - 0x4000, data);
-	else if(offset < 0x7fe0)
-		{}//fprintf(stderr, "%s sam6883_device::rom_write: %4x\n", machine().describe_context().c_str(), offset);
-	else
-		m_rom_space[1].write_byte(offset - 0x2000, data);
-}
-
-uint8_t sam6883_device::io_read(offs_t offset)
-{
-	if(offset < 0x20)
-		return m_io_space[0].read_byte(offset);
-	else if(offset < 0x40)
-		return m_io_space[1].read_byte(offset - 0x20);
-	else if(offset < 0x60)
-		return m_io_space[2].read_byte(offset - 0x40);
-	else
-		return m_reserved_space.read_byte(offset - 0x60);
-}
-
-void sam6883_device::io_write(offs_t offset, uint8_t data)
-{
-	if(offset < 0x20)
-		m_io_space[0].write_byte(offset, data);
-	else if(offset < 0x40)
-		m_io_space[1].write_byte(offset - 0x20, data);
-	else if(offset < 0x60)
-		m_io_space[2].write_byte(offset - 0x40, data);
-	else
-		m_reserved_space.write_byte(offset - 0x60, data);
-}
-
-//-------------------------------------------------
-//  read - read from one of the eight spaces
-//-------------------------------------------------
-
-uint8_t sam6883_device::read(offs_t offset)
-{
-	bool mode_64k = (m_sam_state & SAM_STATE_M1) == SAM_STATE_M1;
-	if (offset < (mode_64k && (m_sam_state & SAM_STATE_TY) ? 0xff00 : 0x8000))
-	{
-		// RAM reads: 0000–7FFF or 0000–FEFF
-		if (mode_64k && (m_sam_state & (SAM_STATE_TY | SAM_STATE_P1)) == SAM_STATE_P1)
-			offset |= 0x8000;
-		return m_ram_space.read_byte(offset);
-	}
-	else if (offset < 0xc000 || offset >= 0xffe0)
-	{
-		// ROM spaces: 8000–9FFF and A000–BFFF + FFE0–FFFF
-		return m_rom_space[BIT(offset, 13)].read_byte(offset & 0x1fff);
-	}
-	else if (offset < 0xff00)
-	{
-		// ROM2 space: C000–FEFF
-		return m_rom_space[2].read_byte(offset & 0x3fff);
-	}
-	else if (offset < 0xff60)
-	{
-		// I/O spaces: FF00–FF1F (slow), FF20–FF3F, FF40–FF5F
-		return m_io_space[BIT(offset, 5, 2)].read_byte(offset & 0x1f);
-	}
-	else
-	{
-		// FF60–FFDF
-		return m_reserved_space.read_byte(offset - 0xff60);
-	}
-}
-
-
-//-------------------------------------------------
-//  write - write to RAM, I/O or internal register
-//-------------------------------------------------
-
-void sam6883_device::write(offs_t offset, uint8_t data)
-{
-	bool mode_64k = (m_sam_state & SAM_STATE_M1) == SAM_STATE_M1;
-	if (offset < 0x8000)
-	{
-		// RAM write space: 0000–7FFF (nominally space 7)
-		if (mode_64k && (m_sam_state & (SAM_STATE_TY | SAM_STATE_P1)) == SAM_STATE_P1)
-			offset |= 0x8000;
-		m_ram_space.write_byte(offset, data);
-	}
-	else if (offset < 0xc000 || offset >= 0xffe0)
-	{
-		// ROM spaces: 8000–9FFF and A000–BFFF + FFE0–FFFF (may write through to RAM)
-		if (offset < 0xc000 && mode_64k && (m_sam_state & SAM_STATE_TY))
-			m_ram_space.write_byte(offset, data);
-		m_rom_space[BIT(offset, 13)].write_byte(offset & 0x1fff, data);
-	}
-	else if (offset < 0xff00)
-	{
-		// ROM2 space: C000–FEFF (may write through to RAM)
-		if (mode_64k && (m_sam_state & SAM_STATE_TY))
-			m_ram_space.write_byte(offset, data);
-		m_rom_space[2].write_byte(offset & 0x3fff, data);
-	}
-	else if (offset < 0xff60)
-	{
-		// I/O spaces: FF00–FF1F (slow), FF20–FF3F, FF40–FF5F
-		m_io_space[BIT(offset, 5, 2)].write_byte(offset & 0x1f, data);
-	}
-	else
-	{
-		// FF60–FFDF
-		m_reserved_space.write_byte(offset - 0xff60, data);
-		if (offset >= 0xffc0)
-			internal_write(offset & 0x1f, data);
-	}
-}
 
 
 //-------------------------------------------------
@@ -538,7 +457,6 @@ void sam6883_friend_device_interface::update_cpu_clock()
 	// TODO:  In dual speed, ROM was a fast access but RAM was not.
 	// I don't know how to simulate this.
 
-// 	int speed = (m_sam_state & (SAM_STATE_R1|SAM_STATE_R0)) / SAM_STATE_R0;
 	int speed = (BIT(m_sam_state, SAM_BIT_R0, 2));
 	m_cpu->owner()->set_unscaled_clock(device().clock() / (m_divider * (speed ? 2 : 4)));
 }
@@ -578,7 +496,6 @@ void sam6883_device::internal_write(offs_t offset, uint8_t data)
 		LOGVBITS("%s: SAM V Bits: $%02x\n",
 			machine().describe_context(),
 			BIT(m_sam_state, SAM_BIT_V0, 3));
-// 			(m_sam_state & (SAM_STATE_V0|SAM_STATE_V1|SAM_STATE_V2)));
 	}
 
 	if (xorval & (SAM_STATE_P1))
@@ -586,7 +503,6 @@ void sam6883_device::internal_write(offs_t offset, uint8_t data)
 		LOGPBITS("%s: SAM P1 Bit: $%02x\n",
 			machine().describe_context(),
 			BIT(m_sam_state, SAM_BIT_P1));
-// 			(m_sam_state & (SAM_STATE_P1)) >> 10);
 	}
 
 	if (xorval & (SAM_STATE_TY))
@@ -594,7 +510,6 @@ void sam6883_device::internal_write(offs_t offset, uint8_t data)
 		LOGTBITS("%s: SAM TY Bit: $%02x\n",
 			machine().describe_context(),
 			BIT(m_sam_state, SAM_BIT_TY));
-// 			(m_sam_state & (SAM_STATE_TY)) >> 15);
 	}
 
 	if (xorval & (SAM_STATE_M0|SAM_STATE_M1))
@@ -602,7 +517,6 @@ void sam6883_device::internal_write(offs_t offset, uint8_t data)
 		LOGMBITS("%s: SAM M Bits: $%02x\n",
 			machine().describe_context(),
 			BIT(m_sam_state, SAM_BIT_M0, 2));
-// 			(m_sam_state & (SAM_STATE_M0|SAM_STATE_M1)) >> 13);
 	}
 
 	if (xorval & (SAM_STATE_R0|SAM_STATE_R1))
@@ -610,7 +524,6 @@ void sam6883_device::internal_write(offs_t offset, uint8_t data)
 		LOGRBITS("%s: SAM R Bits: $%02x\n",
 			machine().describe_context(),
 			BIT(m_sam_state, SAM_BIT_R0, 2));
-// 			(m_sam_state & (SAM_STATE_R0|SAM_STATE_R1)) >> 11);
 	}
 }
 
