@@ -166,8 +166,8 @@ public:
 	// Disabled S decoding handlers
 	uint8_t endc_read(offs_t offset);
 	void endc_write(offs_t offset, uint8_t data);
-	void update_views();
 
+	uint8_t vector_read(offs_t offset);
 	uint8_t rom_read(offs_t offset);
 	void rom_write(offs_t offset, uint8_t data);
 	uint8_t io_read(offs_t offset);
