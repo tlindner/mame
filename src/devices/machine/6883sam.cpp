@@ -311,6 +311,7 @@ void sam6883_device::device_start()
 		}
 		else
 		{
+			fprintf( stderr, "%d configured\n", i);
 			if (i == 3)
 			{
 				// 64k of ram with P1 set
