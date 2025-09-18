@@ -151,7 +151,7 @@ sam6883_friend_device_interface::sam6883_friend_device_interface(const machine_c
 void sam6883_device::sam_mem(address_map &map)
 {
 	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
-	map(0x0000, 0xfeff).view(m_ram_view);
+	map(0x0000, 0xfeff).view(m_ram_view); // see device_start()
 	map(0x8000, 0xffff).view(m_rom_view);
 
 	m_rom_view[0](0x8000, 0x9fff).m(*m_host, FUNC(device_sam_map_host_interface::s1_rom0_map));
@@ -168,8 +168,6 @@ void sam6883_device::sam_mem(address_map &map)
 
 	// This intentionally cuts a gap in the ROM view and endc
 	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write)).nopr();
-
-	// Internal spaces
 }
 
 
@@ -410,7 +408,7 @@ void sam6883_device::update_memory()
 			// CoCo Max requires these two be treated the same
 
 			m_ram_view.select(2);
-			m_counter_mask = 0xfFFF;
+			m_counter_mask = 0xffff;
 
 			if (BIT(m_sam_state, SAM_BIT_P1))
 				m_ram_view.select(3);
