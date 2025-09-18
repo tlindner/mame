@@ -178,7 +178,7 @@ void sam6883_device::sam_mem(address_map &map)
 void sam6883_device::sam_mem(address_map &map)
 {
 	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
-	map(0x0000, 0xfeff).view(m_ram_view);
+	map(0x0000, 0xfeff).view(m_ram_view); // see device_start()
 	map(0x8000, 0xffff).view(m_rom_view);
 
 	m_rom_view[0](0x8000, 0x9fff).m(*m_host, FUNC(device_sam_map_host_interface::s1_rom0_map));
@@ -195,8 +195,6 @@ void sam6883_device::sam_mem(address_map &map)
 
 	// This intentionally cuts a gap in the ROM view and endc
 	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write)).nopr();
-
-	// Internal spaces
 }
 
 void sam6883_device::update_views()
