@@ -178,13 +178,12 @@ void sam6883_device::sam_mem(address_map &map)
 void sam6883_device::sam_mem(address_map &map)
 {
 	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
-	map(0x0000, 0xfeff).view(m_ram_view); // see device_start()
+	map(0x0000, 0xffff).view(m_ram_view); // see device_start()
 	map(0x8000, 0xffff).view(m_rom_view);
 
 	m_rom_view[0](0x8000, 0x9fff).m(*m_host, FUNC(device_sam_map_host_interface::s1_rom0_map));
 	m_rom_view[0](0xa000, 0xbfff).m(*m_host, FUNC(device_sam_map_host_interface::s2_rom1_map));
 	m_rom_view[0](0xc000, 0xfeff).m(*m_host, FUNC(device_sam_map_host_interface::s3_rom2_map));
-	m_rom_view[0](0xffe0, 0xffff).r(FUNC(sam6883_device::vector_read)).nopw();
 
 	// This intentionally cuts a gap in the ROM view
 	map(0xff00, 0xffbf).view(m_io_view);
@@ -374,7 +373,7 @@ void sam6883_device::device_start()
 
 uint8_t sam6883_device::endc_read(offs_t offset)
 {
-	fprintf(stderr,"sam6883_device::endc_read: %4x\n", offset);
+// 	fprintf(stderr,"sam6883_device::endc_read: %4x\n", offset);
 	return 0;
 }
 
@@ -386,7 +385,7 @@ uint8_t sam6883_device::endc_read(offs_t offset)
 
 void sam6883_device::endc_write(offs_t offset, uint8_t data)
 {
-	fprintf(stderr,"sam6883_device::endc_write: %4x\n", offset);
+// 	fprintf(stderr,"sam6883_device::endc_write: %4x\n", offset);
 }
 
 
