@@ -172,7 +172,7 @@ void sam6883_device::sam_mem(address_map &map)
 
 
 //-------------------------------------------------
-//  function - description
+//  internal_rom_map - map we use for ROM mirror
 //-------------------------------------------------
 
 void sam6883_device::sam_mem(address_map &map)
@@ -368,30 +368,30 @@ void sam6883_device::device_start()
 
 
 //-------------------------------------------------
-//  function - description
+//  endc_read - temporary endc read handler
 //-------------------------------------------------
 
 uint8_t sam6883_device::endc_read(offs_t offset)
 {
-// 	fprintf(stderr,"sam6883_device::endc_read: %4x\n", offset);
+	fprintf(stderr,"sam6883_device::endc_read: %4x\n", offset);
 	return 0;
 }
 
 
 
 //-------------------------------------------------
-//  function - description
+//  endc_write - temporary endc write handler
 //-------------------------------------------------
 
 void sam6883_device::endc_write(offs_t offset, uint8_t data)
 {
-// 	fprintf(stderr,"sam6883_device::endc_write: %4x\n", offset);
+	fprintf(stderr,"sam6883_device::endc_write: %4x\n", offset);
 }
 
 
 
 //-------------------------------------------------
-//  function - description
+//  vector_read - vector ROM mirror in RAM view
 //-------------------------------------------------
 
 uint8_t sam6883_device::vector_read(offs_t offset)
