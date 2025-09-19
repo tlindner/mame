@@ -47,13 +47,15 @@
 
 	SAM Handler:                                    ≤-------->
 	I/O View[0]:                           ≤-------->
-	ROM View[0]:                ≤----------+--------+--------+---------≥
-	RAM View[0]:  ≤--4k/8k------+----------+--------+--------+---------≥
-	RAM View[1]:  ≤--16k/32k----+----------+--------+--------+---------≥
-	RAM View[2]:  ≤--32k/64k----+----------+--------+--------+---------≥
-	RAM View[3]:  ≤--64k, P1=1--+----------+--------+--------+---------≥
+	ROM View[0]:                ≤----------+--------+-------->
+	RAM View[0]:  ≤--4k/8k------+----------+--------+--------+----*----≥
+	RAM View[1]:  ≤--16k/32k----+----------+--------+--------+----*----≥
+	RAM View[2]:  ≤--32k/64k----+----------+--------+--------+----*----≥
+	RAM View[3]:  ≤--64k, P1=1--+----------+--------+--------+----*----≥
 	ENDC Handler: ≤-------------+----------+--------+--------+---------≥
 	             $0000         $8000      $FF00    $FFC0    $FFE0     $FFFF
+
+    * 32 byte ROM mirror
 
 	ENDC is a signal first described in the MC6883 SAM datasheet.
 	It inhibits the 74LS138 decoding of the three S (select) lines.
@@ -69,13 +71,10 @@ bool sam_misconfigured( int index, u32 ram_size )
 {
 	if (index==0 && ram_size == 4096) return false;
 	if (index==0 && ram_size == 8192) return false;
-
 	if (index==1 && ram_size == 16384) return false;
 	if (index==1 && ram_size == 32768) return false;
-
 	if (index==2 && ram_size == 32768) return false;
 	if (index==2 && ram_size == 65536) return false;
-
 	if (index==3 && ram_size == 65536) return false;
 
 	return true;
@@ -117,6 +116,17 @@ DEFINE_DEVICE_TYPE(SAM6883, sam6883_device, "sam6883", "MC6883 SAM")
 //  constructor
 //-------------------------------------------------
 
+sam6883_friend_device_interface::sam6883_friend_device_interface(const machine_config &mconfig, device_t &device, int divider)
+	: device_interface(device, "sam6883")
+	, m_cpu(device, finder_base::DUMMY_TAG)
+	, m_ram(device, finder_base::DUMMY_TAG)
+	, m_sam_state(0x0000)
+	, m_endc(0)
+	, m_divider(divider)
+	, m_host(dynamic_cast<device_sam_map_host_interface *>(device.owner()))
+{
+}
+
 sam6883_device::sam6883_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock)
 	: device_t(mconfig, SAM6883, tag, owner, clock)
 	, device_memory_interface(mconfig, *this)
@@ -129,16 +139,6 @@ sam6883_device::sam6883_device(const machine_config &mconfig, const char *tag, d
 	, m_m2_config("ram2", ENDIANNESS_BIG, 8, 16, 0)
 	, m_m3_config("ram3", ENDIANNESS_BIG, 8, 16, 0)
 	, m_s2_config("rom0", ENDIANNESS_BIG, 8, 13, 0)
-{
-}
-
-sam6883_friend_device_interface::sam6883_friend_device_interface(const machine_config &mconfig, device_t &device, int divider)
-	: device_interface(device, "sam6883")
-	, m_cpu(device, finder_base::DUMMY_TAG)
-	, m_ram(device, finder_base::DUMMY_TAG)
-	, m_sam_state(0x0000)
-	, m_divider(divider)
-	, m_host(dynamic_cast<device_sam_map_host_interface *>(device.owner()))
 {
 }
 
@@ -172,7 +172,7 @@ void sam6883_device::sam_mem(address_map &map)
 
 
 //-------------------------------------------------
-//  function - description
+//  internal_rom_map - map we use for ROM mirror
 //-------------------------------------------------
 
 void sam6883_device::internal_rom_map(address_map &map)
@@ -183,7 +183,7 @@ void sam6883_device::internal_rom_map(address_map &map)
 
 
 //-------------------------------------------------
-//  function - description
+//  device_add_mconfig - additional config
 //-------------------------------------------------
 
 void sam6883_device::device_add_mconfig(machine_config &config)
@@ -225,10 +225,9 @@ void sam6883_device::device_start()
 
 	std::list<u32> supported_configurations = {4096, 8192, 16384, 32768, 65536};
 	auto it = std::find(supported_configurations.begin(), supported_configurations.end(), m_ram->size());
+
 	if (it == supported_configurations.end())
-	{
 		throw emu_fatalerror("MC6883 only supports RAM configurations of 4096, 8192, 16384, 32768, or 65536 bytes.");
-	}
 
 	// setup ram views
 #if 0
@@ -298,7 +297,7 @@ void sam6883_device::device_start()
 	// save state support
 	save_item(NAME(m_sam_state));
 	save_item(NAME(m_divider));
-	save_item(NAME(m_counter_mask));
+// 	save_item(NAME(m_counter_mask));
 	save_item(NAME(m_counter));
 	save_item(NAME(m_counter_xdiv));
 	save_item(NAME(m_counter_ydiv));
@@ -307,30 +306,30 @@ void sam6883_device::device_start()
 
 
 //-------------------------------------------------
-//  function - description
+//  endc_read - temporary endc read handler
 //-------------------------------------------------
 
 uint8_t sam6883_device::endc_read(offs_t offset)
 {
-// 	fprintf(stderr,"sam6883_device::endc_read: %4x\n", offset);
+	fprintf(stderr,"sam6883_device::endc_read: %4x\n", offset);
 	return 0;
 }
 
 
 
 //-------------------------------------------------
-//  function - description
+//  endc_write - temporary endc write handler
 //-------------------------------------------------
 
 void sam6883_device::endc_write(offs_t offset, uint8_t data)
 {
-// 	fprintf(stderr,"sam6883_device::endc_write: %4x\n", offset);
+	fprintf(stderr,"sam6883_device::endc_write: %4x\n", offset);
 }
 
 
 
 //-------------------------------------------------
-//  function - description
+//  vector_read - vector ROM mirror in RAM view
 //-------------------------------------------------
 
 uint8_t sam6883_device::vector_read(offs_t offset)
@@ -346,11 +345,23 @@ uint8_t sam6883_device::vector_read(offs_t offset)
 
 void sam6883_device::device_reset()
 {
+	sam6883_friend_device_interface::device_reset();
 	m_counter = 0;
 	m_counter_xdiv = 0;
 	m_counter_ydiv = 0;
 	m_sam_state = 0x0000;
 	update_state();
+}
+
+
+
+//-------------------------------------------------
+//  device_reset - device-specific reset
+//-------------------------------------------------
+
+void sam6883_friend_device_interface::device_reset()
+{
+	m_endc = 0;
 }
 
 
@@ -406,13 +417,13 @@ void sam6883_device::update_memory()
 	{
 		case 0:
 			// 4K mode
-			m_counter_mask = 0x0FFF;
+// 			m_counter_mask = 0x0FFF;
 			m_ram_view.select(0);
 			break;
 
 		case SAM_STATE_M0:
 			// 16K mode
-			m_counter_mask = 0x3FFF;
+// 			m_counter_mask = 0x3FFF;
 			m_ram_view.select(1);
 			break;
 
@@ -424,7 +435,7 @@ void sam6883_device::update_memory()
 			// CoCo Max requires these two be treated the same
 
 			m_ram_view.select(2);
-			m_counter_mask = 0xffff;
+// 			m_counter_mask = 0xffff;
 
 			if (BIT(m_sam_state, SAM_BIT_P1))
 				m_ram_view.select(3);
@@ -438,6 +449,13 @@ void sam6883_device::update_memory()
 		m_rom_view.select(0);
 
 	m_io_view.select(0);
+
+	if (m_endc)
+	{
+		m_ram_view.disable();
+		m_rom_view.disable();
+		m_io_view.disable();
+	}
 }
 
 
@@ -602,4 +620,16 @@ void sam6883_device::hs_w(int state)
 	{
 		horizontal_sync();
 	}
+}
+
+
+
+//-------------------------------------------------
+//  endc_w
+//-------------------------------------------------
+
+void sam6883_friend_device_interface::endc_w(int state)
+{
+	m_endc = state;
+	update_memory();
 }
