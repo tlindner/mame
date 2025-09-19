@@ -39,22 +39,22 @@ public:
 
 protected:
 	// SAM state constants
-	static const uint16_t SAM_STATE_TY = 0x8000;
-	static const uint16_t SAM_STATE_M1 = 0x4000;
-	static const uint16_t SAM_STATE_M0 = 0x2000;
-	static const uint16_t SAM_STATE_R1 = 0x1000;
-	static const uint16_t SAM_STATE_R0 = 0x0800;
-	static const uint16_t SAM_STATE_P1 = 0x0400;
-	static const uint16_t SAM_STATE_F6 = 0x0200;
-	static const uint16_t SAM_STATE_F5 = 0x0100;
-	static const uint16_t SAM_STATE_F4 = 0x0080;
-	static const uint16_t SAM_STATE_F3 = 0x0040;
-	static const uint16_t SAM_STATE_F2 = 0x0020;
-	static const uint16_t SAM_STATE_F1 = 0x0010;
-	static const uint16_t SAM_STATE_F0 = 0x0008;
-	static const uint16_t SAM_STATE_V2 = 0x0004;
-	static const uint16_t SAM_STATE_V1 = 0x0002;
-	static const uint16_t SAM_STATE_V0 = 0x0001;
+	static constexpr uint16_t SAM_STATE_TY = 0x8000;
+	static constexpr uint16_t SAM_STATE_M1 = 0x4000;
+	static constexpr uint16_t SAM_STATE_M0 = 0x2000;
+	static constexpr uint16_t SAM_STATE_R1 = 0x1000;
+	static constexpr uint16_t SAM_STATE_R0 = 0x0800;
+	static constexpr uint16_t SAM_STATE_P1 = 0x0400;
+	static constexpr uint16_t SAM_STATE_F6 = 0x0200;
+	static constexpr uint16_t SAM_STATE_F5 = 0x0100;
+	static constexpr uint16_t SAM_STATE_F4 = 0x0080;
+	static constexpr uint16_t SAM_STATE_F3 = 0x0040;
+	static constexpr uint16_t SAM_STATE_F2 = 0x0020;
+	static constexpr uint16_t SAM_STATE_F1 = 0x0010;
+	static constexpr uint16_t SAM_STATE_F0 = 0x0008;
+	static constexpr uint16_t SAM_STATE_V2 = 0x0004;
+	static constexpr uint16_t SAM_STATE_V1 = 0x0002;
+	static constexpr uint16_t SAM_STATE_V0 = 0x0001;
 
 	static constexpr int SAM_BIT_V0 = 0;
 	static constexpr int SAM_BIT_V1 = 1;
@@ -77,12 +77,16 @@ protected:
 	required_device<cpu_device> m_cpu;
 	required_device<ram_device> m_ram;
 
-
 	// device state
 	uint16_t m_sam_state;
+	int m_endc;
 
 	// base clock divider (/4 for MC6883, /8 for GIME)
 	int m_divider;
+
+protected:
+	// device-level overrides
+	virtual void device_reset() ATTR_COLD;
 
 	ATTR_FORCE_INLINE uint16_t display_offset()
 	{
@@ -109,6 +113,12 @@ protected:
 
 	void update_cpu_clock();
 	device_sam_map_host_interface *m_host;
+
+	void endc_w(int state);
+
+private:
+	void update_memory() {};
+
 };
 
 class sam6883_device : public device_t, public device_memory_interface, public sam6883_friend_device_interface
@@ -156,9 +166,8 @@ public:
 			if (bit3_carry)
 				counter_carry_bit3();
 		}
-		return m_ram_space[BIT(m_sam_state, SAM_BIT_M0, 2)].read_byte(m_counter & m_counter_mask);
-
-
+// 		return m_ram_space[BIT(m_sam_state, SAM_BIT_M0, 2)].read_byte(m_counter & m_counter_mask);
+		return m_ram_space[BIT(m_sam_state, SAM_BIT_M0, 2)].read_byte(m_counter);
 	}
 
 	void hs_w(int state);
@@ -187,7 +196,7 @@ private:
 	// memory spaces
 	memory_access<16, 0, 0, ENDIANNESS_BIG>::cache m_ram_space[4];
 	memory_access<14, 0, 0, ENDIANNESS_BIG>::cache m_rom_space;
-	uint16_t                    m_counter_mask = 0;
+// 	uint16_t                    m_counter_mask = 0;
 
 	// SAM state
 	uint16_t                    m_counter = 0;
