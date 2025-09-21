@@ -612,12 +612,14 @@ uint8_t m6809_base_device::mi_default::read(uint16_t adr)
 
 uint8_t m6809_base_device::mi_default::read_opcode(uint16_t adr)
 {
+	// Temp change to get past memory cacheing bug regarding views
 	return program.read_byte(adr);
 // 	return csprogram.read_byte(adr);
 }
 
 uint8_t m6809_base_device::mi_default::read_opcode_arg(uint16_t adr)
 {
+	// Temp change to get past memory cacheing bug regarding views
 	return program.read_byte(adr);
 // 	return cprogram.read_byte(adr);
 }

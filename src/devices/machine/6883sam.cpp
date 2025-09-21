@@ -91,9 +91,9 @@ bool sam_misconfigured( int index, u32 ram_size )
 #define LOG_MBITS   (1U << 5)
 #define LOG_RBITS   (1U << 6)
 
-#define VERBOSE (0)
+// #define VERBOSE (0)
 // #define VERBOSE (LOG_FBITS)
-// #define VERBOSE (LOG_FBITS | LOG_VBITS | LOG_PBITS | LOG_TBITS | LOG_MBITS | LOG_RBITS)
+#define VERBOSE (LOG_FBITS | LOG_VBITS | LOG_PBITS | LOG_TBITS | LOG_MBITS | LOG_RBITS)
 
 #include "logmacro.h"
 
@@ -523,7 +523,7 @@ void sam6883_device::internal_write(offs_t offset, uint8_t data)
 	uint16_t xorval = alter_sam_state(offset);
 
 	// based on the mask, apply effects
-	if (xorval & (SAM_STATE_TY|SAM_STATE_M0|SAM_STATE_M1|SAM_STATE_P1))
+	if (xorval & (SAM_STATE_TY|SAM_STATE_M1|SAM_STATE_M0|SAM_STATE_P1))
 	{
 		update_memory();
 	}
