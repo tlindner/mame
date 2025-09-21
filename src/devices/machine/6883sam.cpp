@@ -91,9 +91,9 @@ bool sam_misconfigured( int index, u32 ram_size )
 #define LOG_MBITS   (1U << 5)
 #define LOG_RBITS   (1U << 6)
 
-// #define VERBOSE (0)
+#define VERBOSE (0)
 // #define VERBOSE (LOG_FBITS)
-#define VERBOSE (LOG_FBITS | LOG_VBITS | LOG_PBITS | LOG_TBITS | LOG_MBITS | LOG_RBITS)
+// #define VERBOSE (LOG_FBITS | LOG_VBITS | LOG_PBITS | LOG_TBITS | LOG_MBITS | LOG_RBITS)
 
 #include "logmacro.h"
 
@@ -229,8 +229,8 @@ void sam6883_device::device_start()
 	if (it == supported_configurations.end())
 		throw emu_fatalerror("MC6883 only supports RAM configurations of 4096, 8192, 16384, 32768, or 65536 bytes.");
 
+#if 1
 	// setup ram views
-#if 0
 	for (int i = 0; i<4; i++)
 	{
 		if (sam_misconfigured( i, m_ram->size()))
@@ -240,13 +240,22 @@ void sam6883_device::device_start()
 			for (int j = 0; j < (m_ram->size()/0x200); j++)
 			{
 				if (start<0xfe00)
+				{
 					m_ram_view[i].install_ram(start, std::min(end, 0xfeffU), 0x0100, m_ram->pointer()+start);
+				}
 				else
+				{
 					m_ram_view[i].install_ram(start, std::min(end, 0xfeffU), m_ram->pointer()+start);
+				}
 
 				space(i).install_ram(start, end, 0x0100, m_ram->pointer()+start);
 				start += 0x200;
 				end += 0x200;
+			}
+
+			if (end < 0xfeff)
+			{
+				m_ram_view[i].nop_readwrite(end+1-0x100, 0xfeff);
 			}
 		}
 		else
@@ -270,22 +279,30 @@ void sam6883_device::device_start()
 				}
 			}
 		}
-	}
-#endif
 
+		m_ram_view[i].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
+		m_ram_view[i].nop_write(0xffe0, 0xffff);
+	}
+#else
+	// this is used to install 64k RAMs in all modes, for testing
 	m_ram_view[0].install_ram(0x0000, 0xfeff, m_ram->pointer());
 	m_ram_view[0].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
+	m_ram_view[0].nop_write(0xffe0, 0xffff);
 	m_ram_view[1].install_ram(0x0000, 0xfeff, m_ram->pointer());
 	m_ram_view[1].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
+	m_ram_view[1].nop_write(0xffe0, 0xffff);
 	m_ram_view[2].install_ram(0x0000, 0xfeff, m_ram->pointer());
 	m_ram_view[2].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
+	m_ram_view[2].nop_write(0xffe0, 0xffff);
 	m_ram_view[3].install_ram(0x0000, 0xfeff, m_ram->pointer());
 	m_ram_view[3].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
+	m_ram_view[3].nop_write(0xffe0, 0xffff);
 
 	space(0).install_ram(0x0000, 0xffff, m_ram->pointer());
 	space(1).install_ram(0x0000, 0xffff, m_ram->pointer());
 	space(2).install_ram(0x0000, 0xffff, m_ram->pointer());
 	space(3).install_ram(0x0000, 0xffff, m_ram->pointer());
+#endif
 
 	// get spaces
 	space(0).cache(m_ram_space[0]);
@@ -297,7 +314,6 @@ void sam6883_device::device_start()
 	// save state support
 	save_item(NAME(m_sam_state));
 	save_item(NAME(m_divider));
-// 	save_item(NAME(m_counter_mask));
 	save_item(NAME(m_counter));
 	save_item(NAME(m_counter_xdiv));
 	save_item(NAME(m_counter_ydiv));
@@ -311,7 +327,8 @@ void sam6883_device::device_start()
 
 uint8_t sam6883_device::endc_read(offs_t offset)
 {
-	fprintf(stderr,"sam6883_device::endc_read: %4x\n", offset);
+	if (!machine().side_effects_disabled())
+		fprintf(stderr,"sam6883_device::endc_read: %4x\n", offset);
 	return 0;
 }
 
@@ -323,7 +340,8 @@ uint8_t sam6883_device::endc_read(offs_t offset)
 
 void sam6883_device::endc_write(offs_t offset, uint8_t data)
 {
-	fprintf(stderr,"sam6883_device::endc_write: %4x\n", offset);
+	if (!machine().side_effects_disabled())
+		fprintf(stderr,"sam6883_device::endc_write: %4x\n", offset);
 }
 
 
@@ -417,25 +435,22 @@ void sam6883_device::update_memory()
 	{
 		case 0:
 			// 4K mode
-// 			m_counter_mask = 0x0FFF;
 			m_ram_view.select(0);
 			break;
 
-		case SAM_STATE_M0:
+		case SAM_STATE_M0>>13:
 			// 16K mode
-// 			m_counter_mask = 0x3FFF;
 			m_ram_view.select(1);
 			break;
 
-		case SAM_STATE_M1:
+		case SAM_STATE_M1>>13:
 			// 64k mode (dynamic)
-		case SAM_STATE_M1|SAM_STATE_M0:
+		case (SAM_STATE_M1|SAM_STATE_M0)>>13:
 			// 64k mode (static)
 			// full 64k RAM or ROM/RAM
 			// CoCo Max requires these two be treated the same
 
 			m_ram_view.select(2);
-// 			m_counter_mask = 0xffff;
 
 			if (BIT(m_sam_state, SAM_BIT_P1))
 				m_ram_view.select(3);
@@ -508,7 +523,7 @@ void sam6883_device::internal_write(offs_t offset, uint8_t data)
 	uint16_t xorval = alter_sam_state(offset);
 
 	// based on the mask, apply effects
-	if (xorval & (SAM_STATE_TY|SAM_STATE_M1|SAM_STATE_M0|SAM_STATE_P1))
+	if (xorval & (SAM_STATE_TY|SAM_STATE_M0|SAM_STATE_M1|SAM_STATE_P1))
 	{
 		update_memory();
 	}
