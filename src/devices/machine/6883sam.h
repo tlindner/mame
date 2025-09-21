@@ -19,9 +19,12 @@
 //  SAM6883 CORE
 //**************************************************************************
 
-class device_sam_map_host_interface
+class device_sam_map_host_interface : public device_interface
 {
 public:
+	device_sam_map_host_interface(device_t &device, const char *tag) : device_interface(device,"") {};
+
+	virtual void s0_ram_map(address_map &map) {};
 	virtual void s1_rom0_map(address_map &map) {};
 	virtual void s2_rom1_map(address_map &map) {};
 	virtual void s3_rom2_map(address_map &map) {};

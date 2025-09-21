@@ -40,6 +40,7 @@ class coco12_state : public coco_state, public device_sam_map_host_interface
 public:
 	coco12_state(const machine_config &mconfig, device_type type, const char *tag)
 		: coco_state(mconfig, type, tag)
+		, device_sam_map_host_interface(*this, finder_base::DUMMY_TAG)
 		, m_sam(*this, "sam")
 		, m_vdg(*this, "vdg")
 	{
@@ -57,7 +58,6 @@ public:
 	void cp400(machine_config &config);
 	void t4426(machine_config &config);
 	void cd6809(machine_config &config);
-// 	void ms1600(machine_config &config);
 
 protected:
 	virtual void device_start() override ATTR_COLD;

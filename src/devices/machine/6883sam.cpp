@@ -278,6 +278,10 @@ void sam6883_device::device_start()
 					space(i).nop_readwrite(m_ram->size(), 0xffff);
 				}
 			}
+
+			m_ram_view[i].install_device(0x0000, 0xfeff, *m_host, &device_sam_map_host_interface::s0_ram_map);
+// 			m_ram_view[i].install_device_delegate(0x0000, 0xfeff, *m_host, &device_sam_map_host_interface::s0_ram_map);
+
 		}
 
 		m_ram_view[i].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
