@@ -61,7 +61,6 @@ public:
 
 protected:
 	virtual void device_start() override ATTR_COLD;
-	void configure_sam();
 
 	// PIA1
 	virtual void pia1_pb_changed(uint8_t data) override;
@@ -90,7 +89,7 @@ public:
 		, m_acia(*this, "mosacia")
 		, m_psg(*this, "psg")
 		, m_timer(*this, "timer")
-		, m_ram_view(*this, "ram_view")
+		, m_ram_bank(*this, "ram_bank")
 		, m_rom_view(*this, "rom_view")
 	{
 	}
@@ -99,9 +98,10 @@ public:
 	void ff30_write(offs_t offset, uint8_t data);
 
 protected:
+	virtual void machine_start() override ATTR_COLD;
 	virtual void device_start() override ATTR_COLD;
-	void configure_sam();
 
+	virtual void s0_ram_map(address_map &map) override ATTR_COLD;
 	virtual void s3_rom2_map(address_map &map) override ATTR_COLD;
 	virtual void s5_io1_map(address_map &map) override ATTR_COLD;
 
@@ -112,7 +112,7 @@ protected:
 	TIMER_DEVICE_CALLBACK_MEMBER(perodic_timer);
 
 private:
-	memory_view m_ram_view;
+	memory_bank_creator m_ram_bank;
 	memory_view m_rom_view;
 };
 
