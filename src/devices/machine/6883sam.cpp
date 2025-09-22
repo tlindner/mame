@@ -47,7 +47,7 @@
 
 	SAM Handler:                                    ≤-------->
 	I/O View[0]:                           ≤-------->
-	ROM View[0]:                ≤----------+--------+-------->
+	ROM View[0]:                ≤---------->
 	RAM View[0]:  ≤--4k/8k------+----------+--------+--------+----*----≥
 	RAM View[1]:  ≤--16k/32k----+----------+--------+--------+----*----≥
 	RAM View[2]:  ≤--32k/64k----+----------+--------+--------+----*----≥
@@ -91,9 +91,9 @@ bool sam_misconfigured( int index, u32 ram_size )
 #define LOG_MBITS   (1U << 5)
 #define LOG_RBITS   (1U << 6)
 
-// #define VERBOSE (0)
+#define VERBOSE (0)
 // #define VERBOSE (LOG_FBITS)
-#define VERBOSE (LOG_FBITS | LOG_VBITS | LOG_PBITS | LOG_TBITS | LOG_MBITS | LOG_RBITS)
+// #define VERBOSE (LOG_FBITS | LOG_VBITS | LOG_PBITS | LOG_TBITS | LOG_MBITS | LOG_RBITS)
 
 #include "logmacro.h"
 
@@ -280,7 +280,6 @@ void sam6883_device::device_start()
 			}
 
 			m_ram_view[i].install_device(0x0000, 0xfeff, *m_host, &device_sam_map_host_interface::s0_ram_map);
-// 			m_ram_view[i].install_device_delegate(0x0000, 0xfeff, *m_host, &device_sam_map_host_interface::s0_ram_map);
 
 		}
 
@@ -442,14 +441,14 @@ void sam6883_device::update_memory()
 			m_ram_view.select(0);
 			break;
 
-		case SAM_STATE_M0>>13:
+		case SAM_STATE_M0>>SAM_BIT_M0:
 			// 16K mode
 			m_ram_view.select(1);
 			break;
 
-		case SAM_STATE_M1>>13:
+		case SAM_STATE_M1>>SAM_BIT_M0:
 			// 64k mode (dynamic)
-		case (SAM_STATE_M1|SAM_STATE_M0)>>13:
+		case (SAM_STATE_M1|SAM_STATE_M0)>>SAM_BIT_M0:
 			// 64k mode (static)
 			// full 64k RAM or ROM/RAM
 			// CoCo Max requires these two be treated the same
@@ -461,7 +460,6 @@ void sam6883_device::update_memory()
 			break;
 	}
 
-	// Manage other views
 	if(BIT(m_sam_state, SAM_BIT_TY))
 		m_rom_view.disable();
 	else
