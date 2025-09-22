@@ -91,8 +91,8 @@ bool sam_misconfigured( int index, u32 ram_size )
 #define LOG_MBITS   (1U << 5)
 #define LOG_RBITS   (1U << 6)
 
-#define VERBOSE (0)
-// #define VERBOSE (LOG_FBITS)
+// #define VERBOSE (0)
+#define VERBOSE (LOG_MBITS)
 // #define VERBOSE (LOG_FBITS | LOG_VBITS | LOG_PBITS | LOG_TBITS | LOG_MBITS | LOG_RBITS)
 
 #include "logmacro.h"
@@ -320,11 +320,9 @@ void sam6883_device::device_start()
 					space(i).nop_readwrite(m_ram->size(), 0xffff);
 				}
 			}
-
-			m_ram_view[i].install_device(0x0000, 0xfeff, *m_host, &device_sam_map_host_interface::s0_ram_map);
-
 		}
 
+		m_ram_view[i].install_device(0x0000, 0xfeff, *m_host, &device_sam_map_host_interface::s0_ram_map);
 		m_ram_view[i].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
 		m_ram_view[i].nop_write(0xffe0, 0xffff);
 	}
@@ -472,7 +470,7 @@ void sam6883_device::vector_write(offs_t offset, uint8_t data)
 uint8_t sam6883_device::endc_read(offs_t offset)
 {
 	if (!machine().side_effects_disabled())
-		fprintf(stderr,"sam6883_device::endc_read: %4x\n", offset);
+		fprintf(stderr,"%s endc_read: %4x\n", machine().describe_context().c_str(), offset);
 	return 0;
 }
 
@@ -485,7 +483,7 @@ uint8_t sam6883_device::endc_read(offs_t offset)
 void sam6883_device::endc_write(offs_t offset, uint8_t data)
 {
 	if (!machine().side_effects_disabled())
-		fprintf(stderr,"sam6883_device::endc_write: %4x\n", offset);
+		fprintf(stderr,"%s endc_write: %4x\n", machine().describe_context().c_str(), offset);
 }
 
 
