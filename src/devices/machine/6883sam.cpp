@@ -152,7 +152,7 @@ void sam6883_device::sam_mem(address_map &map)
 {
 	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
 	map(0x0000, 0xffff).view(m_ram_view); // see device_start()
-	map(0x8000, 0xffff).view(m_rom_view);
+	map(0x8000, 0xfeff).view(m_rom_view);
 
 	m_rom_view[0](0x8000, 0x9fff).m(*m_host, FUNC(device_sam_map_host_interface::s1_rom0_map));
 	m_rom_view[0](0xa000, 0xbfff).m(*m_host, FUNC(device_sam_map_host_interface::s2_rom1_map));
@@ -160,6 +160,7 @@ void sam6883_device::sam_mem(address_map &map)
 
 	// This intentionally cuts a gap in the ROM view
 	map(0xff00, 0xffbf).view(m_io_view);
+	fprintf(stderr, "m_io_view: %p\n", &m_io_view);
 	m_io_view[0](0xff00, 0xff1f).m(*m_host, FUNC(device_sam_map_host_interface::s4_io0_map));
 	m_io_view[0](0xff20, 0xff3f).m(*m_host, FUNC(device_sam_map_host_interface::s5_io1_map));
 	m_io_view[0](0xff40, 0xff5f).m(*m_host, FUNC(device_sam_map_host_interface::s6_io2_map));
@@ -229,7 +230,7 @@ void sam6883_device::device_start()
 	if (it == supported_configurations.end())
 		throw emu_fatalerror("MC6883 only supports RAM configurations of 4096, 8192, 16384, 32768, or 65536 bytes.");
 
-#if 1
+#if 0
 	// setup ram views
 	for (int i = 0; i<4; i++)
 	{
