@@ -550,40 +550,40 @@ static std::error_condition read_coco_rpk(std::unique_ptr<util::random_read> &&s
 //  read_coco_rpk
 //-------------------------------------------------
 
-static std::error_condition read_coco_rpk(std::unique_ptr<util::random_read> &&stream, u8 *mem, offs_t cart_length, offs_t &actual_length)
-{
-	actual_length = 0;
-
-	// open the RPK
-	rpk_file::ptr file;
-	std::error_condition err = read_coco_rpk(std::move(stream), file);
-	if (err)
-		return err;
-
-	// for now, we are just going to load all sockets into the contiguous block of memory
-	// that cartridges use
-	offs_t pos = 0;
-	for (const rpk_socket &socket : file->sockets())
-	{
-		// only ROM supported for now; if we see anything else it should have been caught in the RPK code
-		assert(socket.type() == rpk_socket::socket_type::ROM);
-
-		// read all bytes
-		std::vector<uint8_t> contents;
-		err = socket.read_file(contents);
-		if (err)
-			return err;
-
-		// copy the bytes
-		offs_t size = (offs_t) std::min(contents.size(), (size_t)cart_length - pos);
-		memcpy(&mem[pos], &contents[0], size);
-		pos += size;
-	}
-
-	// we're done!
-	actual_length = pos;
-	return std::error_condition();
-}
+// static std::error_condition read_coco_rpk(std::unique_ptr<util::random_read> &&stream, u8 *mem, offs_t cart_length, offs_t &actual_length)
+// {
+// 	actual_length = 0;
+//
+// 	// open the RPK
+// 	rpk_file::ptr file;
+// 	std::error_condition err = read_coco_rpk(std::move(stream), file);
+// 	if (err)
+// 		return err;
+//
+// 	// for now, we are just going to load all sockets into the contiguous block of memory
+// 	// that cartridges use
+// 	offs_t pos = 0;
+// 	for (const rpk_socket &socket : file->sockets())
+// 	{
+// 		// only ROM supported for now; if we see anything else it should have been caught in the RPK code
+// 		assert(socket.type() == rpk_socket::socket_type::ROM);
+//
+// 		// read all bytes
+// 		std::vector<uint8_t> contents;
+// 		err = socket.read_file(contents);
+// 		if (err)
+// 			return err;
+//
+// 		// copy the bytes
+// 		offs_t size = (offs_t) std::min(contents.size(), (size_t)cart_length - pos);
+// 		memcpy(&mem[pos], &contents[0], size);
+// 		pos += size;
+// 	}
+//
+// 	// we're done!
+// 	actual_length = pos;
+// 	return std::error_condition();
+// }
 
 
 //-------------------------------------------------
@@ -592,41 +592,41 @@ static std::error_condition read_coco_rpk(std::unique_ptr<util::random_read> &&s
 
 std::pair<std::error_condition, std::string> cococart_slot_device::call_load()
 {
-	if (m_cart)
-	{
-		memory_region *cart_mem = m_cart->get_cart_memregion();
-		u8 *base = cart_mem->base();
-		offs_t read_length, cart_length = cart_mem->bytes();
-
-		if (loaded_through_softlist())
-		{
-			// loaded through softlist
-			read_length = get_software_region_length("rom");
-			memcpy(base, get_software_region("rom"), read_length);
-		}
-		else if (is_filetype("rpk"))
-		{
-			// RPK file
-			util::core_file::ptr proxy;
-			std::error_condition err = util::core_file::open_proxy(image_core_file(), proxy);
-			if (!err)
-				err = read_coco_rpk(std::move(proxy), base, cart_length, read_length);
-			if (err)
-				return std::make_pair(err, std::string());
-		}
-		else
-		{
-			// conventional ROM image
-			read_length = fread(base, cart_length);
-		}
-
-		while (read_length < cart_length)
-		{
-			offs_t len = std::min(read_length, cart_length - read_length);
-			memcpy(base + read_length, base, len);
-			read_length += len;
-		}
-	}
+// 	if (m_cart)
+// 	{
+// 		memory_region *cart_mem = m_cart->get_cart_memregion();
+// 		u8 *base = cart_mem->base();
+// 		offs_t read_length, cart_length = cart_mem->bytes();
+//
+// 		if (loaded_through_softlist())
+// 		{
+// 			// loaded through softlist
+// 			read_length = get_software_region_length("rom");
+// 			memcpy(base, get_software_region("rom"), read_length);
+// 		}
+// 		else if (is_filetype("rpk"))
+// 		{
+// 			// RPK file
+// 			util::core_file::ptr proxy;
+// 			std::error_condition err = util::core_file::open_proxy(image_core_file(), proxy);
+// 			if (!err)
+// 				err = read_coco_rpk(std::move(proxy), base, cart_length, read_length);
+// 			if (err)
+// 				return std::make_pair(err, std::string());
+// 		}
+// 		else
+// 		{
+// 			// conventional ROM image
+// 			read_length = fread(base, cart_length);
+// 		}
+//
+// 		while (read_length < cart_length)
+// 		{
+// 			offs_t len = std::min(read_length, cart_length - read_length);
+// 			memcpy(base + read_length, base, len);
+// 			read_length += len;
+// 		}
+// 	}
 	return std::make_pair(std::error_condition(), std::string());
 }
 
@@ -787,65 +787,65 @@ void device_cococart_interface::set_sound_enable(bool sound_enable)
 //  get_cart_base
 //-------------------------------------------------
 
-u8 *device_cococart_interface::get_cart_base()
-{
-	return nullptr;
-}
-
+// u8 *device_cococart_interface::get_cart_base()
+// {
+// 	return nullptr;
+// }
+//
 
 //-------------------------------------------------
 //  get_cart_size
 //-------------------------------------------------
 
-u32 device_cococart_interface::get_cart_size()
-{
-	return 0x8000;
-}
+// u32 device_cococart_interface::get_cart_size()
+// {
+// 	return 0x8000;
+// }
 
 
 //-------------------------------------------------
 //  set_cart_base_update
 //-------------------------------------------------
 
-void device_cococart_interface::set_cart_base_update(cococart_base_update_delegate update)
-{
-	m_update = update;
-}
+// void device_cococart_interface::set_cart_base_update(cococart_base_update_delegate update)
+// {
+// 	m_update = update;
+// }
 
 
 //-------------------------------------------------
 //  cart_base_changed
 //-------------------------------------------------
 
-void device_cococart_interface::cart_base_changed(void)
-{
-	if (!m_update.isnull())
-		m_update(get_cart_base());
-	else
-	{
-		// propagate up to host interface
-		device_cococart_interface *host = dynamic_cast<device_cococart_interface*>(m_host);
-		host->cart_base_changed();
-	}
-}
+// void device_cococart_interface::cart_base_changed(void)
+// {
+// 	if (!m_update.isnull())
+// 		m_update(get_cart_base());
+// 	else
+// 	{
+// 		// propagate up to host interface
+// 		device_cococart_interface *host = dynamic_cast<device_cococart_interface*>(m_host);
+// 		host->cart_base_changed();
+// 	}
+// }
 
 /*-------------------------------------------------
     get_cart_memregion
 -------------------------------------------------*/
 
-memory_region *device_cococart_interface::get_cart_memregion()
-{
-	return 0;
-}
+// memory_region *device_cococart_interface::get_cart_memregion()
+// {
+// 	return 0;
+// }
 
 //-------------------------------------------------
 //  cartridge_space
 //-------------------------------------------------
 
-address_space &device_cococart_interface::cartridge_space()
-{
-	return host().cartridge_space();
-}
+// address_space &device_cococart_interface::cartridge_space()
+// {
+// 	return host().cartridge_space();
+// }
 
 
 //-------------------------------------------------
@@ -867,23 +867,23 @@ void coco_cart_add_basic_devices(device_slot_interface &device)
 	// basic devices, on both the main slot and the Multi-Pak interface
 	device.option_add_internal("banked_16k", COCO_PAK_BANKED);
 	device.option_add_internal("pak", COCO_PAK);
-	device.option_add("ccpsg", COCO_PSG);
-	device.option_add("dcmodem", COCO_DCMODEM);
-	device.option_add("gmc", COCO_PAK_GMC);
-	device.option_add("ide", COCO_IDE);
-	device.option_add("max", COCO_PAK_MAX);
-	device.option_add("midi", COCO_MIDI);
-	device.option_add("orch90", COCO_ORCH90);
-	device.option_add("ram", COCO_PAK_RAM);
-	device.option_add("rs232", COCO_RS232);
-	device.option_add("ssc", COCO_SSC);
-	device.option_add("ssfm", DRAGON_MSX2);
-	device.option_add("stecomp", COCO_STEREO_COMPOSER);
-	device.option_add("sym12", COCO_SYM12);
-	device.option_add("wpk", COCO_WPK);
-	device.option_add("wpk2", COCO_WPK2);
-	device.option_add("wpkrs", COCO_WPKRS);
-	device.option_add("wpk2p", COCO_WPK2P);
+// 	device.option_add("ccpsg", COCO_PSG);
+// 	device.option_add("dcmodem", COCO_DCMODEM);
+// 	device.option_add("gmc", COCO_PAK_GMC);
+// 	device.option_add("ide", COCO_IDE);
+// 	device.option_add("max", COCO_PAK_MAX);
+// 	device.option_add("midi", COCO_MIDI);
+// 	device.option_add("orch90", COCO_ORCH90);
+// 	device.option_add("ram", COCO_PAK_RAM);
+// 	device.option_add("rs232", COCO_RS232);
+// 	device.option_add("ssc", COCO_SSC);
+// 	device.option_add("ssfm", DRAGON_MSX2);
+// 	device.option_add("stecomp", COCO_STEREO_COMPOSER);
+// 	device.option_add("sym12", COCO_SYM12);
+// 	device.option_add("wpk", COCO_WPK);
+// 	device.option_add("wpk2", COCO_WPK2);
+// 	device.option_add("wpkrs", COCO_WPKRS);
+// 	device.option_add("wpk2p", COCO_WPK2P);
 }
 
 
@@ -895,10 +895,10 @@ void coco_cart_add_fdcs(device_slot_interface &device)
 {
 	// FDCs are optional because if they are on a Multi-Pak interface, they must
 	// be on Slot 4
-	device.option_add("cd6809_fdc", CD6809_FDC);
-	device.option_add("cp450_fdc", CP450_FDC);
-	device.option_add("fdc", COCO_FDC);
-	device.option_add("scii", COCO_SCII);
+// 	device.option_add("cd6809_fdc", CD6809_FDC);
+// 	device.option_add("cp450_fdc", CP450_FDC);
+// 	device.option_add("fdc", COCO_FDC);
+// 	device.option_add("scii", COCO_SCII);
 }
 
 
@@ -909,7 +909,7 @@ void coco_cart_add_fdcs(device_slot_interface &device)
 void coco_cart_add_multi_pak(device_slot_interface &device)
 {
 	// and the Multi-Pak itself is optional because they cannot be daisy chained
-	device.option_add("multi", COCO_MULTIPAK);
+// 	device.option_add("multi", COCO_MULTIPAK);
 }
 
 
@@ -919,24 +919,24 @@ void coco_cart_add_multi_pak(device_slot_interface &device)
 
 void dragon_cart_add_basic_devices(device_slot_interface &device)
 {
-	device.option_add_internal("amtor", DRAGON_AMTOR);
-	device.option_add("ccpsg", COCO_PSG);
-	device.option_add("claw", DRAGON_CLAW);
-	device.option_add("gmc", COCO_PAK_GMC);
-	device.option_add("jcbsnd", DRAGON_JCBSND);
-	device.option_add("jcbspch", DRAGON_JCBSPCH);
-	device.option_add("max", COCO_PAK_MAX);
-	device.option_add("midi", DRAGON_MIDI);
-	device.option_add("orch90", COCO_ORCH90);
-	device.option_add("pak", COCO_PAK);
-	device.option_add("serial", DRAGON_SERIAL);
-	device.option_add("ram", COCO_PAK_RAM);
-	device.option_add("sprites", DRAGON_SPRITES);
-	device.option_add("ssc", COCO_SSC);
-	device.option_add("ssfm", DRAGON_MSX2);
-	device.option_add("stecomp", COCO_STEREO_COMPOSER);
-	device.option_add("sym12", COCO_SYM12);
-	device.option_add("wpk2p", COCO_WPK2P);
+// 	device.option_add_internal("amtor", DRAGON_AMTOR);
+// 	device.option_add("ccpsg", COCO_PSG);
+// 	device.option_add("claw", DRAGON_CLAW);
+// 	device.option_add("gmc", COCO_PAK_GMC);
+// 	device.option_add("jcbsnd", DRAGON_JCBSND);
+// 	device.option_add("jcbspch", DRAGON_JCBSPCH);
+// 	device.option_add("max", COCO_PAK_MAX);
+// 	device.option_add("midi", DRAGON_MIDI);
+// 	device.option_add("orch90", COCO_ORCH90);
+// 	device.option_add("pak", COCO_PAK);
+// 	device.option_add("serial", DRAGON_SERIAL);
+// 	device.option_add("ram", COCO_PAK_RAM);
+// 	device.option_add("sprites", DRAGON_SPRITES);
+// 	device.option_add("ssc", COCO_SSC);
+// 	device.option_add("ssfm", DRAGON_MSX2);
+// 	device.option_add("stecomp", COCO_STEREO_COMPOSER);
+// 	device.option_add("sym12", COCO_SYM12);
+// 	device.option_add("wpk2p", COCO_WPK2P);
 }
 
 
@@ -946,9 +946,9 @@ void dragon_cart_add_basic_devices(device_slot_interface &device)
 
 void dragon_cart_add_fdcs(device_slot_interface &device)
 {
-	device.option_add("dragon_fdc", DRAGON_FDC);
-	device.option_add("premier_fdc", PREMIER_FDC);
-	device.option_add("sdtandy_fdc", SDTANDY_FDC);
+// 	device.option_add("dragon_fdc", DRAGON_FDC);
+// 	device.option_add("premier_fdc", PREMIER_FDC);
+// 	device.option_add("sdtandy_fdc", SDTANDY_FDC);
 }
 
 
@@ -958,5 +958,5 @@ void dragon_cart_add_fdcs(device_slot_interface &device)
 
 void dragon_cart_add_multi_pak(device_slot_interface &device)
 {
-	device.option_add("multi", DRAGON_MULTIPAK);
+// 	device.option_add("multi", DRAGON_MULTIPAK);
 }

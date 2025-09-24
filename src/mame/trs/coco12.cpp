@@ -444,7 +444,7 @@ void coco_cart(device_slot_interface &device)
 
 void t4426_cart(device_slot_interface &device)
 {
-	device.option_add("t4426", COCO_T4426);
+// 	device.option_add("t4426", COCO_T4426);
 }
 
 //-------------------------------------------------
