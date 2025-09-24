@@ -574,7 +574,8 @@ void coco12_state::coco(machine_config &config)
 	coco_floating(config);
 
 	// cartridge
-	COCOCART_SLOT(config, m_cococart, DERIVED_CLOCK(1, 1), coco_cart, "fdc");
+	COCOCART_SLOT(config, m_cococart, DERIVED_CLOCK(1, 1), coco_cart, nullptr);
+// 	COCOCART_SLOT(config, m_cococart, DERIVED_CLOCK(1, 1), coco_cart, "fdc");
 	m_cococart->cart_callback().set([this] (int state) { cart_w(state != 0); }); // lambda because name is overloaded
 	m_cococart->nmi_callback().set_inputline(m_maincpu, INPUT_LINE_NMI);
 	m_cococart->halt_callback().set_inputline(m_maincpu, INPUT_LINE_HALT);
