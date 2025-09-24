@@ -106,7 +106,10 @@ template<int HighBits, int Width, int AddrShift> offs_t handler_entry_read_dispa
 
 template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatch<HighBits, Width, AddrShift>::dump_map(std::vector<memory_entry> &map) const
 {
+	fprintf( stderr, "%p, LowBits: %d, BITMASK = %0x, UPMASK = %x\n", this, LowBits, BITMASK, UPMASK);
+
 	if(m_view) {
+
 		offs_t base_cur = map.empty() ? m_view->m_addrstart & HIGHMASK : map.back().end + 1;
 		for(u32 i = 0; i != m_dispatch_array.size(); i++) {
 			u32 j = map.size();
@@ -115,6 +118,17 @@ template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatc
 
 			do {
 				offs_t entry = (cur >> LowBits) & BITMASK;
+
+				offs_t real_end = m_ranges_array[i][m_ranges_array[i][entry].start].start;
+				auto *handler = m_dispatch_array[i][real_end];
+				while( real_end < (m_ranges_array[i][entry].end<<LowBits))
+				{
+					if( handler != m_dispatch_array[i][real_end]) break;
+					real_end += 1<<LowBits;
+				}
+
+				fprintf(stderr, "start: %x, real end: %x, end: %x %s\n", m_ranges_array[i][entry].start, real_end, m_ranges_array[i][entry].end, handler->name().c_str());
+
 				if(m_dispatch_array[i][entry]->is_dispatch() || m_dispatch_array[i][entry]->is_view())
 					m_dispatch_array[i][entry]->dump_map(map);
 				else
@@ -136,8 +150,21 @@ template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatc
 		offs_t end = m_global_range.end + 1;
 		do {
 			offs_t entry = (cur >> LowBits) & BITMASK;
+
+			offs_t real_end = m_a_ranges[entry].start;
+			auto *handler = m_a_dispatch[entry];
+			while( real_end < (m_a_ranges[entry].end))
+			{
+				if( handler != m_a_dispatch[real_end]) break;
+				real_end += 1<<LowBits;
+			}
+
+			fprintf(stderr, "start: %x, real end: %x, end: %x ?\n", m_a_ranges[entry].start, real_end, m_a_ranges[entry].end);
+
 			if(m_a_dispatch[entry]->is_dispatch() || m_a_dispatch[entry]->is_view())
+			{
 				m_a_dispatch[entry]->dump_map(map);
+			}
 			else
 				map.emplace_back(memory_entry{ m_a_ranges[entry].start, m_a_ranges[entry].end, m_a_dispatch[entry] });
 			cur = map.back().end + 1;
