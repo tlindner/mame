@@ -4421,8 +4421,8 @@ if (BUSES["COCO"]~=null) then
 	files {
 --		MAME_DIR .. "src/devices/bus/coco/coco_dcmodem.cpp",
 --		MAME_DIR .. "src/devices/bus/coco/coco_dcmodem.h",
---		MAME_DIR .. "src/devices/bus/coco/coco_dwsock.cpp",
---		MAME_DIR .. "src/devices/bus/coco/coco_dwsock.h",
+		MAME_DIR .. "src/devices/bus/coco/coco_dwsock.cpp",
+		MAME_DIR .. "src/devices/bus/coco/coco_dwsock.h",
 --		MAME_DIR .. "src/devices/bus/coco/coco_fdc.cpp",
 --		MAME_DIR .. "src/devices/bus/coco/coco_fdc.h",
 --		MAME_DIR .. "src/devices/bus/coco/coco_gmc.cpp",

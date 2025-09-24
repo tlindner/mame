@@ -101,7 +101,7 @@ public:
 	// cart base
 // 	u8 *get_cart_base();
 // 	u32 get_cart_size();
-	void set_cart_base_update(cococart_base_update_delegate update);
+// 	void set_cart_base_update(cococart_base_update_delegate update);
 
 private:
 	// TIMER_POOL: Must be power of two
