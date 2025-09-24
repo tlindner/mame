@@ -62,7 +62,8 @@ void coco12_state::s2_rom1_map(address_map &map)
 void coco12_state::s3_rom2_map(address_map &map)
 {
 	// $C000-$FEFF
-	map(0x0000, 0x3eff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
+	map(0x0000, 0x3eff).m(m_cococart, FUNC(cococart_slot_device::cts_map));
+// 	map(0x0000, 0x3eff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
 }
 
 void deluxecoco_state::s3_rom2_map(address_map &map)
@@ -71,7 +72,8 @@ void deluxecoco_state::s3_rom2_map(address_map &map)
 // 	map(0x0000, 0x3eff).view(m_rom_view);
 	map(0xc000, 0xfeff).view(m_rom_view);
 
-	m_rom_view[0](0x0000, 0x3eff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
+// 	m_rom_view[0](0x0000, 0x3eff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
+	m_rom_view[0](0x0000, 0x3eff).m(m_cococart, FUNC(cococart_slot_device::cts_map));
 	m_rom_view[1](0x0000, 0x3eff).rom().region(MAINCPU_TAG, 0x4000).nopw();
 
 // 	m_rom_view[0](0xc000, 0xfeff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
@@ -102,7 +104,8 @@ void deluxecoco_state::s5_io1_map(address_map &map)
 void coco12_state::s6_io2_map(address_map &map)
 {
 	// $FF40-$FF5F
-	map(0x00, 0x1f).rw(FUNC(coco12_state::ff40_read), FUNC(coco12_state::ff40_write));
+	map(0x00, 0x1f).m(m_cococart, FUNC(cococart_slot_device::scs_map));
+// 	map(0x00, 0x1f).rw(FUNC(coco12_state::ff40_read), FUNC(coco12_state::ff40_write));
 }
 
 void coco12_state::s7_res_map(address_map &map)
@@ -114,7 +117,8 @@ void coco12_state::s7_res_map(address_map &map)
 void ms1600_state::s3_rom2_map(address_map &map)
 {
 	// $C000-$FEFF
-	map(0x0000, 0x2fff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
+	map(0x0000, 0x2fff).m(m_cococart, FUNC(cococart_slot_device::cts_map));
+// 	map(0x0000, 0x2fff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
 	map(0x3000, 0x3eff).rom().region(MAINCPU_TAG, 0x7000).nopw();
 }
 

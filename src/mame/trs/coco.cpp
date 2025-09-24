@@ -1135,7 +1135,8 @@ uint8_t coco_state::ff40_read(offs_t offset)
 		return m_beckerport->read(offset-1);
 	}
 
-	return m_cococart->scs_read(offset);
+// 	return m_cococart->scs_read(offset);
+	return 0;
 }
 
 
@@ -1150,7 +1151,7 @@ void coco_state::ff40_write(offs_t offset, uint8_t data)
 		return m_beckerport->write(offset-1, data);
 	}
 
-	m_cococart->scs_write(offset, data);
+// 	m_cococart->scs_write(offset, data);
 }
 
 
