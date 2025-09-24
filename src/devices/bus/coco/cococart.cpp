@@ -41,32 +41,32 @@
 #include "cococart.h"
 #include "formats/rpk.h"
 
-#include "coco_dcmodem.h"
-#include "coco_fdc.h"
-#include "coco_gmc.h"
-#include "coco_ide.h"
-#include "coco_max.h"
-#include "coco_midi.h"
-#include "coco_multi.h"
-#include "coco_orch90.h"
+// #include "coco_dcmodem.h"
+// #include "coco_fdc.h"
+// #include "coco_gmc.h"
+// #include "coco_ide.h"
+// #include "coco_max.h"
+// #include "coco_midi.h"
+// #include "coco_multi.h"
+// #include "coco_orch90.h"
 #include "coco_pak.h"
-#include "coco_psg.h"
-#include "coco_ram.h"
-#include "coco_rs232.h"
-#include "coco_ssc.h"
-#include "coco_stecomp.h"
-#include "coco_sym12.h"
-#include "coco_wpk.h"
-#include "coco_wpk2p.h"
+// #include "coco_psg.h"
+// #include "coco_ram.h"
+// #include "coco_rs232.h"
+// #include "coco_ssc.h"
+// #include "coco_stecomp.h"
+// #include "coco_sym12.h"
+// #include "coco_wpk.h"
+// #include "coco_wpk2p.h"
 
-#include "dragon_amtor.h"
-#include "dragon_claw.h"
-#include "dragon_fdc.h"
-#include "dragon_jcbsnd.h"
-#include "dragon_jcbspch.h"
-#include "dragon_msx2.h"
-#include "dragon_serial.h"
-#include "dragon_sprites.h"
+// #include "dragon_amtor.h"
+// #include "dragon_claw.h"
+// #include "dragon_fdc.h"
+// #include "dragon_jcbsnd.h"
+// #include "dragon_jcbspch.h"
+// #include "dragon_msx2.h"
+// #include "dragon_serial.h"
+// #include "dragon_sprites.h"
 
 
 /***************************************************************************
@@ -222,53 +222,73 @@ TIMER_CALLBACK_MEMBER(cococart_slot_device::halt_line_timer_tick)
 }
 
 
+//-------------------------------------------------
+//  cts_map
+//-------------------------------------------------
+
+void cococart_slot_device::cts_map(address_map &map)
+{
+	if (m_cart)
+		m_cart->cts_map(map);
+}
+
 
 //-------------------------------------------------
 //  cts_read
 //-------------------------------------------------
 
-u8 cococart_slot_device::cts_read(offs_t offset)
-{
-	u8 result = 0x00;
-	if (m_cart)
-		result = m_cart->cts_read(offset);
-	return result;
-}
+// u8 cococart_slot_device::cts_read(offs_t offset)
+// {
+// 	u8 result = 0x00;
+// 	if (m_cart)
+// 		result = m_cart->cts_read(offset);
+// 	return result;
+// }
 
 
 //-------------------------------------------------
 //  cts_write
 //-------------------------------------------------
 
-void cococart_slot_device::cts_write(offs_t offset, u8 data)
+// void cococart_slot_device::cts_write(offs_t offset, u8 data)
+// {
+// 	if (m_cart)
+// 		m_cart->cts_write(offset, data);
+// }
+
+
+//-------------------------------------------------
+//  scs_map
+//-------------------------------------------------
+
+void cococart_slot_device::scs_map(address_map &map)
 {
 	if (m_cart)
-		m_cart->cts_write(offset, data);
+		m_cart->scs_map(map);
 }
-
 
 //-------------------------------------------------
 //  scs_read
 //-------------------------------------------------
 
-u8 cococart_slot_device::scs_read(offs_t offset)
-{
-	u8 result = 0x00;
-	if (m_cart)
-		result = m_cart->scs_read(offset);
-	return result;
-}
+// u8 cococart_slot_device::scs_read(offs_t offset)
+// {
+// 	u8 result = 0x00;
+// 	if (m_cart)
+// 		result = m_cart->scs_read(offset);
+// 	return result;
+// }
 
 
 //-------------------------------------------------
 //  scs_write
 //-------------------------------------------------
 
-void cococart_slot_device::scs_write(offs_t offset, u8 data)
-{
-	if (m_cart)
-		m_cart->scs_write(offset, data);
-}
+// void cococart_slot_device::scs_write(offs_t offset, u8 data)
+// {
+// 	if (m_cart)
+// 		m_cart->scs_write(offset, data);
+// }
 
 
 
@@ -478,35 +498,35 @@ cococart_slot_device::line_value cococart_slot_device::get_line_value(cococart_s
 //  get_cart_base
 //-------------------------------------------------
 
-u8 *cococart_slot_device::get_cart_base()
-{
-	if (m_cart != nullptr)
-		return m_cart->get_cart_base();
-	return nullptr;
-}
+// u8 *cococart_slot_device::get_cart_base()
+// {
+// 	if (m_cart != nullptr)
+// 		return m_cart->get_cart_base();
+// 	return nullptr;
+// }
 
 
 //-------------------------------------------------
 //  get_cart_size
 //-------------------------------------------------
 
-u32 cococart_slot_device::get_cart_size()
-{
-	if (m_cart != nullptr)
-		return m_cart->get_cart_size();
-
-	return 0x8000;
-}
+// u32 cococart_slot_device::get_cart_size()
+// {
+// 	if (m_cart != nullptr)
+// 		return m_cart->get_cart_size();
+//
+// 	return 0x8000;
+// }
 
 //-------------------------------------------------
 //  set_cart_base_update
 //-------------------------------------------------
 
-void cococart_slot_device::set_cart_base_update(cococart_base_update_delegate update)
-{
-	if (m_cart)
-		m_cart->set_cart_base_update(update);
-}
+// void cococart_slot_device::set_cart_base_update(cococart_base_update_delegate update)
+// {
+// 	if (m_cart)
+// 		m_cart->set_cart_base_update(update);
+// }
 
 
 //-------------------------------------------------
@@ -693,14 +713,24 @@ void device_cococart_interface::interface_pre_start()
 
 
 //-------------------------------------------------
+//  cts_map - address map constructor for ($C000-FFEF)
+//-------------------------------------------------
+
+void device_cococart_interface::cts_map(address_map &map)
+{
+	return;
+}
+
+
+//-------------------------------------------------
 //  cts_read - Signifies a read where the CTS pin
 //  on the cartridge slot was asserted ($C000-FFEF)
 //-------------------------------------------------
 
-u8 device_cococart_interface::cts_read(offs_t offset)
-{
-	return 0x00;
-}
+// u8 device_cococart_interface::cts_read(offs_t offset)
+// {
+// 	return 0x00;
+// }
 
 
 //-------------------------------------------------
@@ -708,8 +738,18 @@ u8 device_cococart_interface::cts_read(offs_t offset)
 //  on the cartridge slot was asserted ($C000-FFEF)
 //-------------------------------------------------
 
-void device_cococart_interface::cts_write(offs_t offset, u8 data)
+// void device_cococart_interface::cts_write(offs_t offset, u8 data)
+// {
+// }
+
+
+//-------------------------------------------------
+//  scs_map - address map constructor for ($FF40-5F)
+//-------------------------------------------------
+
+void device_cococart_interface::scs_map(address_map &map)
 {
+	return;
 }
 
 
@@ -718,10 +758,10 @@ void device_cococart_interface::cts_write(offs_t offset, u8 data)
 //  on the cartridge slot was asserted ($FF40-5F)
 //-------------------------------------------------
 
-u8 device_cococart_interface::scs_read(offs_t offset)
-{
-	return 0x00;
-}
+// u8 device_cococart_interface::scs_read(offs_t offset)
+// {
+// 	return 0x00;
+// }
 
 
 //-------------------------------------------------
@@ -729,9 +769,9 @@ u8 device_cococart_interface::scs_read(offs_t offset)
 //  on the cartridge slot was asserted ($FF40-5F)
 //-------------------------------------------------
 
-void device_cococart_interface::scs_write(offs_t offset, u8 data)
-{
-}
+// void device_cococart_interface::scs_write(offs_t offset, u8 data)
+// {
+// }
 
 
 //-------------------------------------------------

@@ -81,12 +81,14 @@ public:
 	virtual std::string get_default_card_software(get_default_card_software_hook &hook) const override;
 
 	// reading and writing to $C000-$FFEF
-	u8 cts_read(offs_t offset);
-	void cts_write(offs_t offset, u8 data);
+	void cts_map(address_map &map);
+// 	u8 cts_read(offs_t offset);
+// 	void cts_write(offs_t offset, u8 data);
 
 	// reading and writing to $FF40-$FF5F
-	u8 scs_read(offs_t offset);
-	void scs_write(offs_t offset, u8 data);
+	void scs_map(address_map &map);
+// 	u8 scs_read(offs_t offset);
+// 	void scs_write(offs_t offset, u8 data);
 
 	// manipulation of cartridge lines
 	void set_line_value(line line, line_value value);
@@ -97,8 +99,8 @@ public:
 	void twiddle_q_lines();
 
 	// cart base
-	u8 *get_cart_base();
-	u32 get_cart_size();
+// 	u8 *get_cart_base();
+// 	u32 get_cart_size();
 	void set_cart_base_update(cococart_base_update_delegate update);
 
 private:
@@ -165,16 +167,19 @@ public:
 	// construction/destruction
 	virtual ~device_cococart_interface();
 
-	virtual u8 cts_read(offs_t offset);
-	virtual void cts_write(offs_t offset, u8 data);
-	virtual u8 scs_read(offs_t offset);
-	virtual void scs_write(offs_t offset, u8 data);
+	virtual void cts_map(address_map &map);
+	virtual void scs_map(address_map &map);
+
+// 	virtual u8 cts_read(offs_t offset);
+// 	virtual void cts_write(offs_t offset, u8 data);
+// 	virtual u8 scs_read(offs_t offset);
+// 	virtual void scs_write(offs_t offset, u8 data);
 	virtual void set_sound_enable(bool sound_enable);
 
-	virtual u8 *get_cart_base();
-	virtual u32 get_cart_size();
-	void set_cart_base_update(cococart_base_update_delegate update);
-	virtual memory_region *get_cart_memregion();
+// 	virtual u8 *get_cart_base();
+// 	virtual u32 get_cart_size();
+// 	void set_cart_base_update(cococart_base_update_delegate update);
+// 	virtual memory_region *get_cart_memregion();
 
 protected:
 	virtual void interface_config_complete() override;
@@ -182,7 +187,7 @@ protected:
 
 	device_cococart_interface(const machine_config &mconfig, device_t &device);
 
-	void cart_base_changed(void);
+// 	void cart_base_changed(void);
 
 	// accessors for containers
 	cococart_slot_device &owning_slot()     { assert(m_owning_slot); return *m_owning_slot; }
@@ -191,26 +196,27 @@ protected:
 	// CoCo cartridges can read directly from the address bus.  This is used by a number of
 	// cartridges (e.g. - Orch-90, Multi-Pak interface) for their control registers, independently
 	// of the SCS or CTS lines
-	address_space &cartridge_space();
-	template <typename R>
-	void install_read_handler(u16 addrstart, u16 addrend, R &&rhandler)
-	{
-		address_space &space(cartridge_space());
-		space.install_read_handler(addrstart, addrend, std::forward<R>(rhandler));
-	}
-	template <typename W>
-	void install_write_handler(u16 addrstart, u16 addrend, W &&whandler)
-	{
-		address_space &space(cartridge_space());
-		space.install_write_handler(addrstart, addrend, std::forward<W>(whandler));
-	}
-	template <typename R, typename W>
-	void install_readwrite_handler(u16 addrstart, u16 addrend, R &&rhandler, W &&whandler)
-	{
-		address_space &space(cartridge_space());
-		space.install_read_handler(addrstart, addrend, std::forward<R>(rhandler));
-		space.install_write_handler(addrstart, addrend, std::forward<W>(whandler));
-	}
+
+// 	address_space &cartridge_space();
+// 	template <typename R>
+// 	void install_read_handler(u16 addrstart, u16 addrend, R &&rhandler)
+// 	{
+// 		address_space &space(cartridge_space());
+// 		space.install_read_handler(addrstart, addrend, std::forward<R>(rhandler));
+// 	}
+// 	template <typename W>
+// 	void install_write_handler(u16 addrstart, u16 addrend, W &&whandler)
+// 	{
+// 		address_space &space(cartridge_space());
+// 		space.install_write_handler(addrstart, addrend, std::forward<W>(whandler));
+// 	}
+// 	template <typename R, typename W>
+// 	void install_readwrite_handler(u16 addrstart, u16 addrend, R &&rhandler, W &&whandler)
+// 	{
+// 		address_space &space(cartridge_space());
+// 		space.install_read_handler(addrstart, addrend, std::forward<R>(rhandler));
+// 		space.install_write_handler(addrstart, addrend, std::forward<W>(whandler));
+// 	}
 
 	// setting line values
 	void set_line_value(cococart_slot_device::line line, cococart_slot_device::line_value value);

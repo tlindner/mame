@@ -99,10 +99,10 @@ const tiny_rom_entry *coco_pak_device::device_rom_region() const
 //  get_cart_size
 //-------------------------------------------------
 
-u32 coco_pak_device::get_cart_size()
-{
-	return 0x8000;
-}
+// u32 coco_pak_device::get_cart_size()
+// {
+// 	return 0x8000;
+// }
 
 /*-------------------------------------------------
     device_reset - device-specific startup
@@ -125,31 +125,40 @@ void coco_pak_device::device_reset()
     get_cart_base
 -------------------------------------------------*/
 
-u8 *coco_pak_device::get_cart_base()
-{
-	return m_eprom->base();
-}
+// u8 *coco_pak_device::get_cart_base()
+// {
+// 	return m_eprom->base();
+// }
 
 /*-------------------------------------------------
     get_cart_memregion
 -------------------------------------------------*/
 
-memory_region *coco_pak_device::get_cart_memregion()
+// memory_region *coco_pak_device::get_cart_memregion()
+// {
+// 	return m_eprom;
+// }
+
+/*-------------------------------------------------
+    cts_map
+-------------------------------------------------*/
+
+void coco_pak_device::cts_map(address_map &map)
 {
-	return m_eprom;
+
 }
 
 //-------------------------------------------------
 //  cts_read
 //-------------------------------------------------
 
-u8 coco_pak_device::cts_read(offs_t offset)
-{
-	if (offset < m_eprom->bytes())
-		return m_eprom->base()[offset];
-	else
-		return 0x00;
-}
+// u8 coco_pak_device::cts_read(offs_t offset)
+// {
+// 	if (offset < m_eprom->bytes())
+// 		return m_eprom->base()[offset];
+// 	else
+// 		return 0x00;
+// }
 
 
 
@@ -216,44 +225,63 @@ void coco_pak_banked_device::device_reset()
 //  get_cart_base
 //-------------------------------------------------
 
-u8 *coco_pak_banked_device::get_cart_base()
-{
-	return m_eprom->base() + (m_pos * 0x4000) % m_eprom->bytes();
-}
+// u8 *coco_pak_banked_device::get_cart_base()
+// {
+// 	return m_eprom->base() + (m_pos * 0x4000) % m_eprom->bytes();
+// }
 
 //-------------------------------------------------
 //  get_cart_size
 //-------------------------------------------------
 
-u32 coco_pak_banked_device::get_cart_size()
+// u32 coco_pak_banked_device::get_cart_size()
+// {
+// 	return 0x4000;
+// }
+
+/*-------------------------------------------------
+    cts_map
+-------------------------------------------------*/
+
+void coco_pak_banked_device::cts_map(address_map &map)
 {
-	return 0x4000;
+
 }
 
 //-------------------------------------------------
 //  cts_read
 //-------------------------------------------------
 
-u8 coco_pak_banked_device::cts_read(offs_t offset)
+// u8 coco_pak_banked_device::cts_read(offs_t offset)
+// {
+// 	return m_eprom->base()[(m_pos * 0x4000) % m_eprom->bytes() | offset];
+// }
+
+
+/*-------------------------------------------------
+    scs_map
+-------------------------------------------------*/
+
+void coco_pak_banked_device::scs_map(address_map &map)
 {
-	return m_eprom->base()[(m_pos * 0x4000) % m_eprom->bytes() | offset];
+
 }
 
 //-------------------------------------------------
 //  scs_write
 //-------------------------------------------------
 
-void coco_pak_banked_device::scs_write(offs_t offset, u8 data)
-{
-	switch(offset)
-	{
-		case 0:
-			// set the bank
-			if (m_pos != data)
-			{
-				m_pos = data;
-				cart_base_changed();
-			}
-			break;
-	}
-}
+// void coco_pak_banked_device::scs_write(offs_t offset, u8 data)
+// {
+// 	switch(offset)
+// 	{
+// 		case 0:
+// 			// set the bank
+// 			if (m_pos != data)
+// 			{
+// 				m_pos = data;
+// 				cart_base_changed();
+// 			}
+// 			break;
+// 	}
+// }
