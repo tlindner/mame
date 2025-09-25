@@ -119,18 +119,25 @@ template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatc
 			do {
 				offs_t entry = (cur >> LowBits) & BITMASK;
 
-				offs_t real_end = m_ranges_array[i][m_ranges_array[i][entry].start].start;
+				offs_t real_end = entry;
 				auto *handler = m_dispatch_array[i][real_end];
-				while( real_end < (m_ranges_array[i][entry].end<<LowBits))
+				while( (real_end < end) && real_end != 0)
 				{
 					if( handler != m_dispatch_array[i][real_end]) break;
-					real_end += 1<<LowBits;
+					real_end += 1;
 				}
+
+				real_end -= 1;
+				real_end <<= LowBits;
 
 				fprintf(stderr, "start: %x, real end: %x, end: %x %s\n", m_ranges_array[i][entry].start, real_end, m_ranges_array[i][entry].end, handler->name().c_str());
 
 				if(m_dispatch_array[i][entry]->is_dispatch() || m_dispatch_array[i][entry]->is_view())
+				{
+					fprintf(stderr, "sub map start (view)\n");
 					m_dispatch_array[i][entry]->dump_map(map);
+					fprintf(stderr, "sub map end (view)\n");
+				}
 				else
 					map.emplace_back(memory_entry{ m_ranges_array[i][entry].start, m_ranges_array[i][entry].end, m_dispatch_array[i][entry] });
 				cur = map.back().end + 1;
@@ -151,19 +158,25 @@ template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatc
 		do {
 			offs_t entry = (cur >> LowBits) & BITMASK;
 
-			offs_t real_end = m_a_ranges[entry].start;
+			offs_t real_end = entry;
 			auto *handler = m_a_dispatch[entry];
-			while( real_end < (m_a_ranges[entry].end))
+			while( (real_end < end) && (real_end != 0))
 			{
 				if( handler != m_a_dispatch[real_end]) break;
-				real_end += 1<<LowBits;
+				real_end += 1;
+				real_end &= BITMASK;
 			}
 
-			fprintf(stderr, "start: %x, real end: %x, end: %x ?\n", m_a_ranges[entry].start, real_end, m_a_ranges[entry].end);
+			real_end -= 1;
+			real_end << LowBits;
+
+			fprintf(stderr, "base: %x, start: %x, real end: %x, end: %x ?\n", base, m_a_ranges[entry].start, real_end, m_a_ranges[entry].end);
 
 			if(m_a_dispatch[entry]->is_dispatch() || m_a_dispatch[entry]->is_view())
 			{
+				fprintf(stderr, "sub map start\n");
 				m_a_dispatch[entry]->dump_map(map);
+				fprintf(stderr, "sub map end\n");
 			}
 			else
 				map.emplace_back(memory_entry{ m_a_ranges[entry].start, m_a_ranges[entry].end, m_a_dispatch[entry] });
