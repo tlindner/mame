@@ -107,10 +107,9 @@ template<int HighBits, int Width, int AddrShift> offs_t handler_entry_read_dispa
 template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatch<HighBits, Width, AddrShift>::dump_map(std::vector<memory_entry> &map) const
 {
 	fprintf( stderr, "%p, LowBits: %d, BITMASK = %0x, UPMASK = %x\n", this, LowBits, BITMASK, UPMASK);
-
 	if(m_view) {
 
-		offs_t base_cur = map.empty() ? m_view->m_addrstart & HIGHMASK : map.back().end + 1;
+ 		offs_t base_cur = map.empty() ? m_view->m_addrstart & HIGHMASK : map.back().end + 1;
 		for(u32 i = 0; i != m_dispatch_array.size(); i++) {
 			u32 j = map.size();
 			offs_t cur = base_cur;
@@ -125,12 +124,13 @@ template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatc
 				{
 					if( handler != m_dispatch_array[i][real_end]) break;
 					real_end += 1;
+					real_end &= BITMASK;
 				}
 
 				real_end -= 1;
 				real_end <<= LowBits;
 
-				fprintf(stderr, "start: %x, real end: %x, end: %x %s\n", m_ranges_array[i][entry].start, real_end, m_ranges_array[i][entry].end, handler->name().c_str());
+				fprintf(stderr, "level: %d, entry: %x, start: %x, real end: %x, end: %x %s\n", Level, entry, m_ranges_array[i][entry].start, real_end, m_ranges_array[i][entry].end, handler->name().c_str());
 
 				if(m_dispatch_array[i][entry]->is_dispatch() || m_dispatch_array[i][entry]->is_view())
 				{
@@ -170,7 +170,7 @@ template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatc
 			real_end -= 1;
 			real_end << LowBits;
 
-			fprintf(stderr, "base: %x, start: %x, real end: %x, end: %x ?\n", base, m_a_ranges[entry].start, real_end, m_a_ranges[entry].end);
+			fprintf(stderr, "level: %d, base: %x, entry: %x, start: %x, real end: %x, end: %x ?\n", Level, base, entry, m_a_ranges[entry].start, real_end, m_a_ranges[entry].end);
 
 			if(m_a_dispatch[entry]->is_dispatch() || m_a_dispatch[entry]->is_view())
 			{
@@ -179,7 +179,7 @@ template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatc
 				fprintf(stderr, "sub map end\n");
 			}
 			else
-				map.emplace_back(memory_entry{ m_a_ranges[entry].start, m_a_ranges[entry].end, m_a_dispatch[entry] });
+				map.emplace_back(memory_entry{m_a_ranges[entry].start,m_a_ranges[entry].end,m_a_dispatch[entry] });
 			cur = map.back().end + 1;
 		} while(cur != end && !((cur ^ base) & UPMASK));
 	}
