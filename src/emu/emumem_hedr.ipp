@@ -106,8 +106,47 @@ template<int HighBits, int Width, int AddrShift> offs_t handler_entry_read_dispa
 
 template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatch<HighBits, Width, AddrShift>::dump_map(std::vector<memory_entry> &map) const
 {
-	fprintf( stderr, "%p, LowBits: %d, BITMASK = %0x, UPMASK = %x\n", this, LowBits, BITMASK, UPMASK);
+	fprintf( stderr, "%p, Level: %d, LowBits: %d, HighBits: %d, BITCOUNT: %d, COUNT: %d, BITMASK: %x, LOWMASK: %x, HIGHMASK: %x, UPMASK: %x\n",
+		this, Level, LowBits, HighBits, BITCOUNT, COUNT, BITMASK, LOWMASK, HIGHMASK, UPMASK);
+
 	if(m_view) {
+		for(u32 i = 0; i != m_dispatch_array.size(); i++)
+		{
+			offs_t start = 0;
+			offs_t check = start + (1<<LowBits);
+			auto *handler = m_dispatch_array[i][start];
+
+			while (true)
+			{
+				if(handler==nullptr) break;
+
+				while( handler == m_dispatch_array[i][check])
+				{
+					check += 1<<LowBits;
+					check &= BITMASK;
+				}
+
+				fprintf( stderr, "View. %p, i=%d, start: %x (%x), end: %x (%x), pointer: %p ",
+					this, i, start, m_ranges_array[i][start].start,
+					 check ? check - 1 : 0xffff, m_ranges_array[i][start].end, handler);
+
+// 				fprintf(stderr, "\n");
+				if(start != 0)
+				{
+					fprintf(stderr, "? \n");
+				}
+				else
+				{
+					fprintf(stderr, "%s[%d]\n", m_view->name().c_str(), i==0 ? -1 : m_view->id_to_slot(int(i)-1));
+				}
+
+				if(check==0) break;
+
+				start = check;
+				check = start + (1<<LowBits);
+				handler = m_dispatch_array[i][start];
+			}
+		}
 
  		offs_t base_cur = map.empty() ? m_view->m_addrstart & HIGHMASK : map.back().end + 1;
 		for(u32 i = 0; i != m_dispatch_array.size(); i++) {
@@ -117,20 +156,6 @@ template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatc
 
 			do {
 				offs_t entry = (cur >> LowBits) & BITMASK;
-
-				offs_t real_end = entry;
-				auto *handler = m_dispatch_array[i][real_end];
-				while( (real_end < end) && real_end != 0)
-				{
-					if( handler != m_dispatch_array[i][real_end]) break;
-					real_end += 1;
-					real_end &= BITMASK;
-				}
-
-				real_end -= 1;
-				real_end <<= LowBits;
-
-				fprintf(stderr, "level: %d, entry: %x, start: %x, real end: %x, end: %x %s\n", Level, entry, m_ranges_array[i][entry].start, real_end, m_ranges_array[i][entry].end, handler->name().c_str());
 
 				if(m_dispatch_array[i][entry]->is_dispatch() || m_dispatch_array[i][entry]->is_view())
 				{
@@ -152,25 +177,32 @@ template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatc
 			}
 		}
 	} else {
+
+		auto *handler = m_a_dispatch[0];
+		u32 start = 0;
+		for( u32 i=0; i<COUNT; i++)
+		{
+			while(handler == m_a_dispatch[i])
+			{
+				i++;
+			}
+
+			i--;
+
+			fprintf( stderr, "Not View. %p index: %d, start: %x (%x), end: %x (%x), pointer: %p,  %s\n",
+				this, start, start, m_a_ranges[i].start, i, m_a_ranges[i].end,
+				m_a_dispatch[start], m_a_dispatch[start]->name().c_str());
+
+			i++;
+			handler = m_a_dispatch[i];
+			start = i;
+		}
+
 		offs_t cur = map.empty() ? 0 : map.back().end + 1;
 		offs_t base = cur & UPMASK;
 		offs_t end = m_global_range.end + 1;
 		do {
 			offs_t entry = (cur >> LowBits) & BITMASK;
-
-			offs_t real_end = entry;
-			auto *handler = m_a_dispatch[entry];
-			while( (real_end < end) && (real_end != 0))
-			{
-				if( handler != m_a_dispatch[real_end]) break;
-				real_end += 1;
-				real_end &= BITMASK;
-			}
-
-			real_end -= 1;
-			real_end << LowBits;
-
-			fprintf(stderr, "level: %d, base: %x, entry: %x, start: %x, real end: %x, end: %x ?\n", Level, base, entry, m_a_ranges[entry].start, real_end, m_a_ranges[entry].end);
 
 			if(m_a_dispatch[entry]->is_dispatch() || m_a_dispatch[entry]->is_view())
 			{

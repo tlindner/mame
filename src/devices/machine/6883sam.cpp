@@ -150,7 +150,7 @@ sam6883_device::sam6883_device(const machine_config &mconfig, const char *tag, d
 
 void sam6883_device::sam_mem(address_map &map)
 {
-// 	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
+	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
 	map(0x0000, 0xffff).view(m_ram_view); // includes ROM vector mirror. see device_start()
 	map(0x8000, 0xfeff).view(m_rom_view);
 
