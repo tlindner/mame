@@ -29,7 +29,7 @@ public:
 	void lookup(offs_t address, offs_t &start, offs_t &end, handler_entry_write<Width, AddrShift> *&handler) const override;
 
 	offs_t dispatch_entry(offs_t address) const override;
-	void dump_map(std::vector<memory_entry> &map) const override;
+	void dump_map(int shift,  std::vector<memory_entry> &map) const override;
 
 	std::string name() const override;
 

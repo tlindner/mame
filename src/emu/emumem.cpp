@@ -48,7 +48,7 @@ offs_t handler_entry::dispatch_entry(offs_t address) const
 	fatalerror("dispatch_entry called on non-dispatching class\n");
 }
 
-void handler_entry::dump_map(std::vector<memory_entry> &map) const
+void handler_entry::dump_map(int shift, std::vector<memory_entry> &map) const
 {
 	fatalerror("dump_map called on non-dispatching class\n");
 }

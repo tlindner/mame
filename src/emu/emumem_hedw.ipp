@@ -105,7 +105,7 @@ template<int HighBits, int Width, int AddrShift> offs_t handler_entry_write_disp
 	return (address & HIGHMASK) >> LowBits;
 }
 
-template<int HighBits, int Width, int AddrShift> void handler_entry_write_dispatch<HighBits, Width, AddrShift>::dump_map(std::vector<memory_entry> &map) const
+template<int HighBits, int Width, int AddrShift> void handler_entry_write_dispatch<HighBits, Width, AddrShift>::dump_map(int shift, std::vector<memory_entry> &map) const
 {
 	if(m_view) {
 		offs_t base_cur = map.empty() ? m_view->m_addrstart & HIGHMASK : map.back().end + 1;
@@ -116,7 +116,7 @@ template<int HighBits, int Width, int AddrShift> void handler_entry_write_dispat
 			do {
 				offs_t entry = (cur >> LowBits) & BITMASK;
 				if(m_dispatch_array[i][entry]->is_dispatch() || m_dispatch_array[i][entry]->is_view())
-					m_dispatch_array[i][entry]->dump_map(map);
+					m_dispatch_array[i][entry]->dump_map(shift+4, map);
 				else
 					map.emplace_back(memory_entry{ m_ranges_array[i][entry].start, m_ranges_array[i][entry].end, m_dispatch_array[i][entry] });
 				cur = map.back().end + 1;
@@ -137,7 +137,7 @@ template<int HighBits, int Width, int AddrShift> void handler_entry_write_dispat
 		do {
 			offs_t entry = (cur >> LowBits) & BITMASK;
 			if(m_a_dispatch[entry]->is_dispatch() || m_a_dispatch[entry]->is_view())
-				m_a_dispatch[entry]->dump_map(map);
+				m_a_dispatch[entry]->dump_map(shift+4, map);
 			else
 				map.emplace_back(memory_entry{ m_a_ranges[entry].start, m_a_ranges[entry].end, m_a_dispatch[entry] });
 			cur = map.back().end + 1;
