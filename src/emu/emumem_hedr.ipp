@@ -107,31 +107,22 @@ template<int HighBits, int Width, int AddrShift> offs_t handler_entry_read_dispa
 template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatch<HighBits, Width, AddrShift>::dump_map(std::vector<memory_entry> &map) const
 {
 	if(m_view) {
-		u32 map_start_index = map.size();
-
 		for(u32 i = 0; i != m_dispatch_array.size(); i++) {
+			u32 map_start_index = map.size();
 			offs_t j = 0;
 			offs_t k = j+1;
 			handler_entry *handle = m_dispatch_array[i][j];
 			do {
 				while((handle == m_dispatch_array[i][k]) && (k < BITMASK)) {
-					k = k + 1;
+					k++;
 				}
 
-				k = k - 1;
+				k--;
 
 				if(m_dispatch_array[i][j]->is_dispatch() || m_dispatch_array[i][j]->is_view()) {
 					m_dispatch_array[i][j]->dump_map(map);
 				} else {
-					handler_entry *handler = m_dispatch_array[i][j];
-					offs_t begin = m_ranges_array[i][j].start;
-					offs_t end = m_ranges_array[i][j].end;
-					auto it = std::find_if(map.begin(), map.end(), [handler,begin,end](const memory_entry& e)
-					{
-						return (e.entry == handler) && (e.start == begin) && (e.end == end);  // match condition
-					} );
-
-					if (it == map.end()) {
+					if(!handler_entry::is_handler_in_map(map, m_ranges_array[i][j].start, m_ranges_array[i][j].end, m_dispatch_array[i][j])) {
 						map.emplace_back(memory_entry{ m_ranges_array[i][j].start, m_ranges_array[i][k].end, m_dispatch_array[i][j]});
 					}
 				}
@@ -139,7 +130,6 @@ template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatc
 				j = k + 1;
 				k = j + 1;
 				handle = m_dispatch_array[i][j];
-
 			} while (j < BITMASK);
 
 			if(i == 0) {
@@ -152,27 +142,19 @@ template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatc
 			}
 		}
 	} else {
-		offs_t start = 0, entry = 0;
+		offs_t j = 0;
+		offs_t k = j+1;
 		handler_entry *the_handler;
 		do {
-
-			the_handler = m_a_dispatch[entry];
-			while((the_handler == m_a_dispatch[entry]) && (entry < COUNT)) {
-				entry++;
+			the_handler = m_a_dispatch[j];
+			while((the_handler == m_a_dispatch[k]) && (k < COUNT)) {
+				k++;
 			}
 
-			entry--;
+			k--;
 
-			for( int z=start; z<=entry; z++) {
-				handler_entry *handler = m_a_dispatch[z];
-				offs_t begin = m_a_ranges[z].start;
-				offs_t end = m_a_ranges[z].end;
-				auto it = std::find_if(map.begin(), map.end(), [handler, begin, end](const memory_entry& e)
-				{
-					return (e.entry == handler) && (e.start == begin) && (e.end == end);  // match condition
-				} );
-
-				if (it == map.end()) {
+			for(unsigned int z = j; z <= k; z++) {
+				if(!handler_entry::is_handler_in_map(map, m_a_ranges[z].start, m_a_ranges[z].end, m_a_dispatch[z])) {
 					if(m_a_dispatch[z]->is_dispatch() || m_a_dispatch[z]->is_view()) {
 						m_a_dispatch[z]->dump_map(map);
 					}
@@ -180,9 +162,9 @@ template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatc
 						map.emplace_back(memory_entry{m_a_ranges[z].start,m_a_ranges[z].end,m_a_dispatch[z]});
 				}
 			}
-			entry++;
-			start = entry;
-		} while(entry < COUNT);
+			j = k + 1;
+			k = j + 1;
+		} while(j < COUNT);
 	}
 }
 
