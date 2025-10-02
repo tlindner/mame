@@ -45,17 +45,17 @@
 
 	Host Memory Layout (top layers overide bottom layers):
 
-	SAM Handler:                                    ≤-------->
-	I/O View[0]:                           ≤-------->
+	Vec View[0]:                                              ≤---------≥
+	I/O View[0]:                           ≤--------+----*---->
 	ROM View[0]:                ≤---------->
-	RAM View[0]:  ≤--4k/8k------+----------+--------+--------+----*----≥
-	RAM View[1]:  ≤--16k/32k----+----------+--------+--------+----*----≥
-	RAM View[2]:  ≤--32k/64k----+----------+--------+--------+----*----≥
-	RAM View[3]:  ≤--64k, P1=1--+----------+--------+--------+----*----≥
-	ENDC Handler: ≤-------------+----------+--------+--------+---------≥
-	             $0000         $8000      $FF00    $FFC0    $FFE0     $FFFF
+	RAM View[0]:  ≤--4k/8k------+---------->
+	RAM View[1]:  ≤--16k/32k----+---------->
+	RAM View[2]:  ≤--32k/64k----+---------->
+	RAM View[3]:  ≤--64k, P1=1--+---------->
+	ENDC Handler: ≤-------------+----------+--------+----*----+---------≥
+	             $0000         $8000      $FF00    $FFC0     $FFE0     $FFFF
 
-    * 32 byte ROM mirror
+	* This is the SAM Handler
 
 	ENDC is a signal first described in the MC6883 SAM datasheet.
 	It inhibits the 74LS138 decoding of the three S (select) lines.
@@ -134,6 +134,7 @@ sam6883_device::sam6883_device(const machine_config &mconfig, const char *tag, d
 	, m_ram_view(*this, "sam_ram_view")
 	, m_rom_view(*this, "sam_rom_view")
 	, m_io_view(*this, "sam_io_view")
+	, m_vector_view(*this, "sam_vector_view")
 	, m_m0_config("ram0", ENDIANNESS_BIG, 8, 16, 0)
 	, m_m1_config("ram1", ENDIANNESS_BIG, 8, 16, 0)
 	, m_m2_config("ram2", ENDIANNESS_BIG, 8, 16, 0)
@@ -151,23 +152,25 @@ sam6883_device::sam6883_device(const machine_config &mconfig, const char *tag, d
 void sam6883_device::sam_mem(address_map &map)
 {
 	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
-	map(0x0000, 0xffff).view(m_ram_view); // includes ROM vector mirror. see device_start()
-	map(0x8000, 0xfeff).view(m_rom_view);
+	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write)).nopr();
 
+	map(0x0000, 0xfeff).view(m_ram_view); // specified in device_start()
+
+	map(0x8000, 0xfeff).view(m_rom_view);
 	m_rom_view[0](0x8000, 0x9fff).m(*m_host, FUNC(device_sam_map_host_interface::s1_rom0_map));
 	m_rom_view[0](0xa000, 0xbfff).m(*m_host, FUNC(device_sam_map_host_interface::s2_rom1_map));
 	m_rom_view[0](0xc000, 0xfeff).m(*m_host, FUNC(device_sam_map_host_interface::s3_rom2_map));
 
-	// This intentionally cuts a gap in the ROM view
-	map(0xff00, 0xffbf).view(m_io_view);
+	map(0xff00, 0xffdf).view(m_io_view);
 	fprintf(stderr, "m_io_view: %p\n", &m_io_view);
 	m_io_view[0](0xff00, 0xff1f).m(*m_host, FUNC(device_sam_map_host_interface::s4_io0_map));
 	m_io_view[0](0xff20, 0xff3f).m(*m_host, FUNC(device_sam_map_host_interface::s5_io1_map));
 	m_io_view[0](0xff40, 0xff5f).m(*m_host, FUNC(device_sam_map_host_interface::s6_io2_map));
 	m_io_view[0](0xff60, 0xffbf).m(*m_host, FUNC(device_sam_map_host_interface::s7_res_map));
+	m_io_view[0](0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write)).nopr();
 
-	// This intentionally cuts a gap in the ROM view and endc
-	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write)).nopr();
+	map(0xffe0, 0xffff).view(m_vector_view);
+	m_vector_view[0](0xffe0, 0xffff).r(FUNC(sam6883_device::vector_read)).nopw();
 }
 
 
@@ -282,23 +285,23 @@ void sam6883_device::device_start()
 		}
 
 		m_ram_view[i].install_device(0x0000, 0xfeff, *m_host, &device_sam_map_host_interface::s0_ram_map);
-		m_ram_view[i].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
-		m_ram_view[i].nop_write(0xffe0, 0xffff);
+// 		m_ram_view[i].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
+// 		m_ram_view[i].nop_write(0xffe0, 0xffff);
 	}
 #else
 	// this is used to install 64k RAMs in all modes, for testing
 	m_ram_view[0].install_ram(0x0000, 0xfeff, m_ram->pointer());
-	m_ram_view[0].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
-	m_ram_view[0].nop_write(0xffe0, 0xffff);
+// 	m_ram_view[0].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
+// 	m_ram_view[0].nop_write(0xffe0, 0xffff);
 	m_ram_view[1].install_ram(0x0000, 0xfeff, m_ram->pointer());
-	m_ram_view[1].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
-	m_ram_view[1].nop_write(0xffe0, 0xffff);
+// 	m_ram_view[1].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
+// 	m_ram_view[1].nop_write(0xffe0, 0xffff);
 	m_ram_view[2].install_ram(0x0000, 0xfeff, m_ram->pointer());
-	m_ram_view[2].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
-	m_ram_view[2].nop_write(0xffe0, 0xffff);
+// 	m_ram_view[2].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
+// 	m_ram_view[2].nop_write(0xffe0, 0xffff);
 	m_ram_view[3].install_ram(0x0000, 0xfeff, m_ram->pointer());
-	m_ram_view[3].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
-	m_ram_view[3].nop_write(0xffe0, 0xffff);
+// 	m_ram_view[3].install_read_handler(0xffe0, 0xffff, emu::rw_delegate(*this, FUNC(sam6883_device::vector_read)));
+// 	m_ram_view[3].nop_write(0xffe0, 0xffff);
 
 	space(0).install_ram(0x0000, 0xffff, m_ram->pointer());
 	space(1).install_ram(0x0000, 0xffff, m_ram->pointer());
@@ -465,12 +468,14 @@ void sam6883_device::update_memory()
 		m_rom_view.select(0);
 
 	m_io_view.select(0);
+	m_vector_view.select(0);
 
 	if (m_endc)
 	{
 		m_ram_view.disable();
 		m_rom_view.disable();
 		m_io_view.disable();
+		m_vector_view.disable();
 	}
 }
 

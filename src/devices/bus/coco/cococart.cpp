@@ -713,11 +713,12 @@ void device_cococart_interface::interface_pre_start()
 
 
 //-------------------------------------------------
-//  cts_map - address map constructor for ($C000-FFEF)
+//  cts_map - address map constructor for ($C000-FEFF)
 //-------------------------------------------------
 
 void device_cococart_interface::cts_map(address_map &map)
 {
+	map(0x0000, 0x3eff).noprw();
 	return;
 }
 
@@ -749,6 +750,7 @@ void device_cococart_interface::cts_map(address_map &map)
 
 void device_cococart_interface::scs_map(address_map &map)
 {
+	map(0x00, 0x1f).noprw();
 	return;
 }
 

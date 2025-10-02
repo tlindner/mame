@@ -187,6 +187,7 @@ private:
 	memory_view m_ram_view;
 	memory_view m_rom_view;
 	memory_view m_io_view;
+	memory_view m_vector_view;
 
 	// memory space configuration
 	address_space_config        m_m0_config;

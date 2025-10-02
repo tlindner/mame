@@ -80,6 +80,14 @@ void deluxecoco_state::s3_rom2_map(address_map &map)
 // 	m_rom_view[1](0xc000, 0xfeff).rom().region(MAINCPU_TAG, 0x4000).nopw();
 }
 
+void ms1600_state::s3_rom2_map(address_map &map)
+{
+	// $C000-$FEFF
+	map(0x0000, 0x2fff).m(m_cococart, FUNC(cococart_slot_device::cts_map));
+// 	map(0x0000, 0x2fff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
+	map(0x3000, 0x3eff).rom().region(MAINCPU_TAG, 0x7000).nopw();
+}
+
 void coco12_state::s4_io0_map(address_map &map)
 {
 	// $FF00-$FF1F
@@ -112,14 +120,6 @@ void coco12_state::s7_res_map(address_map &map)
 {
 	// $FF60-$FFBF
 	map(0x00, 0x5f).rw(FUNC(coco12_state::ff60_read), FUNC(coco12_state::ff60_write));
-}
-
-void ms1600_state::s3_rom2_map(address_map &map)
-{
-	// $C000-$FEFF
-	map(0x0000, 0x2fff).m(m_cococart, FUNC(cococart_slot_device::cts_map));
-// 	map(0x0000, 0x2fff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
-	map(0x3000, 0x3eff).rom().region(MAINCPU_TAG, 0x7000).nopw();
 }
 
 //**************************************************************************

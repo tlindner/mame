@@ -814,8 +814,8 @@ template<int Level, int Width, int AddrShift, endianness_t Endian> void address_
 {
 	read_map.clear();
 	write_map.clear();
-	m_root_read->dump_map(0, read_map);
-	m_root_write->dump_map(0, write_map);
+	m_root_read->dump_map(read_map);
+	m_root_write->dump_map(write_map);
 }
 
 

@@ -104,135 +104,85 @@ template<int HighBits, int Width, int AddrShift> offs_t handler_entry_read_dispa
 	return (address & HIGHMASK) >> LowBits;
 }
 
-template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatch<HighBits, Width, AddrShift>::dump_map(int shift, std::vector<memory_entry> &map) const
+template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatch<HighBits, Width, AddrShift>::dump_map(std::vector<memory_entry> &map) const
 {
-// 	fprintf( stderr, "%p, Level: %d, LowBits: %d, HighBits: %d, BITCOUNT: %d, COUNT: %d, BITMASK: %x, LOWMASK: %x, HIGHMASK: %x, UPMASK: %x\n",
-// 		this, Level, LowBits, HighBits, BITCOUNT, COUNT, BITMASK, LOWMASK, HIGHMASK, UPMASK);
-
 	if(m_view) {
-		for(u32 i = 0; i != m_dispatch_array.size(); i++)
-		{
-			offs_t start = 0;
-			offs_t check = start + (1<<LowBits);
-			auto *handler = m_dispatch_array[i][start];
+		u32 map_start_index = map.size();
 
-			while (true)
-			{
-				if(handler==nullptr) break;
-
-				while( handler == m_dispatch_array[i][check])
-				{
-					check += 1<<LowBits;
-					check &= BITMASK;
+		for(u32 i = 0; i != m_dispatch_array.size(); i++) {
+			offs_t j = 0;
+			offs_t k = j+1;
+			handler_entry *handle = m_dispatch_array[i][j];
+			do {
+				while((handle == m_dispatch_array[i][k]) && (k < BITMASK)) {
+					k = k + 1;
 				}
 
-				fprintf( stderr, "%*s View. %p, i=%d, start: %x (%x), end: %x (%x), pointer: %p, name: %s, ",
-					shift, " ", this, i, start, m_ranges_array[i][start].start,
-					 check ? check - 1 : 0xffff, m_ranges_array[i][start].end, handler, handler->name().c_str());
+				k = k - 1;
 
-				if(start != 0)
-				{
-					fprintf(stderr, "? \n");
-				}
-				else
-				{
-					fprintf(stderr, "%s[%d]\n", m_view->name().c_str(), i==0 ? -1 : m_view->id_to_slot(int(i)-1));
-				}
+				if(m_dispatch_array[i][j]->is_dispatch() || m_dispatch_array[i][j]->is_view()) {
+					m_dispatch_array[i][j]->dump_map(map);
+				} else {
+					handler_entry *handler = m_dispatch_array[i][j];
+					offs_t begin = m_ranges_array[i][j].start;
+					offs_t end = m_ranges_array[i][j].end;
+					auto it = std::find_if(map.begin(), map.end(), [handler,begin,end](const memory_entry& e)
+					{
+						return (e.entry == handler) && (e.start == begin) && (e.end == end);  // match condition
+					} );
 
-				if(m_dispatch_array[i][start]->is_dispatch() || m_dispatch_array[i][start]->is_view())
-				{
-// 					fprintf(stderr, "sub map start (view)\n");
-					m_dispatch_array[i][start]->dump_map(shift+4, map);
-// 					fprintf(stderr, "sub map end (view)\n");
+					if (it == map.end()) {
+						map.emplace_back(memory_entry{ m_ranges_array[i][j].start, m_ranges_array[i][k].end, m_dispatch_array[i][j]});
+					}
 				}
 
-				if(check==0) break;
+				j = k + 1;
+				k = j + 1;
+				handle = m_dispatch_array[i][j];
 
-				start = check;
-				check = start + (1<<LowBits);
-				handler = m_dispatch_array[i][start];
+			} while (j < BITMASK);
 
-				if(start>LOWMASK) break;
+			if(i == 0) {
+				for(u32 k = map_start_index; k != map.size(); k++)
+					map[k].context.emplace(map[k].context.begin(), memory_entry_context{ m_view, true, 0 });
+			} else {
+				int slot = m_view->id_to_slot(int(i)-1);
+				for(u32 k = map_start_index; k != map.size(); k++)
+					map[k].context.emplace(map[k].context.begin(), memory_entry_context{ m_view, false, slot });
 			}
 		}
-
-//  		offs_t base_cur = map.empty() ? m_view->m_addrstart & HIGHMASK : map.back().end + 1;
-// 		for(u32 i = 0; i != m_dispatch_array.size(); i++) {
-// 			u32 j = map.size();
-// 			offs_t cur = base_cur;
-// 			offs_t end = m_global_range.end + 1;
-//
-// 			do {
-// 				offs_t entry = (cur >> LowBits) & BITMASK;
-//
-// 				if(m_dispatch_array[i][entry]->is_dispatch() || m_dispatch_array[i][entry]->is_view())
-// 				{
-// 					fprintf(stderr, "sub map start (view)\n");
-// 					m_dispatch_array[i][entry]->dump_map(map);
-// 					fprintf(stderr, "sub map end (view)\n");
-// 				}
-// 				else
-// 					map.emplace_back(memory_entry{ m_ranges_array[i][entry].start, m_ranges_array[i][entry].end, m_dispatch_array[i][entry] });
-// 				cur = map.back().end + 1;
-// 			} while(cur != end);
-// 			if(i == 0) {
-// 				for(u32 k = j; k != map.size(); k++)
-// 					map[k].context.emplace(map[k].context.begin(), memory_entry_context{ m_view, true, 0 });
-// 			} else {
-// 				int slot = m_view->id_to_slot(int(i)-1);
-// 				for(u32 k = j; k != map.size(); k++)
-// 					map[k].context.emplace(map[k].context.begin(), memory_entry_context{ m_view, false, slot });
-// 			}
-// 		}
 	} else {
+		offs_t start = 0, entry = 0;
+		handler_entry *the_handler;
+		do {
 
-		auto *handler = m_a_dispatch[0];
-		u32 start = 0;
-		for( u32 i=0; i<=COUNT; i++)
-		{
-			while(i<=COUNT)
-			{
-				if(handler != m_a_dispatch[i]) break;
-				i++;
+			the_handler = m_a_dispatch[entry];
+			while((the_handler == m_a_dispatch[entry]) && (entry < COUNT)) {
+				entry++;
 			}
 
-			i--;
+			entry--;
 
-			fprintf( stderr, "%*s Not View. %p size: %d, start: %x (%x), end: %x (%x), %p, %s\n",
-				shift, " ", this, i-start, start, m_a_ranges[start].start, i, m_a_ranges[i].end,
-				m_a_dispatch[start], m_a_dispatch[start]->name().c_str());
-
-			for(u32 j=start; j<=i; j++ )
-			{
-				if(m_a_dispatch[j]->is_dispatch() || m_a_dispatch[j]->is_view())
+			for( int z=start; z<=entry; z++) {
+				handler_entry *handler = m_a_dispatch[z];
+				offs_t begin = m_a_ranges[z].start;
+				offs_t end = m_a_ranges[z].end;
+				auto it = std::find_if(map.begin(), map.end(), [handler, begin, end](const memory_entry& e)
 				{
-// 					fprintf(stderr, "sub map start\n");
-					m_a_dispatch[j]->dump_map(shift+4, map);
-// 					fprintf(stderr, "sub map end\n");
+					return (e.entry == handler) && (e.start == begin) && (e.end == end);  // match condition
+				} );
+
+				if (it == map.end()) {
+					if(m_a_dispatch[z]->is_dispatch() || m_a_dispatch[z]->is_view()) {
+						m_a_dispatch[z]->dump_map(map);
+					}
+					else
+						map.emplace_back(memory_entry{m_a_ranges[z].start,m_a_ranges[z].end,m_a_dispatch[z]});
 				}
 			}
-
-			i++;
-			handler = m_a_dispatch[i];
-			start = i;
-		}
-
-// 		offs_t cur = map.empty() ? 0 : map.back().end + 1;
-// 		offs_t base = cur & UPMASK;
-// 		offs_t end = m_global_range.end + 1;
-// 		do {
-// 			offs_t entry = (cur >> LowBits) & BITMASK;
-//
-// 			if(m_a_dispatch[entry]->is_dispatch() || m_a_dispatch[entry]->is_view())
-// 			{
-// 				fprintf(stderr, "sub map start\n");
-// 				m_a_dispatch[entry]->dump_map(map);
-// 				fprintf(stderr, "sub map end\n");
-// 			}
-// 			else
-// 				map.emplace_back(memory_entry{m_a_ranges[entry].start,m_a_ranges[entry].end,m_a_dispatch[entry] });
-// 			cur = map.back().end + 1;
-// 		} while(cur != end && !((cur ^ base) & UPMASK));
+			entry++;
+			start = entry;
+		} while(entry < COUNT);
 	}
 }
 
