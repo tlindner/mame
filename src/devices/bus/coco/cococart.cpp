@@ -718,6 +718,7 @@ void device_cococart_interface::interface_pre_start()
 
 void device_cococart_interface::cts_map(address_map &map)
 {
+	fprintf(stderr,"cts_map\n");
 	map(0x0000, 0x3eff).noprw();
 	return;
 }
@@ -750,6 +751,7 @@ void device_cococart_interface::cts_map(address_map &map)
 
 void device_cococart_interface::scs_map(address_map &map)
 {
+	fprintf(stderr,"scs_map\n");
 	map(0x00, 0x1f).noprw();
 	return;
 }

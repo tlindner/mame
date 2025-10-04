@@ -109,7 +109,9 @@ template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatc
 	if(m_view) {
 		u32 map_start_index = map.size();
 
-		for(u32 i = 0; i != m_dispatch_array.size(); i++) {
+		u32 i=1;
+
+// 		for(u32 i = 0; i != m_dispatch_array.size(); i++) {
 			offs_t j = 0;
 			offs_t k = j+1;
 			handler_entry *handle = m_dispatch_array[i][j];
@@ -150,7 +152,7 @@ template<int HighBits, int Width, int AddrShift> void handler_entry_read_dispatc
 				for(u32 k = map_start_index; k != map.size(); k++)
 					map[k].context.emplace(map[k].context.begin(), memory_entry_context{ m_view, false, slot });
 			}
-		}
+// 		}
 	} else {
 		offs_t start = 0, entry = 0;
 		handler_entry *the_handler;
