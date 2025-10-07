@@ -151,7 +151,7 @@ void sam6883_device::sam_mem(address_map &map)
 {
 	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
 	map(0x0000, 0xffff).view(m_ram_view); // see device_start()
-	map(0x8000, 0xffff).view(m_rom_view);
+	map(0x8000, 0xfeff).view(m_rom_view);
 
 	m_rom_view[0](0x8000, 0x9fff).m(*m_host, FUNC(device_sam_map_host_interface::s1_rom0_map));
 	m_rom_view[0](0xa000, 0xbfff).m(*m_host, FUNC(device_sam_map_host_interface::s2_rom1_map));
@@ -189,6 +189,7 @@ void sam6883_device::device_add_mconfig(machine_config &config)
 {
 	set_addrmap(4, &sam6883_device::internal_rom_map);
 }
+
 
 
 //-------------------------------------------------
@@ -310,10 +311,6 @@ void sam6883_device::device_start()
 	space(3).cache(m_ram_space[3]);
 	space(4).cache(m_rom_space);
 
-	m_ram_view.select(0);
-	m_rom_view.select(0);
-	m_io_view.select(0);
-
 	// save state support
 	save_item(NAME(m_sam_state));
 	save_item(NAME(m_divider));
@@ -330,7 +327,8 @@ void sam6883_device::device_start()
 
 uint8_t sam6883_device::endc_read(offs_t offset)
 {
-	fprintf(stderr,"sam6883_device::endc_read: %4x\n", offset);
+	if (!machine().side_effects_disabled())
+		fprintf(stderr,"%s endc_read: %4x\n", machine().describe_context().c_str(), offset);
 	return 0;
 }
 
@@ -342,8 +340,10 @@ uint8_t sam6883_device::endc_read(offs_t offset)
 
 void sam6883_device::endc_write(offs_t offset, uint8_t data)
 {
-	fprintf(stderr,"sam6883_device::endc_write: %4x\n", offset);
+	if (!machine().side_effects_disabled())
+		fprintf(stderr,"%s endc_write: %4x\n", machine().describe_context().c_str(), offset);
 }
+
 
 
 //-------------------------------------------------
@@ -523,7 +523,7 @@ void sam6883_device::internal_write(offs_t offset, uint8_t data)
 	uint16_t xorval = alter_sam_state(offset);
 
 	// based on the mask, apply effects
-	if (xorval & (SAM_STATE_TY|SAM_STATE_M0|SAM_STATE_M1|SAM_STATE_P1))
+	if (xorval & (SAM_STATE_TY|SAM_STATE_M1|SAM_STATE_M0|SAM_STATE_P1))
 	{
 		update_memory();
 	}
