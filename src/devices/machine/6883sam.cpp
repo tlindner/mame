@@ -143,35 +143,6 @@ sam6883_device::sam6883_device(const machine_config &mconfig, const char *tag, d
 }
 
 
-
-//-------------------------------------------------
-//  function - description
-//-------------------------------------------------
-
-void sam6883_device::sam_mem(address_map &map)
-{
-	map(0x0000, 0xffff).rw(FUNC(sam6883_device::endc_read), FUNC(sam6883_device::endc_write));
-	map(0x0000, 0xffff).view(m_ram_view); // see device_start()
-	map(0x8000, 0xfeff).view(m_rom_view);
-
-	m_rom_view[0](0x8000, 0x9fff).m(*m_host, FUNC(device_sam_map_host_interface::s1_rom0_map));
-	m_rom_view[0](0xa000, 0xbfff).m(*m_host, FUNC(device_sam_map_host_interface::s2_rom1_map));
-	m_rom_view[0](0xc000, 0xfeff).m(*m_host, FUNC(device_sam_map_host_interface::s3_rom2_map));
-
-	// This intentionally cuts a gap in the ROM view
-	map(0xff00, 0xffbf).view(m_io_view);
-	fprintf(stderr, "m_io_view: %p\n", &m_io_view);
-	m_io_view[0](0xff00, 0xff1f).m(*m_host, FUNC(device_sam_map_host_interface::s4_io0_map));
-	m_io_view[0](0xff20, 0xff3f).m(*m_host, FUNC(device_sam_map_host_interface::s5_io1_map));
-	m_io_view[0](0xff40, 0xff5f).m(*m_host, FUNC(device_sam_map_host_interface::s6_io2_map));
-	m_io_view[0](0xff60, 0xffbf).m(*m_host, FUNC(device_sam_map_host_interface::s7_res_map));
-
-	// This intentionally cuts a gap in the ROM view and endc
-	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write)).nopr();
-}
-
-
-
 //-------------------------------------------------
 //  internal_rom_map - map we use for ROM mirror
 //-------------------------------------------------
@@ -195,22 +166,6 @@ void sam6883_device::sam_mem(address_map &map)
 
 	// This intentionally cuts a gap in the ROM view and endc
 	map(0xffc0, 0xffdf).w(FUNC(sam6883_device::internal_write)).nopr();
-}
-
-void sam6883_device::update_views()
-{
-	int which = BIT(m_sam_state, SAM_BIT_M0, 2);
-	if (which>2) which = 2;
-	if ((which == 2) && BIT(m_sam_state, SAM_BIT_P1)) which = 3;
-
-	m_ram_view.select(which);
-
-	if(BIT(m_sam_state, SAM_BIT_TY))
-		m_rom_view.disable();
-	else
-		m_rom_view.select(0);
-
-	m_io_view.select(0);
 }
 
 
@@ -389,104 +344,6 @@ void sam6883_device::endc_write(offs_t offset, uint8_t data)
 {
 	fprintf(stderr,"sam6883_device::endc_write: %4x\n", offset);
 }
-
-
-
-//-------------------------------------------------
-//  vector_read - vector ROM mirror in RAM view
-//-------------------------------------------------
-
-uint8_t sam6883_device::vector_read(offs_t offset)
-{
-	return m_rom_space.read_byte(offset+0x1fe0);
-}
-
-uint8_t sam6883_device::rom_read(offs_t offset)
-{
-	if(offset < 0x2000)
-		return m_rom_space[0].read_byte(offset);
-	else if(offset < 0x4000)
-		return m_rom_space[1].read_byte(offset - 0x2000);
-	else if(offset < 0x7f00)
-		return m_rom_space[2].read_byte(offset - 0x4000);
-	else if(offset < 0x7fe0)
-		{return 0;}//return fprintf(stderr, "%s sam6883_device::rom_read: %4x\n", machine().describe_context().c_str(), offset);
-	else
-		return m_rom_space[1].read_byte(offset - 0x2000);
-
-}
-
-void sam6883_device::rom_write(offs_t offset, uint8_t data)
-{
-	if(offset < 0x2000)
-		m_rom_space[0].write_byte(offset, data);
-	else if(offset < 0x4000)
-		m_rom_space[1].write_byte(offset - 0x2000, data);
-	else if(offset < 0x7f00)
-		m_rom_space[2].write_byte(offset - 0x4000, data);
-	else if(offset < 0x7fe0)
-		{}//fprintf(stderr, "%s sam6883_device::rom_write: %4x\n", machine().describe_context().c_str(), offset);
-	else
-		m_rom_space[1].write_byte(offset - 0x2000, data);
-}
-
-uint8_t sam6883_device::io_read(offs_t offset)
-{
-	if(offset < 0x20)
-		return m_io_space[0].read_byte(offset);
-	else if(offset < 0x40)
-		return m_io_space[1].read_byte(offset - 0x20);
-	else if(offset < 0x60)
-		return m_io_space[2].read_byte(offset - 0x40);
-	else
-		return m_reserved_space.read_byte(offset - 0x60);
-}
-
-void sam6883_device::io_write(offs_t offset, uint8_t data)
-{
-	if(offset < 0x20)
-		m_io_space[0].write_byte(offset, data);
-	else if(offset < 0x40)
-		m_io_space[1].write_byte(offset - 0x20, data);
-	else if(offset < 0x60)
-		m_io_space[2].write_byte(offset - 0x40, data);
-	else
-		m_reserved_space.write_byte(offset - 0x60, data);
-}
-
-uint8_t sam6883_device::vector_read(offs_t offset)
-{
-	return m_rom_space[1].read_byte(0x1fe0 + offset);
-}
-
-void sam6883_device::vector_write(offs_t offset, uint8_t data)
-{
-	m_rom_space[1].write_byte(0x1fe0 + offset, data);
-}
-
-//-------------------------------------------------
-//  endc_read - temporary endc read handler
-//-------------------------------------------------
-
-uint8_t sam6883_device::endc_read(offs_t offset)
-{
-	if (!machine().side_effects_disabled())
-		fprintf(stderr,"%s endc_read: %4x\n", machine().describe_context().c_str(), offset);
-	return 0;
-}
-
-
-
-//-------------------------------------------------
-//  endc_write - temporary endc write handler
-//-------------------------------------------------
-
-void sam6883_device::endc_write(offs_t offset, uint8_t data)
-{
-	if (!machine().side_effects_disabled())
-		fprintf(stderr,"%s endc_write: %4x\n", machine().describe_context().c_str(), offset);
-}
-
 
 
 //-------------------------------------------------

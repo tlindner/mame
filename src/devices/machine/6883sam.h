@@ -142,23 +142,12 @@ public:
 	uint8_t endc_read(offs_t offset);
 	void endc_write(offs_t offset, uint8_t data);
 
-	// Internal vector handler
-	uint8_t vector_read(offs_t offset);
-
 	// Address maps
 	void sam_mem(address_map &map);
 	void internal_rom_map(address_map &map);
 
-	// Disabled S decoding handlers
-	uint8_t endc_read(offs_t offset);
-	void endc_write(offs_t offset, uint8_t data);
-
 	// Internal vector handler
 	uint8_t vector_read(offs_t offset);
-
-	// Address maps
-	void sam_mem(address_map &map);
-	void internal_rom_map(address_map &map);
 
 	// typically called by VDG
 	ATTR_FORCE_INLINE uint8_t display_read(offs_t offset)
