@@ -228,6 +228,7 @@ TIMER_CALLBACK_MEMBER(cococart_slot_device::halt_line_timer_tick)
 
 void cococart_slot_device::cts_map(address_map &map)
 {
+	fprintf(stderr, "cococart_slot_device::cts_map\n");
 	if (m_cart)
 		m_cart->cts_map(map);
 }
@@ -263,6 +264,7 @@ void cococart_slot_device::cts_map(address_map &map)
 
 void cococart_slot_device::scs_map(address_map &map)
 {
+	fprintf(stderr, "cococart_slot_device::scs_map\n");
 	if (m_cart)
 		m_cart->scs_map(map);
 }
