@@ -58,7 +58,9 @@ DEFINE_DEVICE_TYPE(COCO_PAK, coco_pak_device, "cocopak", "CoCo Program PAK")
 coco_pak_device::coco_pak_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, u32 clock)
 	: device_t(mconfig, type, tag, owner, clock)
 	, device_cococart_interface(mconfig, *this)
-	, m_cart(nullptr), m_eprom(*this, CARTSLOT_TAG), m_autostart(*this, CART_AUTOSTART_TAG)
+	, m_cart(nullptr)
+	, m_eprom(*this, CARTSLOT_TAG)
+	, m_autostart(*this, CART_AUTOSTART_TAG)
 {
 }
 
@@ -90,10 +92,10 @@ ioport_constructor coco_pak_device::device_input_ports() const
 //  rom_region - device-specific ROM region
 //-------------------------------------------------
 
-const tiny_rom_entry *coco_pak_device::device_rom_region() const
-{
-	return ROM_NAME( coco_pak );
-}
+// const tiny_rom_entry *coco_pak_device::device_rom_region() const
+// {
+// 	return ROM_NAME( coco_pak );
+// }
 
 //-------------------------------------------------
 //  get_cart_size
@@ -145,7 +147,8 @@ void coco_pak_device::device_reset()
 
 void coco_pak_device::cts_map(address_map &map)
 {
-
+	fprintf(stderr, "coco pak mapping!\n");
+	map(0x0000, 0x3eff).rom().region(m_eprom,0);
 }
 
 //-------------------------------------------------
@@ -194,10 +197,10 @@ coco_pak_banked_device::coco_pak_banked_device(const machine_config &mconfig, co
 //  rom_region - device-specific ROM region
 //-------------------------------------------------
 
-const tiny_rom_entry *coco_pak_banked_device::device_rom_region() const
-{
-	return ROM_NAME( coco_pak_banked );
-}
+// const tiny_rom_entry *coco_pak_banked_device::device_rom_region() const
+// {
+// 	return ROM_NAME( coco_pak_banked );
+// }
 
 //-------------------------------------------------
 //  device_start - device-specific startup
@@ -240,12 +243,13 @@ void coco_pak_banked_device::device_reset()
 // }
 
 /*-------------------------------------------------
-    cts_map
+    cts_map ($C000 - $FEFF)
 -------------------------------------------------*/
 
 void coco_pak_banked_device::cts_map(address_map &map)
 {
-
+	fprintf(stderr, "coco pak banked mapping!\n");
+	map(0x0000, 0x3eff).rom().region(m_eprom,0);
 }
 
 //-------------------------------------------------

@@ -592,41 +592,43 @@ static std::error_condition read_coco_rpk(std::unique_ptr<util::random_read> &&s
 
 std::pair<std::error_condition, std::string> cococart_slot_device::call_load()
 {
-// 	if (m_cart)
-// 	{
-// 		memory_region *cart_mem = m_cart->get_cart_memregion();
-// 		u8 *base = cart_mem->base();
-// 		offs_t read_length, cart_length = cart_mem->bytes();
-//
-// 		if (loaded_through_softlist())
-// 		{
-// 			// loaded through softlist
-// 			read_length = get_software_region_length("rom");
-// 			memcpy(base, get_software_region("rom"), read_length);
-// 		}
-// 		else if (is_filetype("rpk"))
-// 		{
-// 			// RPK file
+	if (m_cart)
+	{
+		memory_region *cart_mem = m_cart->get_cart_memregion();
+
+		u8 *base = cart_mem->base();
+		offs_t read_length, cart_length = cart_mem->bytes();
+
+		if (loaded_through_softlist())
+		{
+			// loaded through softlist
+			read_length = get_software_region_length("rom");
+			memcpy(base, get_software_region("rom"), read_length);
+		}
+		else if (is_filetype("rpk"))
+		{
+			// RPK file
+			read_length = 0;
 // 			util::core_file::ptr proxy;
 // 			std::error_condition err = util::core_file::open_proxy(image_core_file(), proxy);
 // 			if (!err)
 // 				err = read_coco_rpk(std::move(proxy), base, cart_length, read_length);
 // 			if (err)
 // 				return std::make_pair(err, std::string());
-// 		}
-// 		else
-// 		{
-// 			// conventional ROM image
-// 			read_length = fread(base, cart_length);
-// 		}
-//
-// 		while (read_length < cart_length)
-// 		{
-// 			offs_t len = std::min(read_length, cart_length - read_length);
-// 			memcpy(base + read_length, base, len);
-// 			read_length += len;
-// 		}
-// 	}
+		}
+		else
+		{
+			// conventional ROM image
+			read_length = fread(base, cart_length);
+		}
+
+		while (read_length < cart_length)
+		{
+			offs_t len = std::min(read_length, cart_length - read_length);
+			memcpy(base + read_length, base, len);
+			read_length += len;
+		}
+	}
 	return std::make_pair(std::error_condition(), std::string());
 }
 
@@ -833,10 +835,11 @@ void device_cococart_interface::set_sound_enable(bool sound_enable)
     get_cart_memregion
 -------------------------------------------------*/
 
-// memory_region *device_cococart_interface::get_cart_memregion()
-// {
-// 	return 0;
-// }
+memory_region *device_cococart_interface::get_cart_memregion()
+{
+	throw "device_cococart_interface::get_cart_memregion should never get called";
+	return 0;
+}
 
 //-------------------------------------------------
 //  cartridge_space
@@ -865,8 +868,8 @@ void device_cococart_interface::set_line_value(cococart_slot_device::line line, 
 void coco_cart_add_basic_devices(device_slot_interface &device)
 {
 	// basic devices, on both the main slot and the Multi-Pak interface
-	device.option_add_internal("banked_16k", COCO_PAK_BANKED);
-	device.option_add_internal("pak", COCO_PAK);
+	device.option_add("banked_16k", COCO_PAK_BANKED);
+	device.option_add("pak", COCO_PAK);
 // 	device.option_add("ccpsg", COCO_PSG);
 // 	device.option_add("dcmodem", COCO_DCMODEM);
 // 	device.option_add("gmc", COCO_PAK_GMC);

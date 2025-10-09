@@ -179,7 +179,7 @@ public:
 // 	virtual u8 *get_cart_base();
 // 	virtual u32 get_cart_size();
 // 	void set_cart_base_update(cococart_base_update_delegate update);
-// 	virtual memory_region *get_cart_memregion();
+	virtual memory_region *get_cart_memregion();
 
 protected:
 	virtual void interface_config_complete() override;
