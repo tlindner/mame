@@ -58,7 +58,9 @@ DEFINE_DEVICE_TYPE(COCO_PAK, coco_pak_device, "cocopak", "CoCo Program PAK")
 coco_pak_device::coco_pak_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, u32 clock)
 	: device_t(mconfig, type, tag, owner, clock)
 	, device_cococart_interface(mconfig, *this)
-	, m_cart(nullptr), m_eprom(*this, CARTSLOT_TAG), m_autostart(*this, CART_AUTOSTART_TAG)
+	, m_cart(nullptr)
+	, m_eprom(*this, CARTSLOT_TAG)
+	, m_autostart(*this, CART_AUTOSTART_TAG)
 {
 }
 
@@ -90,19 +92,19 @@ ioport_constructor coco_pak_device::device_input_ports() const
 //  rom_region - device-specific ROM region
 //-------------------------------------------------
 
-const tiny_rom_entry *coco_pak_device::device_rom_region() const
-{
-	return ROM_NAME( coco_pak );
-}
+// const tiny_rom_entry *coco_pak_device::device_rom_region() const
+// {
+// 	return ROM_NAME( coco_pak );
+// }
 
 //-------------------------------------------------
 //  get_cart_size
 //-------------------------------------------------
 
-u32 coco_pak_device::get_cart_size()
-{
-	return 0x8000;
-}
+// u32 coco_pak_device::get_cart_size()
+// {
+// 	return 0x8000;
+// }
 
 /*-------------------------------------------------
     device_reset - device-specific startup
@@ -125,31 +127,41 @@ void coco_pak_device::device_reset()
     get_cart_base
 -------------------------------------------------*/
 
-u8 *coco_pak_device::get_cart_base()
-{
-	return m_eprom->base();
-}
+// u8 *coco_pak_device::get_cart_base()
+// {
+// 	return m_eprom->base();
+// }
 
 /*-------------------------------------------------
     get_cart_memregion
 -------------------------------------------------*/
 
-memory_region *coco_pak_device::get_cart_memregion()
+// memory_region *coco_pak_device::get_cart_memregion()
+// {
+// 	return m_eprom;
+// }
+
+/*-------------------------------------------------
+    cts_map
+-------------------------------------------------*/
+
+void coco_pak_device::cts_map(address_map &map)
 {
-	return m_eprom;
+	fprintf(stderr, "coco pak mapping!\n");
+	map(0x0000, 0x3eff).rom().region(m_eprom,0);
 }
 
 //-------------------------------------------------
 //  cts_read
 //-------------------------------------------------
 
-u8 coco_pak_device::cts_read(offs_t offset)
-{
-	if (offset < m_eprom->bytes())
-		return m_eprom->base()[offset];
-	else
-		return 0x00;
-}
+// u8 coco_pak_device::cts_read(offs_t offset)
+// {
+// 	if (offset < m_eprom->bytes())
+// 		return m_eprom->base()[offset];
+// 	else
+// 		return 0x00;
+// }
 
 
 
@@ -185,10 +197,10 @@ coco_pak_banked_device::coco_pak_banked_device(const machine_config &mconfig, co
 //  rom_region - device-specific ROM region
 //-------------------------------------------------
 
-const tiny_rom_entry *coco_pak_banked_device::device_rom_region() const
-{
-	return ROM_NAME( coco_pak_banked );
-}
+// const tiny_rom_entry *coco_pak_banked_device::device_rom_region() const
+// {
+// 	return ROM_NAME( coco_pak_banked );
+// }
 
 //-------------------------------------------------
 //  device_start - device-specific startup
@@ -216,44 +228,64 @@ void coco_pak_banked_device::device_reset()
 //  get_cart_base
 //-------------------------------------------------
 
-u8 *coco_pak_banked_device::get_cart_base()
-{
-	return m_eprom->base() + (m_pos * 0x4000) % m_eprom->bytes();
-}
+// u8 *coco_pak_banked_device::get_cart_base()
+// {
+// 	return m_eprom->base() + (m_pos * 0x4000) % m_eprom->bytes();
+// }
 
 //-------------------------------------------------
 //  get_cart_size
 //-------------------------------------------------
 
-u32 coco_pak_banked_device::get_cart_size()
+// u32 coco_pak_banked_device::get_cart_size()
+// {
+// 	return 0x4000;
+// }
+
+/*-------------------------------------------------
+    cts_map ($C000 - $FEFF)
+-------------------------------------------------*/
+
+void coco_pak_banked_device::cts_map(address_map &map)
 {
-	return 0x4000;
+	fprintf(stderr, "coco pak banked mapping!\n");
+	map(0x0000, 0x3eff).rom().region(m_eprom,0);
 }
 
 //-------------------------------------------------
 //  cts_read
 //-------------------------------------------------
 
-u8 coco_pak_banked_device::cts_read(offs_t offset)
+// u8 coco_pak_banked_device::cts_read(offs_t offset)
+// {
+// 	return m_eprom->base()[(m_pos * 0x4000) % m_eprom->bytes() | offset];
+// }
+
+
+/*-------------------------------------------------
+    scs_map
+-------------------------------------------------*/
+
+void coco_pak_banked_device::scs_map(address_map &map)
 {
-	return m_eprom->base()[(m_pos * 0x4000) % m_eprom->bytes() | offset];
+
 }
 
 //-------------------------------------------------
 //  scs_write
 //-------------------------------------------------
 
-void coco_pak_banked_device::scs_write(offs_t offset, u8 data)
-{
-	switch(offset)
-	{
-		case 0:
-			// set the bank
-			if (m_pos != data)
-			{
-				m_pos = data;
-				cart_base_changed();
-			}
-			break;
-	}
-}
+// void coco_pak_banked_device::scs_write(offs_t offset, u8 data)
+// {
+// 	switch(offset)
+// 	{
+// 		case 0:
+// 			// set the bank
+// 			if (m_pos != data)
+// 			{
+// 				m_pos = data;
+// 				cart_base_changed();
+// 			}
+// 			break;
+// 	}
+// }

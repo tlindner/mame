@@ -18,22 +18,9 @@
 void coco12_state::device_start()
 {
 	coco_state::device_start();
-	configure_sam();
 }
 
 
-
-//-------------------------------------------------
-//  coco12_state::configure_sam
-//-------------------------------------------------
-
-void coco12_state::configure_sam()
-{
-	offs_t ramsize = m_ram->size();
-	m_sam->space(0).install_ram(0, ramsize - 1, m_ram->pointer());
-	if (ramsize < 65536)
-		m_sam->space(0).nop_readwrite(ramsize, 0xffff);
-}
 
 
 //-------------------------------------------------
@@ -96,29 +83,24 @@ void coco12_state::pia1_pb_changed(uint8_t data)
 //  deluxecoco_state::device_start
 //-------------------------------------------------
 
-void deluxecoco_state::device_start()
+void deluxecoco_state::machine_start()
 {
-	coco12_state::device_start();
-	configure_sam();
-
-	m_ram_view.disable();
-	m_rom_view.select(0);
+	m_ram_bank->configure_entry(0, m_ram->pointer() + 0x0000);
+	m_ram_bank->configure_entry(1, m_ram->pointer() + 0x4000);
+	m_ram_bank->configure_entry(2, m_ram->pointer() + 0x8000);
+	m_ram_bank->configure_entry(3, m_ram->pointer() + 0xc000);
 }
 
 
-
 //-------------------------------------------------
-//  deluxecoco_state::configure_sam
+//  deluxecoco_state::device_start
 //-------------------------------------------------
 
-void deluxecoco_state::configure_sam()
+void deluxecoco_state::device_start()
 {
-	m_sam->space(0).install_view(0x4000, 0x7fff, m_ram_view);
-
-	m_ram_view[0].install_ram(0x4000, 0x7fff, m_ram->pointer() + 0x0000);
-	m_ram_view[1].install_ram(0x4000, 0x7fff, m_ram->pointer() + 0x4000);
-	m_ram_view[2].install_ram(0x4000, 0x7fff, m_ram->pointer() + 0x8000);
-	m_ram_view[3].install_ram(0x4000, 0x7fff, m_ram->pointer() + 0xc000);
+	coco12_state::device_start();
+	m_ram_bank->set_entry(1);
+	m_rom_view.select(0);
 }
 
 
@@ -130,10 +112,20 @@ void deluxecoco_state::ff30_write(offs_t offset, uint8_t data)
 {
 	if (offset == 0)
 	{
+		fprintf(stderr,"%s ff30write: %c%c%c%c%c%c%c%c\n", machine().describe_context().c_str()
+			, BIT(data, 7) ? '1' : '0'
+			, BIT(data, 6) ? '1' : '0'
+			, BIT(data, 5) ? '1' : '0'
+			, BIT(data, 4) ? '1' : '0'
+			, BIT(data, 3) ? '1' : '0'
+			, BIT(data, 2) ? '1' : '0'
+			, BIT(data, 1) ? '1' : '0'
+			, BIT(data, 0) ? '1' : '0');
+
 		if (BIT(data, 2))
-			m_ram_view.select(data & 0x03);
+			m_ram_bank->set_entry(data & 0x03);
 		else
-			m_ram_view.disable();
+			m_ram_bank->set_entry(1);
 
 		m_rom_view.select(BIT(data, 7));
 

@@ -34,11 +34,13 @@
 //  TYPE DEFINITIONS
 //**************************************************************************
 
-class coco12_state : public coco_state
+class coco12_state : public coco_state, public device_sam_map_host_interface
+
 {
 public:
 	coco12_state(const machine_config &mconfig, device_type type, const char *tag)
 		: coco_state(mconfig, type, tag)
+		, device_sam_map_host_interface(*this, finder_base::DUMMY_TAG)
 		, m_sam(*this, "sam")
 		, m_vdg(*this, "vdg")
 	{
@@ -56,11 +58,9 @@ public:
 	void cp400(machine_config &config);
 	void t4426(machine_config &config);
 	void cd6809(machine_config &config);
-	void ms1600(machine_config &config);
 
 protected:
 	virtual void device_start() override ATTR_COLD;
-	void configure_sam();
 
 	// PIA1
 	virtual void pia1_pb_changed(uint8_t data) override;
@@ -69,15 +69,13 @@ protected:
 	required_device<sam6883_device> m_sam;
 
 	void coco_mem(address_map &map) ATTR_COLD;
-	void coco_ram(address_map &map) ATTR_COLD;
-	void coco_rom0(address_map &map) ATTR_COLD;
-	void coco_rom1(address_map &map) ATTR_COLD;
-	void coco_rom2(address_map &map) ATTR_COLD;
-	void coco_io0(address_map &map) ATTR_COLD;
-	void coco_io1(address_map &map) ATTR_COLD;
-	void coco_io2(address_map &map) ATTR_COLD;
-	void coco_ff60(address_map &map) ATTR_COLD;
-	void ms1600_rom2(address_map &map) ATTR_COLD;
+	virtual void s1_rom0_map(address_map &map) override ATTR_COLD;
+	virtual void s2_rom1_map(address_map &map) override ATTR_COLD;
+	virtual void s3_rom2_map(address_map &map) override ATTR_COLD;
+	virtual void s4_io0_map(address_map &map) override ATTR_COLD;
+	virtual void s5_io1_map(address_map &map) override ATTR_COLD;
+	virtual void s6_io2_map(address_map &map) override ATTR_COLD;
+	virtual void s7_res_map(address_map &map) override ATTR_COLD;
 
 protected:
 	required_device<mc6847_base_device> m_vdg;
@@ -91,7 +89,7 @@ public:
 		, m_acia(*this, "mosacia")
 		, m_psg(*this, "psg")
 		, m_timer(*this, "timer")
-		, m_ram_view(*this, "ram_view")
+		, m_ram_bank(*this, "ram_bank")
 		, m_rom_view(*this, "rom_view")
 	{
 	}
@@ -100,10 +98,12 @@ public:
 	void ff30_write(offs_t offset, uint8_t data);
 
 protected:
+	virtual void machine_start() override ATTR_COLD;
 	virtual void device_start() override ATTR_COLD;
-	void configure_sam();
-	void deluxecoco_rom2(address_map &map) ATTR_COLD;
-	void deluxecoco_io1(address_map &map) ATTR_COLD;
+
+	virtual void s0_ram_map(address_map &map) override ATTR_COLD;
+	virtual void s3_rom2_map(address_map &map) override ATTR_COLD;
+	virtual void s5_io1_map(address_map &map) override ATTR_COLD;
 
 	required_device<mos6551_device> m_acia;
 	required_device<ay8913_device> m_psg;
@@ -112,8 +112,19 @@ protected:
 	TIMER_DEVICE_CALLBACK_MEMBER(perodic_timer);
 
 private:
-	memory_view m_ram_view;
+	memory_bank_creator m_ram_bank;
 	memory_view m_rom_view;
+};
+
+class ms1600_state : public coco12_state
+{
+public:
+	ms1600_state(const machine_config &mconfig, device_type type, const char *tag)
+		: coco12_state(mconfig, type, tag)
+	{
+	}
+protected:
+	virtual void s3_rom2_map(address_map &map) override ATTR_COLD;
 };
 
 #endif // MAME_TRS_COCO12_H

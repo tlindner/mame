@@ -13,10 +13,26 @@
 
 #pragma once
 
+#include "machine/ram.h"
 
 //**************************************************************************
 //  SAM6883 CORE
 //**************************************************************************
+
+class device_sam_map_host_interface : public device_interface
+{
+public:
+	device_sam_map_host_interface(device_t &device, const char *tag) : device_interface(device,"") {};
+
+	virtual void s0_ram_map(address_map &map) {};
+	virtual void s1_rom0_map(address_map &map) {};
+	virtual void s2_rom1_map(address_map &map) {};
+	virtual void s3_rom2_map(address_map &map) {};
+	virtual void s4_io0_map(address_map &map) {};
+	virtual void s5_io1_map(address_map &map) {};
+	virtual void s6_io2_map(address_map &map) {};
+	virtual void s7_res_map(address_map &map) {};
+};
 
 // base class so that GIME emulation can use some functionality
 class sam6883_friend_device_interface : public device_interface
@@ -26,31 +42,54 @@ public:
 
 protected:
 	// SAM state constants
-	static const uint16_t SAM_STATE_TY = 0x8000;
-	static const uint16_t SAM_STATE_M1 = 0x4000;
-	static const uint16_t SAM_STATE_M0 = 0x2000;
-	static const uint16_t SAM_STATE_R1 = 0x1000;
-	static const uint16_t SAM_STATE_R0 = 0x0800;
-	static const uint16_t SAM_STATE_P1 = 0x0400;
-	static const uint16_t SAM_STATE_F6 = 0x0200;
-	static const uint16_t SAM_STATE_F5 = 0x0100;
-	static const uint16_t SAM_STATE_F4 = 0x0080;
-	static const uint16_t SAM_STATE_F3 = 0x0040;
-	static const uint16_t SAM_STATE_F2 = 0x0020;
-	static const uint16_t SAM_STATE_F1 = 0x0010;
-	static const uint16_t SAM_STATE_F0 = 0x0008;
-	static const uint16_t SAM_STATE_V2 = 0x0004;
-	static const uint16_t SAM_STATE_V1 = 0x0002;
-	static const uint16_t SAM_STATE_V0 = 0x0001;
+	static constexpr int SAM_BIT_V0 = 0;
+	static constexpr int SAM_BIT_V1 = 1;
+	static constexpr int SAM_BIT_V2 = 2;
+	static constexpr int SAM_BIT_F0 = 3;
+	static constexpr int SAM_BIT_F1 = 4;
+	static constexpr int SAM_BIT_F2 = 5;
+	static constexpr int SAM_BIT_F3 = 6;
+	static constexpr int SAM_BIT_F4 = 7;
+	static constexpr int SAM_BIT_F5 = 8;
+	static constexpr int SAM_BIT_F6 = 9;
+	static constexpr int SAM_BIT_P1 = 10;
+	static constexpr int SAM_BIT_R0 = 11;
+	static constexpr int SAM_BIT_R1 = 12;
+	static constexpr int SAM_BIT_M0 = 13;
+	static constexpr int SAM_BIT_M1 = 14;
+	static constexpr int SAM_BIT_TY = 15;
+
+	static constexpr uint16_t SAM_STATE_V0 = 1U << SAM_BIT_V0;
+	static constexpr uint16_t SAM_STATE_V1 = 1U << SAM_BIT_V1;
+	static constexpr uint16_t SAM_STATE_V2 = 1U << SAM_BIT_V2;
+	static constexpr uint16_t SAM_STATE_F0 = 1U << SAM_BIT_F0;
+	static constexpr uint16_t SAM_STATE_F1 = 1U << SAM_BIT_F1;
+	static constexpr uint16_t SAM_STATE_F2 = 1U << SAM_BIT_F2;
+	static constexpr uint16_t SAM_STATE_F3 = 1U << SAM_BIT_F3;
+	static constexpr uint16_t SAM_STATE_F4 = 1U << SAM_BIT_F4;
+	static constexpr uint16_t SAM_STATE_F5 = 1U << SAM_BIT_F5;
+	static constexpr uint16_t SAM_STATE_F6 = 1U << SAM_BIT_F6;
+	static constexpr uint16_t SAM_STATE_P1 = 1U << SAM_BIT_P1;
+	static constexpr uint16_t SAM_STATE_R0 = 1U << SAM_BIT_R0;
+	static constexpr uint16_t SAM_STATE_R1 = 1U << SAM_BIT_R1;
+	static constexpr uint16_t SAM_STATE_M0 = 1U << SAM_BIT_M0;
+	static constexpr uint16_t SAM_STATE_M1 = 1U << SAM_BIT_M1;
+	static constexpr uint16_t SAM_STATE_TY = 1U << SAM_BIT_TY;
 
 	// incidentals
 	required_device<cpu_device> m_cpu;
+	required_device<ram_device> m_ram;
 
 	// device state
 	uint16_t m_sam_state;
+	int m_endc;
 
 	// base clock divider (/4 for MC6883, /8 for GIME)
 	int m_divider;
+
+protected:
+	// device-level overrides
+	virtual void device_reset() ATTR_COLD;
 
 	ATTR_FORCE_INLINE uint16_t display_offset()
 	{
@@ -76,23 +115,39 @@ protected:
 	}
 
 	void update_cpu_clock();
+	device_sam_map_host_interface *m_host;
+
+	void endc_w(int state);
+
+private:
+	void update_memory() {};
+
 };
 
 class sam6883_device : public device_t, public device_memory_interface, public sam6883_friend_device_interface
 {
 public:
-	template <typename T>
-	sam6883_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock, T &&cpu_tag)
+	template <typename T, typename U>
+	sam6883_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock, T &&cpu_tag, U &&ram_tag)
 		: sam6883_device(mconfig, tag, owner, clock)
 	{
 		m_cpu.set_tag(std::forward<T>(cpu_tag));
+		m_ram.set_tag(std::forward<U>(ram_tag));
 	}
 
 	sam6883_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
+	virtual void device_add_mconfig(machine_config &config) override ATTR_COLD;
 
-	// CPU read/write handlers
-	uint8_t read(offs_t offset);
-	void write(offs_t offset, uint8_t data);
+	// Disabled S decoding handlers
+	uint8_t endc_read(offs_t offset);
+	void endc_write(offs_t offset, uint8_t data);
+
+	// Internal vector handler
+	uint8_t vector_read(offs_t offset);
+
+	// Address maps
+	void sam_mem(address_map &map);
+	void internal_rom_map(address_map &map);
 
 	// typically called by VDG
 	ATTR_FORCE_INLINE uint8_t display_read(offs_t offset)
@@ -114,7 +169,7 @@ public:
 			if (bit3_carry)
 				counter_carry_bit3();
 		}
-		return m_ram_space.read_byte(m_counter & m_counter_mask);
+		return m_ram_space[BIT(m_sam_state, SAM_BIT_M0, 2)].read_byte(m_counter);
 	}
 
 	void hs_w(int state);
@@ -129,22 +184,20 @@ protected:
 	virtual space_config_vector memory_space_config() const override;
 
 private:
+	memory_view m_ram_view;
+	memory_view m_rom_view;
+	memory_view m_io_view;
+
 	// memory space configuration
-	address_space_config        m_ram_config;
-	address_space_config        m_rom0_config;
-	address_space_config        m_rom1_config;
-	address_space_config        m_rom2_config;
-	address_space_config        m_io0_config;
-	address_space_config        m_io1_config;
-	address_space_config        m_io2_config;
-	address_space_config        m_boot_config;
+	address_space_config        m_m0_config;
+	address_space_config        m_m1_config;
+	address_space_config        m_m2_config;
+	address_space_config        m_m3_config;
+	address_space_config        m_s2_config;
 
 	// memory spaces
-	memory_access<16, 0, 0, ENDIANNESS_BIG>::cache m_ram_space;
-	memory_access<14, 0, 0, ENDIANNESS_BIG>::cache m_rom_space[3];
-	memory_access< 5, 0, 0, ENDIANNESS_BIG>::specific m_io_space[3];
-	memory_access< 7, 0, 0, ENDIANNESS_BIG>::cache m_boot_space;
-	uint16_t                    m_counter_mask = 0;
+	memory_access<16, 0, 0, ENDIANNESS_BIG>::cache m_ram_space[4];
+	memory_access<14, 0, 0, ENDIANNESS_BIG>::cache m_rom_space;
 
 	// SAM state
 	uint16_t                    m_counter = 0;
@@ -158,7 +211,7 @@ private:
 	ATTR_FORCE_INLINE void counter_carry_bit3()
 	{
 		uint8_t x_division;
-		switch((m_sam_state & (SAM_STATE_V2|SAM_STATE_V1|SAM_STATE_V0)) / SAM_STATE_V0)
+		switch(BIT(m_sam_state, SAM_BIT_V0, 3))
 		{
 			case 0x00:  x_division = 1; break;
 			case 0x01:  x_division = 3; break;
@@ -186,7 +239,7 @@ private:
 	ATTR_FORCE_INLINE void counter_carry_bit4()
 	{
 		uint8_t y_division;
-		switch((m_sam_state & (SAM_STATE_V2|SAM_STATE_V1|SAM_STATE_V0)) / SAM_STATE_V0)
+		switch(BIT(m_sam_state, SAM_BIT_V0, 3))
 		{
 			case 0x00:  y_division = 12;    break;
 			case 0x01:  y_division = 1;     break;

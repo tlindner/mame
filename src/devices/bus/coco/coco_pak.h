@@ -22,12 +22,12 @@ public:
 	coco_pak_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock);
 
 	// optional information overrides
-	virtual const tiny_rom_entry *device_rom_region() const override ATTR_COLD;
+// 	virtual const tiny_rom_entry *device_rom_region() const override ATTR_COLD;
 	virtual ioport_constructor device_input_ports() const override ATTR_COLD;
 
-	virtual u8 *get_cart_base() override;
-	virtual u32 get_cart_size() override;
-	virtual memory_region *get_cart_memregion() override;
+// 	virtual u8 *get_cart_base() override;
+// 	virtual u32 get_cart_size() override;
+	virtual memory_region *get_cart_memregion() override {return m_eprom;}
 
 protected:
 	coco_pak_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, u32 clock);
@@ -35,7 +35,8 @@ protected:
 	// device-level overrides
 	virtual void device_start() override ATTR_COLD;
 	virtual void device_reset() override ATTR_COLD;
-	virtual u8 cts_read(offs_t offset) override;
+	virtual void cts_map(address_map &map) override ATTR_COLD;
+// 	virtual u8 cts_read(offs_t offset) override;
 
 	// internal state
 	device_image_interface *m_cart;
@@ -56,13 +57,15 @@ protected:
 	coco_pak_banked_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, u32 clock);
 
 	// device-level overrides
-	virtual const tiny_rom_entry *device_rom_region() const override ATTR_COLD;
+// 	virtual const tiny_rom_entry *device_rom_region() const override ATTR_COLD;
 	virtual void device_start() override ATTR_COLD;
 	virtual void device_reset() override ATTR_COLD;
-	virtual u8 *get_cart_base() override;
-	virtual u32 get_cart_size() override;
-	virtual u8 cts_read(offs_t offset) override;
-	virtual void scs_write(offs_t offset, u8 data) override;
+	virtual void cts_map(address_map &map) override ATTR_COLD;
+	virtual void scs_map(address_map &map) override ATTR_COLD;
+// 	virtual u8 *get_cart_base() override;
+// 	virtual u32 get_cart_size() override;
+// 	virtual u8 cts_read(offs_t offset) override;
+// 	virtual void scs_write(offs_t offset, u8 data) override;
 
 private:
 	u8 m_pos;

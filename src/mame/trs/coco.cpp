@@ -86,6 +86,7 @@ coco_state::coco_state(const machine_config &mconfig, device_type type, const ch
 	m_vhd_1(*this, "vhd1"),
 	m_beckerport(*this, "dwsock"),
 	m_beckerportconfig(*this, BECKERPORT_TAG),
+	m_ramsiz_config(*this, RAMSIZE_TAG),
 	m_irqs(*this, "irqs"),
 	m_firqs(*this, "firqs"),
 	m_keyboard(*this, "row%u", 0),
@@ -134,7 +135,7 @@ void coco_state::device_start()
 	m_diecom_lightgun_timer = timer_alloc(FUNC(coco_state::diecom_lightgun_hit), this);
 
 	// cart slot
-	m_cococart->set_cart_base_update(cococart_base_update_delegate(&coco_state::update_cart_base, this));
+// 	m_cococart->set_cart_base_update(cococart_base_update_delegate(&coco_state::update_cart_base, this));
 	m_cococart->set_line_delay(cococart_slot_device::line::NMI, 12);    // 12 allowed one more instruction to finished after the line is pulled
 	m_cococart->set_line_delay(cococart_slot_device::line::HALT, 6);    // 6 allowed one more instruction to finished after the line is pulled
 
@@ -427,11 +428,28 @@ uint8_t coco_state::pia1_pb_r()
 	//  For the CoCo 1, the logic has been changed to only select 64K rams
 	//  if there is more than 16K of memory, as the Color Basic 1.0 rom
 	//  can only configure 4K or 16K ram banks (as documented in "Color
-	//  Basic Unreveled"), doing this allows this  allows the coco driver
+	//  Basic Unravelled"), doing this allows this allows the coco driver
 	//  to access 32K of ram, and also allows the cocoe driver to access
 	//  the full 64K, as this uses Color Basic 1.2, which can configure 64K rams
-	bool memory_sense = (ram_size >= 0x4000 && ram_size <= 0x7FFF)
-		|| (ram_size >= 0x8000 && (pia_0().b_output() & 0x40));
+
+	bool memory_sense;
+	switch(m_ramsiz_config.read_safe(0))
+	{
+		default:
+		case 0: // automatic
+			memory_sense = (ram_size >= 0x4000 && ram_size <= 0x7FFF)
+			|| (ram_size >= 0x8000 && (pia_0().b_output() & 0x40));
+			break;
+		case 1: // tie high
+			memory_sense = true;
+			break;
+		case 2: // tie low
+			memory_sense = false;
+			break;
+		case 3: // tie to pia0 pb2
+			memory_sense = pia_0().b_output() & 0x40;
+			break;
+		}
 
 	// serial in (PB0)
 	bool serial_in = (m_rs232 != nullptr) && (m_rs232->rxd_r() ? true : false);
@@ -1117,7 +1135,8 @@ uint8_t coco_state::ff40_read(offs_t offset)
 		return m_beckerport->read(offset-1);
 	}
 
-	return m_cococart->scs_read(offset);
+// 	return m_cococart->scs_read(offset);
+	return 0;
 }
 
 
@@ -1132,7 +1151,7 @@ void coco_state::ff40_write(offs_t offset, uint8_t data)
 		return m_beckerport->write(offset-1, data);
 	}
 
-	m_cococart->scs_write(offset, data);
+// 	m_cococart->scs_write(offset, data);
 }
 
 

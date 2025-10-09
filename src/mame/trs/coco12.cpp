@@ -37,81 +37,90 @@
 
 void coco12_state::coco_mem(address_map &map)
 {
-	map(0x0000, 0xffff).rw(m_sam, FUNC(sam6883_device::read), FUNC(sam6883_device::write));
+	// SAM controls all
+	map(0x0000, 0xffff).m(m_sam, FUNC(sam6883_device::sam_mem));
 }
 
-void coco12_state::coco_ram(address_map &map)
+void deluxecoco_state::s0_ram_map(address_map &map)
 {
-	// mapped by configure_sam
+	// $0000-$FFEFF
+	map(0x4000, 0x7fff).bankrw(m_ram_bank);
 }
 
-void coco12_state::coco_rom0(address_map &map)
+void coco12_state::s1_rom0_map(address_map &map)
 {
 	// $8000-$9FFF
 	map(0x0000, 0x1fff).rom().region(MAINCPU_TAG, 0x0000).nopw();
 }
 
-void coco12_state::coco_rom1(address_map &map)
+void coco12_state::s2_rom1_map(address_map &map)
 {
 	// $A000-$BFFF
 	map(0x0000, 0x1fff).rom().region(MAINCPU_TAG, 0x2000).nopw();
 }
 
-void coco12_state::coco_rom2(address_map &map)
+void coco12_state::s3_rom2_map(address_map &map)
 {
 	// $C000-$FEFF
-	map(0x0000, 0x3eff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
+	map(0x0000, 0x3eff).m(m_cococart, FUNC(cococart_slot_device::cts_map));
+// 	map(0x0000, 0x3eff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
 }
 
-void deluxecoco_state::deluxecoco_rom2(address_map &map)
+void deluxecoco_state::s3_rom2_map(address_map &map)
 {
 	// $C000-$FEFF
-	map(0x0000, 0x3eff).view(m_rom_view);
+// 	map(0x0000, 0x3eff).view(m_rom_view);
+	map(0xc000, 0xfeff).view(m_rom_view);
 
-	m_rom_view[0](0x0000, 0x3eff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
+// 	m_rom_view[0](0x0000, 0x3eff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
+	m_rom_view[0](0x0000, 0x3eff).m(m_cococart, FUNC(cococart_slot_device::cts_map));
 	m_rom_view[1](0x0000, 0x3eff).rom().region(MAINCPU_TAG, 0x4000).nopw();
+
+// 	m_rom_view[0](0xc000, 0xfeff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
+// 	m_rom_view[1](0xc000, 0xfeff).rom().region(MAINCPU_TAG, 0x4000).nopw();
 }
 
-void coco12_state::coco_io0(address_map &map)
+void coco12_state::s4_io0_map(address_map &map)
 {
 	// $FF00-$FF1F
 	map(0x00, 0x03).mirror(0x1c).rw(m_pia_0, FUNC(pia6821_device::read), FUNC(pia6821_device::write));
 }
 
-void coco12_state::coco_io1(address_map &map)
+void coco12_state::s5_io1_map(address_map &map)
 {
 	// $FF20-$FF3F
 	map(0x00, 0x03).mirror(0x1c).r(m_pia_1, FUNC(pia6821_device::read)).w(FUNC(coco12_state::ff20_write));
 }
 
-void coco12_state::coco_io2(address_map &map)
-{
-	// $FF40-$FF5F
-	map(0x00, 0x1f).rw(FUNC(coco12_state::ff40_read), FUNC(coco12_state::ff40_write));
-}
-
-void coco12_state::coco_ff60(address_map &map)
-{
-	// $FF60-$FFDF
-	map(0x00, 0x7f).rw(FUNC(coco12_state::ff60_read), FUNC(coco12_state::ff60_write));
-}
-
-void coco12_state::ms1600_rom2(address_map &map)
-{
-	// $C000-$FEFF
-	map(0x0000, 0x2fff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
-	map(0x3000, 0x3eff).rom().region(MAINCPU_TAG, 0x7000).nopw();
-}
-
-void deluxecoco_state::deluxecoco_io1(address_map &map)
+void deluxecoco_state::s5_io1_map(address_map &map)
 {
 	// $FF20-$FF3F
-	map(0x00, 0x03).r(m_pia_1, FUNC(pia6821_device::read)).w(FUNC(coco12_state::ff20_write));
-	map(0x10, 0x10).w(FUNC(deluxecoco_state::ff30_write));
-	map(0x18, 0x19).w(m_psg, FUNC(ay8913_device::data_address_w));
+	map(0x00, 0x03).mirror(0x0c).r(m_pia_1, FUNC(pia6821_device::read)).w(FUNC(coco12_state::ff20_write));
+	map(0x10, 0x10).w(FUNC(deluxecoco_state::ff30_write)).nopr();
+	map(0x18, 0x19).w(m_psg, FUNC(ay8913_device::data_address_w)).nopr();
 	map(0x1c, 0x1f).rw(m_acia, FUNC(mos6551_device::read), FUNC(mos6551_device::write));
 }
 
+void coco12_state::s6_io2_map(address_map &map)
+{
+	// $FF40-$FF5F
+	map(0x00, 0x1f).m(m_cococart, FUNC(cococart_slot_device::scs_map));
+// 	map(0x00, 0x1f).rw(FUNC(coco12_state::ff40_read), FUNC(coco12_state::ff40_write));
+}
+
+void coco12_state::s7_res_map(address_map &map)
+{
+	// $FF60-$FFBF
+	map(0x00, 0x5f).rw(FUNC(coco12_state::ff60_read), FUNC(coco12_state::ff60_write));
+}
+
+void ms1600_state::s3_rom2_map(address_map &map)
+{
+	// $C000-$FEFF
+	map(0x0000, 0x2fff).m(m_cococart, FUNC(cococart_slot_device::cts_map));
+// 	map(0x0000, 0x2fff).rw(m_cococart, FUNC(cococart_slot_device::cts_read), FUNC(cococart_slot_device::cts_write));
+	map(0x3000, 0x3eff).rom().region(MAINCPU_TAG, 0x7000).nopw();
+}
 
 //**************************************************************************
 //  INPUT PORTS
@@ -178,6 +187,21 @@ INPUT_PORTS_START( coco_beckerport )
 	PORT_CONFNAME( 0x01, 0x00, "Becker Port" )
 	PORT_CONFSETTING(    0x00, DEF_STR( Off ))
 	PORT_CONFSETTING(    0x01, DEF_STR( On ))
+INPUT_PORTS_END
+
+
+
+//-------------------------------------------------
+//  INPUT_PORTS( coco_ram_size )
+//-------------------------------------------------
+
+INPUT_PORTS_START( coco_ram_size )
+	PORT_START(RAMSIZE_TAG)
+	PORT_CONFNAME( 0x03, 0x00, "RAM Size Jumper" )
+	PORT_CONFSETTING(    0x00, "Automatic")
+	PORT_CONFSETTING(    0x01, "Tie pia1 pb3 high")
+	PORT_CONFSETTING(    0x02, "Tie pia1 pb3 low")
+	PORT_CONFSETTING(    0x03, "Tie pia1 pb3 to pia0 pb6")
 INPUT_PORTS_END
 
 
@@ -278,6 +302,7 @@ static INPUT_PORTS_START( coco )
 	PORT_INCLUDE( coco_joystick )
 	PORT_INCLUDE( coco_analog_control )
 	PORT_INCLUDE( coco_beckerport )
+	PORT_INCLUDE( coco_ram_size )
 INPUT_PORTS_END
 
 
@@ -419,7 +444,7 @@ void coco_cart(device_slot_interface &device)
 
 void t4426_cart(device_slot_interface &device)
 {
-	device.option_add("t4426", COCO_T4426);
+// 	device.option_add("t4426", COCO_T4426);
 }
 
 //-------------------------------------------------
@@ -490,7 +515,10 @@ void coco12_state::coco(machine_config &config)
 
 	// basic machine hardware
 	MC6809E(config, m_maincpu, DERIVED_CLOCK(1, 1));
-	m_maincpu->set_addrmap(AS_PROGRAM, &coco12_state::coco_mem);
+
+	SAM6883(config, m_sam, XTAL(14'318'181), m_maincpu, m_ram);
+
+ 	m_maincpu->set_addrmap(AS_PROGRAM, &coco12_state::coco_mem);
 	m_maincpu->set_dasm_override(FUNC(coco_state::dasm_override));
 
 	// devices
@@ -516,16 +544,6 @@ void coco12_state::coco(machine_config &config)
 	m_pia_1->irqa_handler().set(m_firqs, FUNC(input_merger_device::in_w<0>));
 	m_pia_1->irqb_handler().set(m_firqs, FUNC(input_merger_device::in_w<1>));
 
-	SAM6883(config, m_sam, XTAL(14'318'181), m_maincpu);
-	m_sam->set_addrmap(0, &coco12_state::coco_ram);
-	m_sam->set_addrmap(1, &coco12_state::coco_rom0);
-	m_sam->set_addrmap(2, &coco12_state::coco_rom1);
-	m_sam->set_addrmap(3, &coco12_state::coco_rom2);
-	m_sam->set_addrmap(4, &coco12_state::coco_io0);
-	m_sam->set_addrmap(5, &coco12_state::coco_io1);
-	m_sam->set_addrmap(6, &coco12_state::coco_io2);
-	m_sam->set_addrmap(7, &coco12_state::coco_ff60);
-
 	// Becker Port device
 	COCO_DWSOCK(config, m_beckerport, 0);
 
@@ -550,13 +568,14 @@ void coco12_state::coco(machine_config &config)
 	m_vdg->input_callback().set(FUNC(coco12_state::sam_read));
 
 	// internal ram
-	RAM(config, m_ram).set_default_size("64K").set_extra_options("4K,16K,32K");
+	RAM(config, m_ram).set_default_size("64K").set_extra_options("4K,8K,16K,32K");
 
 	// floating space
 	coco_floating(config);
 
 	// cartridge
-	COCOCART_SLOT(config, m_cococart, DERIVED_CLOCK(1, 1), coco_cart, "fdc");
+	COCOCART_SLOT(config, m_cococart, DERIVED_CLOCK(1, 1), coco_cart, nullptr);
+// 	COCOCART_SLOT(config, m_cococart, DERIVED_CLOCK(1, 1), coco_cart, "fdc");
 	m_cococart->cart_callback().set([this] (int state) { cart_w(state != 0); }); // lambda because name is overloaded
 	m_cococart->nmi_callback().set_inputline(m_maincpu, INPUT_LINE_NMI);
 	m_cococart->halt_callback().set_inputline(m_maincpu, INPUT_LINE_HALT);
@@ -600,14 +619,13 @@ void deluxecoco_state::deluxecoco(machine_config &config)
 	rs232.dsr_handler().set(m_acia, FUNC(mos6551_device::write_dsr));
 	rs232.cts_handler().set(m_acia, FUNC(mos6551_device::write_cts));
 
+	// internal ram
+	RAM(config.replace(), m_ram).set_default_size("64K");
+
 	// Programable Sound Generator
 	AY8913(config, m_psg, DERIVED_CLOCK(2, 1));
 	m_psg->set_flags(AY8910_SINGLE_OUTPUT);
 	m_psg->add_route(ALL_OUTPUTS, "speaker", 1.0);
-
-	// Adjust Memory Map
-	m_sam->set_addrmap(3, &deluxecoco_state::deluxecoco_rom2);
-	m_sam->set_addrmap(5, &deluxecoco_state::deluxecoco_io1);
 
 	// Configure Timer
 	TIMER(config, m_timer).configure_generic(FUNC(deluxecoco_state::perodic_timer));
@@ -622,6 +640,8 @@ void coco12_state::coco2b(machine_config &config)
 	m_vdg->hsync_wr_callback().set(FUNC(coco12_state::horizontal_sync));
 	m_vdg->fsync_wr_callback().set(FUNC(coco12_state::field_sync));
 	m_vdg->input_callback().set(FUNC(coco12_state::sam_read));
+
+	RAM(config.replace(), m_ram).set_default_size("64K").set_extra_options("16K");
 }
 
 void coco12_state::coco2bh(machine_config &config)
@@ -654,13 +674,6 @@ void coco12_state::cd6809(machine_config &config)
 	coco(config);
 
 	m_cococart->set_default_option("cd6809_fdc");
-}
-
-void coco12_state::ms1600(machine_config &config)
-{
-	coco(config);
-
-	m_sam->set_addrmap(3, &coco12_state::ms1600_rom2);
 }
 
 //**************************************************************************
@@ -775,4 +788,4 @@ COMP( 1984,  mx1600,     coco,   0,      coco,       coco,       coco12_state,  
 COMP( 1986,  t4426,      coco,   0,      t4426,      coco,       coco12_state,     empty_init, "Terco AB",                     "Terco 4426 CNC Programming station",  MACHINE_SUPPORTS_SAVE )
 COMP( 1983,  lzcolor64,  coco,   0,      coco,       coco,       coco12_state,     empty_init, "Novo Tempo / LZ Equipamentos", "Color64",                             MACHINE_SUPPORTS_SAVE )
 COMP( 1983,  cd6809,     coco,   0,      cd6809,     coco,       coco12_state,     empty_init, "Codimex",                      "CD-6809",                             MACHINE_SUPPORTS_SAVE )
-COMP( 1987,  ms1600,     coco,   0,      ms1600,     coco,       coco12_state,     empty_init, "ILCE / SEP",                   "Micro-SEP 1600",                      MACHINE_SUPPORTS_SAVE )
+COMP( 1987,  ms1600,     coco,   0,      coco,       coco,       ms1600_state,     empty_init, "ILCE / SEP",                   "Micro-SEP 1600",                      MACHINE_SUPPORTS_SAVE )

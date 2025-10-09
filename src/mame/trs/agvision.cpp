@@ -316,10 +316,10 @@ void agvision_state::ff20_write(offs_t offset, uint8_t data)
 
 void agvision_state::configure_sam()
 {
-	offs_t ramsize = m_ram->size();
-	m_sam->space(0).install_ram(0, ramsize - 1, m_ram->pointer());
-	if (ramsize < 65536)
-		m_sam->space(0).nop_readwrite(ramsize, 0xffff);
+// 	offs_t ramsize = m_ram->size();
+// 	m_sam->space(0).install_ram(0, ramsize - 1, m_ram->pointer());
+// 	if (ramsize < 65536)
+// 		m_sam->space(0).nop_readwrite(ramsize, 0xffff);
 }
 
 //-------------------------------------------------
