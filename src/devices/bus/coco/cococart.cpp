@@ -122,13 +122,14 @@ ALLOW_SAVE_TYPE(cococart_slot_device::line_value);
 //-------------------------------------------------
 //  cococart_slot_device - constructor
 //-------------------------------------------------
-cococart_slot_device::cococart_slot_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock) :
-	device_t(mconfig, COCOCART_SLOT, tag, owner, clock),
-	device_single_card_slot_interface<device_cococart_interface>(mconfig, *this),
-	device_cartrom_image_interface(mconfig, *this),
-	m_cart_callback(*this),
-	m_nmi_callback(*this),
-	m_halt_callback(*this), m_cart(nullptr)
+cococart_slot_device::cococart_slot_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock)
+	: device_t(mconfig, COCOCART_SLOT, tag, owner, clock)
+	, device_single_card_slot_interface<device_cococart_interface>(mconfig, *this)
+	, device_cartrom_image_interface(mconfig, *this)
+	, m_cart_callback(*this)
+	, m_nmi_callback(*this)
+	, m_halt_callback(*this)
+	, m_cart(nullptr)
 {
 }
 
@@ -224,6 +225,7 @@ TIMER_CALLBACK_MEMBER(cococart_slot_device::halt_line_timer_tick)
 
 //-------------------------------------------------
 //  cts_map
+//  $c000 - $feff
 //-------------------------------------------------
 
 void cococart_slot_device::cts_map(address_map &map)
@@ -231,6 +233,8 @@ void cococart_slot_device::cts_map(address_map &map)
 	fprintf(stderr, "cococart_slot_device::cts_map\n");
 	if (m_cart)
 		m_cart->cts_map(map);
+	else
+		fprintf(stderr, "failed\n");
 }
 
 
@@ -260,6 +264,7 @@ void cococart_slot_device::cts_map(address_map &map)
 
 //-------------------------------------------------
 //  scs_map
+//  $ff40 - $ff5f
 //-------------------------------------------------
 
 void cococart_slot_device::scs_map(address_map &map)
@@ -267,6 +272,8 @@ void cococart_slot_device::scs_map(address_map &map)
 	fprintf(stderr, "cococart_slot_device::scs_map\n");
 	if (m_cart)
 		m_cart->scs_map(map);
+	else
+		fprintf(stderr, "failed\n" );
 }
 
 //-------------------------------------------------
@@ -722,6 +729,7 @@ void device_cococart_interface::interface_pre_start()
 
 void device_cococart_interface::cts_map(address_map &map)
 {
+	fprintf(stderr, "device_cococart_interface::cts_map\n");
 	return;
 }
 
@@ -753,6 +761,7 @@ void device_cococart_interface::cts_map(address_map &map)
 
 void device_cococart_interface::scs_map(address_map &map)
 {
+	fprintf(stderr,"device_cococart_interface::scs_map\n");
 	return;
 }
 

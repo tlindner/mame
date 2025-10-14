@@ -35,6 +35,7 @@ protected:
 	// device-level overrides
 	virtual void device_start() override ATTR_COLD;
 	virtual void device_reset() override ATTR_COLD;
+	virtual void device_add_mconfig(machine_config &config) override ATTR_COLD;
 	virtual void cts_map(address_map &map) override ATTR_COLD;
 // 	virtual u8 cts_read(offs_t offset) override;
 

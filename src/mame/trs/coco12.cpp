@@ -516,6 +516,13 @@ void coco12_state::coco(machine_config &config)
 	// basic machine hardware
 	MC6809E(config, m_maincpu, DERIVED_CLOCK(1, 1));
 
+	// cartridge
+	COCOCART_SLOT(config, m_cococart, DERIVED_CLOCK(1, 1), coco_cart, nullptr);
+// 	COCOCART_SLOT(config, m_cococart, DERIVED_CLOCK(1, 1), coco_cart, "fdc");
+	m_cococart->cart_callback().set([this] (int state) { cart_w(state != 0); }); // lambda because name is overloaded
+	m_cococart->nmi_callback().set_inputline(m_maincpu, INPUT_LINE_NMI);
+	m_cococart->halt_callback().set_inputline(m_maincpu, INPUT_LINE_HALT);
+
 	SAM6883(config, m_sam, XTAL(14'318'181), m_maincpu, m_ram);
 
  	m_maincpu->set_addrmap(AS_PROGRAM, &coco12_state::coco_mem);
@@ -572,13 +579,6 @@ void coco12_state::coco(machine_config &config)
 
 	// floating space
 	coco_floating(config);
-
-	// cartridge
-	COCOCART_SLOT(config, m_cococart, DERIVED_CLOCK(1, 1), coco_cart, nullptr);
-// 	COCOCART_SLOT(config, m_cococart, DERIVED_CLOCK(1, 1), coco_cart, "fdc");
-	m_cococart->cart_callback().set([this] (int state) { cart_w(state != 0); }); // lambda because name is overloaded
-	m_cococart->nmi_callback().set_inputline(m_maincpu, INPUT_LINE_NMI);
-	m_cococart->halt_callback().set_inputline(m_maincpu, INPUT_LINE_HALT);
 
 	// software lists
 	SOFTWARE_LIST(config, "coco_cart_list").set_original("coco_cart").set_filter("COCO");
@@ -656,7 +656,7 @@ void coco12_state::cp400(machine_config &config)
 {
 	coco(config);
 
-	m_cococart->set_default_option("cp450_fdc");
+// 	m_cococart->set_default_option("cp450_fdc");
 }
 
 void coco12_state::t4426(machine_config &config)
@@ -665,7 +665,7 @@ void coco12_state::t4426(machine_config &config)
 
 	m_cococart->option_reset();
 	t4426_cart(*m_cococart);
-	m_cococart->set_default_option("t4426");
+// 	m_cococart->set_default_option("t4426");
 	m_cococart->set_fixed(true); // This cart is fixed so no way to change it
 }
 
@@ -673,7 +673,7 @@ void coco12_state::cd6809(machine_config &config)
 {
 	coco(config);
 
-	m_cococart->set_default_option("cd6809_fdc");
+// 	m_cococart->set_default_option("cd6809_fdc");
 }
 
 //**************************************************************************

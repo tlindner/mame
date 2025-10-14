@@ -75,7 +75,13 @@ coco_pak_device::coco_pak_device(const machine_config &mconfig, const char *tag,
 
 void coco_pak_device::device_start()
 {
+	fprintf(stderr,"coco_pak_device::device_start\n");
 	m_cart = dynamic_cast<device_image_interface *>(owner());
+}
+
+void coco_pak_device::device_add_mconfig(machine_config &config)
+{
+	fprintf(stderr,"coco_pak_device::device_add_mconfig\n");
 }
 
 
@@ -148,7 +154,8 @@ void coco_pak_device::device_reset()
 void coco_pak_device::cts_map(address_map &map)
 {
 	fprintf(stderr, "coco pak mapping!\n");
-	map(0x0000, 0x3eff).rom().region(m_eprom,0);
+// 	map(0x0000, 0x3eff).rom().region(m_eprom,0);
+	map(0x0000, 0x3eff).rom().region("cart",0);
 }
 
 //-------------------------------------------------
