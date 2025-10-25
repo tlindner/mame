@@ -1169,10 +1169,10 @@ void coco_state::cart_w(bool state)
 //  cartridge_space
 //-------------------------------------------------
 
-address_space &coco_state::cartridge_space()
-{
-	return m_floating->space(0);
-}
+// address_space &coco_state::cartridge_space()
+// {
+// 	return m_floating->space(0);
+// }
 
 
 /***************************************************************************

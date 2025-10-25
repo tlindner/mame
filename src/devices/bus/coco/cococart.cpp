@@ -90,20 +90,20 @@
 ***************************************************************************/
 
 // definitions of RPK PCBs in layout.xml
-static const char *coco_rpk_pcbdefs[] =
-{
-	"standard",
-	"paged16k",
-	nullptr
-};
+// static const char *coco_rpk_pcbdefs[] =
+// {
+// 	"standard",
+// 	"paged16k",
+// 	nullptr
+// };
 
 
 // ...and their mappings to "default card slots"
-static const char *coco_rpk_cardslottypes[] =
-{
-	"pak",
-	"banked_16k"
-};
+// static const char *coco_rpk_cardslottypes[] =
+// {
+// 	"pak",
+// 	"banked_16k"
+// };
 
 
 //**************************************************************************
@@ -131,6 +131,8 @@ cococart_slot_device::cococart_slot_device(const machine_config &mconfig, const 
 	, m_halt_callback(*this)
 	, m_cart(nullptr)
 {
+	m_cart = get_card_device();
+	fprintf(stderr, "init m_cart: %p\n", m_cart);
 }
 
 
@@ -168,8 +170,6 @@ void cococart_slot_device::device_start()
 	m_halt_line.line            = 0;
 	m_halt_line.q_count         = 0;
 	m_halt_line.callback = &m_halt_callback;
-
-	m_cart = get_card_device();
 
 	save_item(STRUCT_MEMBER(m_cart_line, timer_index));
 	save_item(STRUCT_MEMBER(m_cart_line, delay));
@@ -230,6 +230,9 @@ TIMER_CALLBACK_MEMBER(cococart_slot_device::halt_line_timer_tick)
 
 void cococart_slot_device::cts_map(address_map &map)
 {
+	m_cart = get_card_device();
+	fprintf(stderr, "m_cart: %p\n", m_cart);
+
 	fprintf(stderr, "cococart_slot_device::cts_map\n");
 	if (m_cart)
 		m_cart->cts_map(map);
@@ -269,9 +272,13 @@ void cococart_slot_device::cts_map(address_map &map)
 
 void cococart_slot_device::scs_map(address_map &map)
 {
+	m_cart = get_card_device();
+	fprintf(stderr, "init m_cart: %p\n", m_cart);
+
 	fprintf(stderr, "cococart_slot_device::scs_map\n");
 	if (m_cart)
-		m_cart->scs_map(map);
+		map(0x0000,0x3eff).m(*m_cart, FUNC(device_cococart_interface::scs_map));
+// 		m_cart->scs_map(map);
 	else
 		fprintf(stderr, "failed\n" );
 }
@@ -542,17 +549,17 @@ cococart_slot_device::line_value cococart_slot_device::get_line_value(cococart_s
 //  read_coco_rpk
 //-------------------------------------------------
 
-static std::error_condition read_coco_rpk(std::unique_ptr<util::random_read> &&stream, rpk_file::ptr &result)
-{
-	// sanity checks
-	static_assert(std::size(coco_rpk_pcbdefs) - 1 == std::size(coco_rpk_cardslottypes));
-
-	// set up the RPK reader
-	rpk_reader reader(coco_rpk_pcbdefs, false);
-
-	// and read the RPK file
-	return reader.read(std::move(stream), result);
-}
+// static std::error_condition read_coco_rpk(std::unique_ptr<util::random_read> &&stream, rpk_file::ptr &result)
+// {
+// 	// sanity checks
+// 	static_assert(std::size(coco_rpk_pcbdefs) - 1 == std::size(coco_rpk_cardslottypes));
+//
+// 	// set up the RPK reader
+// 	rpk_reader reader(coco_rpk_pcbdefs, false);
+//
+// 	// and read the RPK file
+// 	return reader.read(std::move(stream), result);
+// }
 
 
 //-------------------------------------------------
@@ -601,44 +608,70 @@ static std::error_condition read_coco_rpk(std::unique_ptr<util::random_read> &&s
 
 std::pair<std::error_condition, std::string> cococart_slot_device::call_load()
 {
-	if (m_cart)
+	if (!m_cart)
+		return std::make_pair(std::error_condition(), std::string());
+
+	memory_region *romregion(loaded_through_softlist() ? memregion("rom") : nullptr);
+	if (loaded_through_softlist() && !romregion)
+		return std::make_pair(image_error::BADSOFTWARE, "Software list item has no 'rom' data area");
+
+	u32 const len(loaded_through_softlist() ? romregion->bytes() : length());
+	if (len > m_cart->max_rom_length())
 	{
-		memory_region *cart_mem = m_cart->get_cart_memregion();
+		return std::make_pair(
+				image_error::INVALIDLENGTH,
+				util::string_format("Unsupported cartridge size (must be no more than %u bytes)", m_cart->max_rom_length()));
+	}
 
-		u8 *base = cart_mem->base();
-		offs_t read_length, cart_length = cart_mem->bytes();
+	if (!loaded_through_softlist())
+	{
+		LOG("Allocating %u byte cartridge ROM region\n", len);
+		romregion = machine().memory().region_alloc(subtag("rom"), len, 1, ENDIANNESS_BIG);
+		u32 const cnt(fread(romregion->base(), len));
+		if (cnt != len)
+			return std::make_pair(image_error::UNSPECIFIED, "Error reading cartridge file");
+	}
 
-		if (loaded_through_softlist())
-		{
-			// loaded through softlist
-			read_length = get_software_region_length("rom");
-			memcpy(base, get_software_region("rom"), read_length);
-		}
-		else if (is_filetype("rpk"))
-		{
-			// RPK file
-			read_length = 0;
+	return m_cart->load();
+
+// 	if (m_cart)
+// 	{
+// 		memory_region *cart_mem = m_cart->get_cart_memregion();
+//
+// 		u8 *base = cart_mem->base();
+// 		offs_t read_length, cart_length = cart_mem->bytes();
+//
+// 		if (loaded_through_softlist())
+// 		{
+// 			// loaded through softlist
+// 			read_length = get_software_region_length("rom");
+// 			memcpy(base, get_software_region("rom"), read_length);
+// 		}
+// 		else if (is_filetype("rpk"))
+// 		{
+// 			// RPK file
+// 			read_length = 0;
 // 			util::core_file::ptr proxy;
 // 			std::error_condition err = util::core_file::open_proxy(image_core_file(), proxy);
 // 			if (!err)
 // 				err = read_coco_rpk(std::move(proxy), base, cart_length, read_length);
 // 			if (err)
 // 				return std::make_pair(err, std::string());
-		}
-		else
-		{
-			// conventional ROM image
-			read_length = fread(base, cart_length);
-		}
-
-		while (read_length < cart_length)
-		{
-			offs_t len = std::min(read_length, cart_length - read_length);
-			memcpy(base + read_length, base, len);
-			read_length += len;
-		}
-	}
-	return std::make_pair(std::error_condition(), std::string());
+// 		}
+// 		else
+// 		{
+// 			// conventional ROM image
+// 			read_length = fread(base, cart_length);
+// 		}
+//
+// 		while (read_length < cart_length)
+// 		{
+// 			offs_t len = std::min(read_length, cart_length - read_length);
+// 			memcpy(base + read_length, base, len);
+// 			read_length += len;
+// 		}
+// 	}
+// 	return std::make_pair(std::error_condition(), std::string());
 }
 
 
@@ -646,27 +679,27 @@ std::pair<std::error_condition, std::string> cococart_slot_device::call_load()
 //  get_default_card_software
 //-------------------------------------------------
 
-std::string cococart_slot_device::get_default_card_software(get_default_card_software_hook &hook) const
-{
-	// this is the default for anything not in an RPK file
-	int pcb_type = 0;
-
-	// is this an RPK?
-	if (hook.is_filetype("rpk"))
-	{
-		// RPK file
-		rpk_file::ptr file;
-		util::core_file::ptr proxy;
-		std::error_condition err = util::core_file::open_proxy(*hook.image_file(), proxy);
-		if (!err)
-			err = read_coco_rpk(std::move(proxy), file);
-		if (!err)
-			pcb_type = file->pcb_type();
-	}
-
-	// lookup the default slot
-	return software_get_default_slot(coco_rpk_cardslottypes[pcb_type]);
-}
+// std::string cococart_slot_device::get_default_card_software(get_default_card_software_hook &hook) const
+// {
+// 	// this is the default for anything not in an RPK file
+// 	int pcb_type = 0;
+//
+// 	// is this an RPK?
+// 	if (hook.is_filetype("rpk"))
+// 	{
+// 		// RPK file
+// 		rpk_file::ptr file;
+// 		util::core_file::ptr proxy;
+// 		std::error_condition err = util::core_file::open_proxy(*hook.image_file(), proxy);
+// 		if (!err)
+// 			err = read_coco_rpk(std::move(proxy), file);
+// 		if (!err)
+// 			pcb_type = file->pcb_type();
+// 	}
+//
+// 	// lookup the default slot
+// 	return software_get_default_slot(coco_rpk_cardslottypes[pcb_type]);
+// }
 
 
 //**************************************************************************
@@ -722,6 +755,23 @@ void device_cococart_interface::interface_pre_start()
 		throw emu_fatalerror("Expected m_owning_slot->owner() to be of type device_cococart_host_interface");
 }
 
+
+/*-------------------------------------------------
+    rom size constraints
+-------------------------------------------------*/
+
+int device_cococart_interface::max_rom_length() const
+{
+	return 0;
+}
+/*-------------------------------------------------
+    load
+-------------------------------------------------*/
+
+std::pair<std::error_condition, std::string> device_cococart_interface::load()
+{
+	return std::make_pair(image_error::UNSUPPORTED, std::string());
+}
 
 //-------------------------------------------------
 //  cts_map - address map constructor for ($C000-FFEF)
@@ -846,11 +896,11 @@ void device_cococart_interface::set_sound_enable(bool sound_enable)
     get_cart_memregion
 -------------------------------------------------*/
 
-memory_region *device_cococart_interface::get_cart_memregion()
-{
-	throw "device_cococart_interface::get_cart_memregion should never get called";
-	return 0;
-}
+// memory_region *device_cococart_interface::get_cart_memregion()
+// {
+// 	throw "device_cococart_interface::get_cart_memregion should never get called";
+// 	return 0;
+// }
 
 //-------------------------------------------------
 //  cartridge_space

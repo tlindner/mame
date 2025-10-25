@@ -22,6 +22,16 @@ void coco12_state::device_start()
 
 
 
+//-------------------------------------------------
+//  rom_view
+//-------------------------------------------------
+
+memory_view::memory_view_entry& coco12_state::rom_view()
+{
+	return m_sam->rom_view();
+}
+
+
 
 //-------------------------------------------------
 //  horizontal_sync

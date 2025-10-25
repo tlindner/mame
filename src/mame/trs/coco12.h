@@ -21,8 +21,6 @@
 #include "sound/ay8910.h"
 #include "video/mc6847.h"
 
-
-
 //**************************************************************************
 //  MACROS / CONSTANTS
 //**************************************************************************
@@ -45,6 +43,8 @@ public:
 		, m_vdg(*this, "vdg")
 	{
 	}
+
+	virtual memory_view::memory_view_entry&  rom_view() const override;
 
 	uint8_t sam_read(offs_t offset);
 

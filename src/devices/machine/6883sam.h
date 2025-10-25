@@ -148,6 +148,7 @@ public:
 	// Address maps
 	void sam_mem(address_map &map);
 	void internal_rom_map(address_map &map);
+	memory_view::memory_view_entry& rom_view() const { return const_cast<memory_view::memory_view_entry&>(*m_rom_view[1]); }
 
 	// typically called by VDG
 	ATTR_FORCE_INLINE uint8_t display_read(offs_t offset)

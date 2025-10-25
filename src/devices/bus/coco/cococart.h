@@ -78,7 +78,7 @@ public:
 	virtual const char *file_extensions() const noexcept override { return "ccc,rom"; }
 
 	// device_slot_interface implementation
-	virtual std::string get_default_card_software(get_default_card_software_hook &hook) const override;
+// 	virtual std::string get_default_card_software(get_default_card_software_hook &hook) const override;
 
 	// reading and writing to $C000-$FFEF
 	void cts_map(address_map &map);
@@ -155,7 +155,8 @@ DECLARE_DEVICE_TYPE(COCOCART_SLOT, cococart_slot_device)
 class device_cococart_host_interface
 {
 public:
-	virtual address_space &cartridge_space() = 0;
+// 	virtual address_space &cartridge_space() = 0;
+	virtual memory_view::memory_view_entry& rom_view() const;
 };
 
 
@@ -175,11 +176,14 @@ public:
 // 	virtual u8 scs_read(offs_t offset);
 // 	virtual void scs_write(offs_t offset, u8 data);
 	virtual void set_sound_enable(bool sound_enable);
+	virtual int max_rom_length() const;
+
+	virtual std::pair<std::error_condition, std::string> load();
 
 // 	virtual u8 *get_cart_base();
 // 	virtual u32 get_cart_size();
 // 	void set_cart_base_update(cococart_base_update_delegate update);
-	virtual memory_region *get_cart_memregion();
+// 	virtual memory_region *get_cart_memregion);
 
 protected:
 	virtual void interface_config_complete() override;

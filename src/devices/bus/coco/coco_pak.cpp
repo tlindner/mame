@@ -19,15 +19,15 @@
     IMPLEMENTATION
 ***************************************************************************/
 
-ROM_START( coco_pak )
-	ROM_REGION(0x8000, CARTSLOT_TAG, ROMREGION_ERASE00)
-	// this region is filled by cococart_slot_device::call_load()
-ROM_END
-
-ROM_START( coco_pak_banked )
-	ROM_REGION(0x20000, CARTSLOT_TAG, ROMREGION_ERASE00)
-	// this region is filled by cococart_slot_device::call_load()
-ROM_END
+// ROM_START( coco_pak )
+// 	ROM_REGION(0x8000, CARTSLOT_TAG, ROMREGION_ERASE00)
+// 	// this region is filled by cococart_slot_device::call_load()
+// ROM_END
+//
+// ROM_START( coco_pak_banked )
+// 	ROM_REGION(0x20000, CARTSLOT_TAG, ROMREGION_ERASE00)
+// 	// this region is filled by cococart_slot_device::call_load()
+// ROM_END
 
 
 //-------------------------------------------------
@@ -59,7 +59,7 @@ coco_pak_device::coco_pak_device(const machine_config &mconfig, device_type type
 	: device_t(mconfig, type, tag, owner, clock)
 	, device_cococart_interface(mconfig, *this)
 	, m_cart(nullptr)
-	, m_eprom(*this, CARTSLOT_TAG)
+// 	, m_eprom(*this, CARTSLOT_TAG)
 	, m_autostart(*this, CART_AUTOSTART_TAG)
 {
 }
@@ -95,11 +95,36 @@ ioport_constructor coco_pak_device::device_input_ports() const
 }
 
 //-------------------------------------------------
+//  rom constraints
+//-------------------------------------------------
+
+int coco_pak_device::max_rom_length() const
+{
+	return 0x4000; // 16k
+}
+
+//-------------------------------------------------
+//  load - install ROM region
+//-------------------------------------------------
+
+std::pair<std::error_condition, std::string> coco_pak_device::load()
+{
+	memory_region *const romregion(memregion("^rom"));
+	assert(romregion != nullptr);
+
+	// if the host has supplied a ROM space, install it
+	host().rom_view().install_rom(0, romregion->bytes(), romregion->base());
+
+	return std::make_pair(std::error_condition(), std::string());
+}
+
+//-------------------------------------------------
 //  rom_region - device-specific ROM region
 //-------------------------------------------------
 
 // const tiny_rom_entry *coco_pak_device::device_rom_region() const
 // {
+// 	fprintf(stderr,"coco_pak_device::device_rom_region\n");
 // 	return ROM_NAME( coco_pak );
 // }
 
@@ -151,12 +176,12 @@ void coco_pak_device::device_reset()
     cts_map
 -------------------------------------------------*/
 
-void coco_pak_device::cts_map(address_map &map)
-{
-	fprintf(stderr, "coco pak mapping!\n");
-// 	map(0x0000, 0x3eff).rom().region(m_eprom,0);
-	map(0x0000, 0x3eff).rom().region("cart",0);
-}
+// void coco_pak_device::cts_map(address_map &map)
+// {
+// 	fprintf(stderr, "coco pak mapping!\n");
+// // 	map(0x0000, 0x3eff).rom().region(m_eprom,0);
+// 	map(0x0000, 0x3eff).rom().region(CARTSLOT_TAG,0);
+// }
 
 //-------------------------------------------------
 //  cts_read
@@ -253,11 +278,21 @@ void coco_pak_banked_device::device_reset()
     cts_map ($C000 - $FEFF)
 -------------------------------------------------*/
 
-void coco_pak_banked_device::cts_map(address_map &map)
-{
-	fprintf(stderr, "coco pak banked mapping!\n");
-	map(0x0000, 0x3eff).rom().region(m_eprom,0);
-}
+// void coco_pak_banked_device::cts_map(address_map &map)
+// {
+// 	fprintf(stderr, "coco_pak_banked_device::cts_map\n");
+// // 	map(0x0000, 0x3eff).rom().region(m_eprom,0);
+// }
+
+/*-------------------------------------------------
+    scs_map
+-------------------------------------------------*/
+
+// void coco_pak_banked_device::scs_map(address_map &map)
+// {
+// 	fprintf(stderr, "coco_pak_banked_device::scs_map\n");
+// // 	map(0x00,0x1f).w(coco_pak_banked_device::scs_write);
+// }
 
 //-------------------------------------------------
 //  cts_read
@@ -268,15 +303,6 @@ void coco_pak_banked_device::cts_map(address_map &map)
 // 	return m_eprom->base()[(m_pos * 0x4000) % m_eprom->bytes() | offset];
 // }
 
-
-/*-------------------------------------------------
-    scs_map
--------------------------------------------------*/
-
-void coco_pak_banked_device::scs_map(address_map &map)
-{
-
-}
 
 //-------------------------------------------------
 //  scs_write
