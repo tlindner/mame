@@ -474,7 +474,9 @@ static void debugwin_view_update(debug_view &view, void *osdprivate)
 - (void)viewBoundsDidChange:(NSNotification *)notification {
 	NSView *const changed = [notification object];
 	if (changed == [[self enclosingScrollView] contentView])
+	{
 		[self adjustSizeAndRecomputeVisible];
+	}
 }
 
 
@@ -488,7 +490,9 @@ static void debugwin_view_update(debug_view &view, void *osdprivate)
 
 	NSView *const changed = [notification object];
 	if (changed == [[self enclosingScrollView] contentView])
+	{
 		[self adjustSizeAndRecomputeVisible];
+	}
 }
 
 

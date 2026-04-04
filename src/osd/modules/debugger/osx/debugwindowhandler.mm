@@ -115,6 +115,9 @@ NSString *const MAMESaveDebuggerConfigurationNotification = @"MAMESaveDebuggerCo
 	[newMenu addItemWithTitle:@"Devices Window"
 					   action:@selector(debugNewDevicesWindow:)
 				keyEquivalent:@""];
+	[newMenu addItemWithTitle:@"Lua Window"
+					   action:@selector(debugNewLuaWindow:)
+				keyEquivalent:@"u"];
 
 	[menu addItem:[NSMenuItem separatorItem]];
 
@@ -364,6 +367,11 @@ NSString *const MAMESaveDebuggerConfigurationNotification = @"MAMESaveDebuggerCo
 
 - (IBAction)debugNewDevicesWindow:(id)sender {
 	[console debugNewDevicesWindow:sender];
+}
+
+
+- (IBAction)debugNewLuaWindow:(id)sender {
+	[console debugNewLuaWindow:sender];
 }
 
 

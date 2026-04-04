@@ -76,6 +76,7 @@ extern NSString *const MAMESaveDebuggerConfigurationNotification;
 - (IBAction)debugNewErrorLogWindow:(id)sender;
 - (IBAction)debugNewPointsWindow:(id)sender;
 - (IBAction)debugNewDevicesWindow:(id)sender;
+- (IBAction)debugNewLuaWindow:(id)sender;
 
 - (void)windowWillClose:(NSNotification *)notification;
 

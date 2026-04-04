@@ -15,6 +15,7 @@
 #include "dvbpoints.h"
 #include "dvdisasm.h"
 #include "dvepoints.h"
+#include "dvlua.h"
 #include "dvmemory.h"
 #include "dvrpoints.h"
 #include "dvstate.h"
@@ -360,6 +361,9 @@ debug_view *debug_view_manager::alloc_view(debug_view_type type, debug_view_osd_
 
 		case DVT_LOG:
 			return append(new debug_view_log(machine(), osdupdate, osdprivate));
+
+		case DVT_LUA:
+			return append(new debug_view_lua(machine(), osdupdate, osdprivate));
 
 		case DVT_BREAK_POINTS:
 			return append(new debug_view_breakpoints(machine(), osdupdate, osdprivate));

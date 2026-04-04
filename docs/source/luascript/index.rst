@@ -17,7 +17,7 @@ implemented.  Today, the Lua interface is rich enough to let you inspect and
 manipulate device state, access CPU registers, read and write memory, and draw
 custom graphical overlays.
 
-There are three ways to use MAME’s Lua scripting capabilities:
+There are four ways to use MAME’s Lua scripting capabilities:
 
 * Using the :ref:`interactive Lua console <luascript-console>`, enabled by the
   :ref:`console option <mame-commandline-console>`.
@@ -27,6 +27,7 @@ There are three ways to use MAME’s Lua scripting capabilities:
   the emulated system before running the script.
 * By writing :ref:`Lua plugins <plugins>`.  Several plugins are included with
   MAME.
+* By opening a :ref:`Lua debug window <debugger-lua>` and choosing a Lua script to execute.
 
 Internally, MAME makes extensive use of `Sol3 <https://github.com/ThePhD/sol2>`_
 to implement Lua bindings.

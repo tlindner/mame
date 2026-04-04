@@ -34,6 +34,22 @@ debugging functionality.
 
 .. _debugger-sections-list:
 
+Debugger windows
+----------------
+
+The debug system in MAME is spread across multiple window types.
+
+.. toctree::
+    :titleonly:
+
+    console
+    disasembly
+    memory
+    errorlog
+    devices
+    points
+    lua
+
 Debugger commands
 -----------------
 
