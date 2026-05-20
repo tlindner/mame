@@ -59,7 +59,7 @@ public:
 
 protected:
 	mc6847_friend_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock,
-			const uint8_t *fontdata, bool is_mc6847t1, double tpfs, int field_sync_falling_edge_scanline, int divider,
+			const tiny_rom_entry *rom_region_data, bool is_mc6847t1, double tpfs, int field_sync_falling_edge_scanline, int divider,
 			bool supports_partial_body_scanlines, bool pal);
 
 	// fonts
@@ -69,6 +69,7 @@ protected:
 	static const uint8_t semigraphics6_fontdata8x12[];
 	static const uint8_t s68047_fontdata8x12[];
 	static const uint8_t stripes[];
+	const tiny_rom_entry *m_rom_data;
 
 	// pixel definitions
 	typedef uint32_t pixel_t;
@@ -89,7 +90,7 @@ protected:
 	{
 	public:
 		// constructor that sets up the font data
-		character_map(const uint8_t *fontdata, bool is_mc6847t1);
+		character_map(const tiny_rom_entry *rom_region_data, bool is_mc6847t1);
 
 		// optimized template function that emits a single character
 		template<int xscale>
@@ -143,6 +144,7 @@ protected:
 		entry m_entries[128];
 
 		// text font data calculated on startup
+		uint8_t m_text_fontdata[256*12];
 		uint8_t m_text_fontdata_inverse[64*12];
 		uint8_t m_text_fontdata_lower_case[64*12];
 		uint8_t m_text_fontdata_lower_case_inverse[64*12];
@@ -501,7 +503,7 @@ public:
 	void set_palette(const uint32_t *palette) { m_palette = (palette) ? palette : default_palette(); }
 
 protected:
-	mc6847_base_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock, const uint8_t *fontdata, double tpfs, bool pal);
+	mc6847_base_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock, const tiny_rom_entry *rom_region_data, double tpfs, bool pal);
 
 	// device_t overrides
 	virtual void device_config_complete() override;

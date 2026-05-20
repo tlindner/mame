@@ -176,14 +176,14 @@ const uint32_t mc6847_base_device::s_palette[mc6847_base_device::PALETTE_LENGTH]
 //-------------------------------------------------
 
 mc6847_friend_device::mc6847_friend_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock,
-		const uint8_t *fontdata, bool is_mc6847t1, double tpfs, int field_sync_falling_edge_scanline, int divider,
+		const tiny_rom_entry *rom_region_data, bool is_mc6847t1, double tpfs, int field_sync_falling_edge_scanline, int divider,
 		bool supports_partial_body_scanlines, bool pal)
 	: device_t(mconfig, type, tag, owner, clock)
 	, device_video_interface(mconfig, *this)
 	, m_write_hsync(*this)
 	, m_write_fsync(*this)
 	, m_charrom_cb(*this)
-	, m_character_map(fontdata, is_mc6847t1)
+	, m_character_map(rom_region_data, is_mc6847t1)
 	, m_tpfs(tpfs)
 	, m_pal(pal)
 	, m_lines_top_border(pal ? LINES_TOP_BORDER + LINES_PADDING_TOP_PAL : LINES_TOP_BORDER)
@@ -614,8 +614,8 @@ std::string mc6847_friend_device::describe_context() const
 //  ctor
 //-------------------------------------------------
 
-mc6847_base_device::mc6847_base_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock, const uint8_t *fontdata, double tpfs, bool pal)
-	: mc6847_friend_device(mconfig, type, tag, owner, clock, fontdata, type == MC6847T1, tpfs, LINES_TOP_BORDER + LINES_ACTIVE_VIDEO - 1, 1, true, pal)
+mc6847_base_device::mc6847_base_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock, const tiny_rom_entry *rom_region_data, double tpfs, bool pal)
+	: mc6847_friend_device(mconfig, type, tag, owner, clock, rom_region_data, type == MC6847T1, tpfs, LINES_TOP_BORDER + LINES_ACTIVE_VIDEO - 1, 1, true, pal)
 	, m_input_cb(*this, 0)
 	, m_black_and_white(false)
 	, m_fixed_mode(0)
@@ -720,6 +720,17 @@ void mc6847_base_device::device_reset()
 {
 	mc6847_friend_device::device_reset();
 	m_mode = m_fixed_mode;
+}
+
+
+
+//-------------------------------------------------
+//  rom_region - device-specific ROM region
+//-------------------------------------------------
+
+const tiny_rom_entry *mc6847_base_device::device_rom_region() const
+{
+	return nullptr;
 }
 
 
@@ -1039,15 +1050,114 @@ uint32_t mc6847_base_device::screen_update(screen_device &screen, bitmap_rgb32 &
 //  CHARACTER MAP
 //**************************************************************************
 
-mc6847_friend_device::character_map::character_map(const uint8_t *text_fontdata, bool is_mc6847t1)
+mc6847_friend_device::character_map::character_map(const tiny_rom_entry *rom_region_data, bool is_mc6847t1)
+/* const uint8_t *text_fontdata */
+
 {
+	// expand font ROMs to 8x12
+
+    // Clear out the destination grid completely for all 256 characters
+    std::fill(std::begin(m_text_fontdata), std::end(m_text_fontdata), 0);
+
+    if (rom_region_data == nullptr)
+        return;
+
+    const uint8_t *raw_rom = rom_region_data->base();
+    const uint32_t rom_size = rom_region_data->length();
+
+    // Type 3: High-capacity External Character ROM (8K or 16K)
+    // Full 8x12 characters spaced out with a 16-byte stride formatting.
+    if (rom_size == 8192 || rom_size == 16384)
+    {
+        for (int ch = 0; ch < 256; ++ch)
+        {
+            int src_base = ch * 16;
+
+            // Hard protection: Ensure we don't read past the end of smaller physical files
+            if (src_base + 12 > rom_size)
+                break;
+
+            for (int row = 0; row < 12; ++row)
+            {
+                // Pull unshifted 8-bit rows directly (automatically ignores padding rows 12-15)
+                m_text_fontdata[ch][row] = raw_rom[src_base + row];
+            }
+        }
+    }
+    // Type 1: Legacy VDG (Internal 64 Character Compact 5x7 Font)
+    else if (!is_mc6847t1)
+    {
+        // Loop all 256 characters. Mirror the 64-byte ROM repeatedly across the buffer using modulo.
+        for (int ch = 0; ch < 256; ++ch)
+        {
+            int rom_ch = ch % 64;
+            int src_base = rom_ch * 7;
+
+            for (int row = 0; row < 7; ++row)
+            {
+                uint8_t src_byte = raw_rom[src_base + row];
+                uint8_t pixel_slice = (src_byte >> 3) & 0x1F;
+
+                // Align to D5-D1, start on Row 3
+                m_text_fontdata[ch][row + 3] = (pixel_slice << 1);
+            }
+        }
+    }
+    // Type 2: MC6847T1 (Internal 96 Character Variable Position 5x7 Font)
+    else
+    {
+        struct glyph_offset { uint8_t v_start; uint8_t h_shift; };
+
+        static const glyph_offset t1_offsets[96] = {
+            {3, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, // @ to G
+            {3, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, // H to O
+            {3, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, // P to W
+            {3, 1}, {3, 1}, {3, 1}, {3, 1}, {4, 1}, {3, 1}, {3, 1}, {4, 1}, // X to left arrow
+            {0, 0}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, // space to &
+            {3, 1}, {3, 1}, {3, 1}, {4, 1}, {4, 1}, {8, 1}, {6, 1}, {8, 1}, // ' to .
+            {4, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, // / to 7
+            {3, 1}, {3, 1}, {5, 1}, {5, 1}, {3, 1}, {5, 1}, {3, 1}, {3, 1}, // 8 to ?
+
+            /* Lower Case Range */
+            {3, 1}, {5, 1}, {3, 1}, {5, 1}, {3, 1}, {5, 1}, {3, 1}, {5, 1}, // ^ to g
+            {3, 1}, {3, 1}, {4, 1}, {3, 1}, {3, 1}, {5, 1}, {5, 1}, {5, 1}, // h to o
+            {5, 1}, {5, 1}, {5, 1}, {5, 1}, {3, 1}, {5, 1}, {5, 1}, {5, 1}, // p to w
+            {5, 1}, {5, 1}, {5, 1}, {3, 1}, {3, 1}, {3, 1}, {3, 1}, {9, 1}  // x to _
+        };
+
+        // Loop all 256 characters. Mirror the 96-byte layout via modulo.
+        for (int ch = 0; ch < 256; ++ch)
+        {
+            int rom_ch = ch % 96;
+            int src_base = rom_ch * 7;
+            glyph_offset align = t1_offsets[rom_ch];
+
+            if (align.v_start == 0 && align.h_shift == 0)
+                continue;
+
+            for (int row = 0; row < 7; ++row)
+            {
+                uint8_t src_byte = raw_rom[src_base + row];
+                uint8_t pixel_slice = (src_byte >> 3) & 0x1F;
+                uint8_t aligned_pixels = (pixel_slice << align.h_shift);
+
+                int dest_row = align.v_start + row;
+                if (dest_row < 12)
+                {
+                    m_text_fontdata[ch][dest_row] = aligned_pixels;
+                }
+            }
+        }
+    }
+
 	// set up font data
 	for (int i = 0; i < 64*12; i++)
 	{
-		m_text_fontdata_inverse[i]              = text_fontdata[i] ^ 0xFF;
-		m_text_fontdata_lower_case[i]           = text_fontdata[i + (i < 32*12 ? 64*12 : 0)] ^ (i < 32*12 ? 0xFF : 0x00);
+		m_text_fontdata_inverse[i]              = m_text_fontdata[i] ^ 0xFF;
+		m_text_fontdata_lower_case[i]           = m_text_fontdata[i + (i < 32*12 ? 64*12 : 0)] ^ (i < 32*12 ? 0xFF : 0x00);
 		m_text_fontdata_lower_case_inverse[i]   = m_text_fontdata_lower_case[i] ^ 0xFF;
 	}
+
 	for (int i = 0; i < 128*12; i++)
 		m_stripes[i] = ~(i / 12);
 
@@ -1101,7 +1211,7 @@ mc6847_friend_device::character_map::character_map(const uint8_t *text_fontdata,
 			bool is_inverse     = (is_inverse1 && !is_inverse2) || (!is_inverse1 && is_inverse2);
 			fontdata            = is_inverse
 									? (is_lower_case ? m_text_fontdata_lower_case_inverse : m_text_fontdata_inverse)
-									: (is_lower_case ? m_text_fontdata_lower_case : text_fontdata);
+									: (is_lower_case ? m_text_fontdata_lower_case : m_text_fontdata);
 			character_mask      = 0x3F;
 			color_base_0        = (mode & MODE_CSS ? 14 : 12);
 			color_base_1        = (mode & MODE_CSS ? 15 : 13);
@@ -1727,6 +1837,28 @@ void mc6847_base_device::artifacter::create_color_blend_table( const pixel_t *pa
 	m_palcolorblendmap.insert(std::pair<std::pair<pixel_t,pixel_t>,pixel_t>(std::pair<pixel_t,pixel_t>(palette[7],palette[0]),rgb_t(0xad, 0xbc, 0x22))); /* ORANGE-GREEN */
 }
 
+ROM_START( mc6847_rom )
+    ROM_REGION( 0x140, "chargen", 0 )
+    ROM_LOAD( "mc6847_charset.bin", 0x0000, 0x0140, CRC(0) SHA1(0) )
+ROM_END
+
+ROM_START( mc6847y_rom )
+    ROM_REGION( 0x140, "chargen", 0 )
+    ROM_LOAD( "mc6847y_charset.bin", 0x0000, 0x0140, CRC(0) SHA1(0) )
+ROM_END
+
+ROM_START( mc6847t1_rom )
+    ROM_REGION( 0x02a0, "chargen", 0 )
+    ROM_LOAD( "mc6847t1_charset.bin", 0x0000, 0x02a0, CRC(0) SHA1(0) )
+ROM_END
+
+ROM_START( s68047_rom )
+    ROM_REGION( 0x140, "chargen", 0 )
+    ROM_LOAD( "s68047_charset.bin", 0x0000, 0x0140, CRC(0) SHA1(0) )
+ROM_END
+
+
+
 //**************************************************************************
 //  VARIATIONS
 //**************************************************************************
@@ -1743,7 +1875,7 @@ DEFINE_DEVICE_TYPE(M5C6847P1,  m5c6847p1_device,  "m5c6847p1",  "Mitsubishi M5C6
 //-------------------------------------------------
 
 mc6847_device::mc6847_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock, bool pal)
-	: mc6847_base_device(mconfig, MC6847, tag, owner, clock, vdg_fontdata8x12, pal ? 312.0 : 262.0, pal)
+	: mc6847_base_device(mconfig, MC6847, tag, owner, clock, ROM_NAME( mc6847_rom ), pal ? 312.0 : 262.0, pal)
 {
 	m_artifacter.set_pal_artifacting(pal);
 }
@@ -1754,7 +1886,7 @@ mc6847_device::mc6847_device(const machine_config &mconfig, const char *tag, dev
 //-------------------------------------------------
 
 mc6847y_device::mc6847y_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock, bool pal)
-	: mc6847_base_device(mconfig, MC6847Y, tag, owner, clock, vdg_fontdata8x12, pal ? 312.0 : 262.5, pal)
+	: mc6847_base_device(mconfig, MC6847Y, tag, owner, clock, ROM_NAME( mc6847y_rom ), pal ? 312.0 : 262.5, pal)
 {
 	m_artifacter.set_pal_artifacting(pal);
 }
@@ -1765,7 +1897,7 @@ mc6847y_device::mc6847y_device(const machine_config &mconfig, const char *tag, d
 //-------------------------------------------------
 
 mc6847t1_device::mc6847t1_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock, bool pal)
-	: mc6847_base_device(mconfig, MC6847T1, tag, owner, clock, vdg_t1_fontdata8x12, pal ? 312.0 : 262.0, pal)
+	: mc6847_base_device(mconfig, MC6847T1, tag, owner, clock, ROM_NAME( mc6847t1_rom ), pal ? 312.0 : 262.0, pal)
 {
 	m_artifacter.set_pal_artifacting(pal);
 }
@@ -1795,7 +1927,7 @@ uint8_t mc6847t1_device::border_value(uint8_t mode)
 //-------------------------------------------------
 
 s68047_device::s68047_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock)
-	: mc6847_base_device(mconfig, S68047, tag, owner, clock, s68047_fontdata8x12, 262.0, false)
+	: mc6847_base_device(mconfig, S68047, tag, owner, clock, ROM_NAME( s68047_rom ), 262.0, false)
 {
 	set_palette(s_s68047_palette);
 }
@@ -1866,7 +1998,7 @@ uint32_t s68047_device::emit_samples(uint8_t mode, const uint8_t *data, int leng
 //-------------------------------------------------
 
 m5c6847p1_device::m5c6847p1_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock, bool pal)
-	: mc6847_base_device(mconfig, M5C6847P1, tag, owner, clock, vdg_fontdata8x12, pal ? 312.0 : 262.5, pal)
+	: mc6847_base_device(mconfig, M5C6847P1, tag, owner, clock, ROM_NAME( mc6847_rom ), pal ? 312.0 : 262.5, pal)
 {
 	m_artifacter.set_pal_artifacting(pal);
 }
