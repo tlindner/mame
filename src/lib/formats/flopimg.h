@@ -342,6 +342,31 @@ protected:
 		uint8_t *data;
 	};
 
+	enum class track_density
+	{
+		FORCE_FM,
+		FORCE_MFM,
+		MIXED
+	};
+
+	struct sector_metadata
+	{
+		uint32_t byte_offset;    // Offset within the decoded_data vector
+		bool     is_mfm;         // true = MFM, false = FM
+		uint8_t  dam_type;       // Raw data mark type byte (e.g., 0xFB normal, 0xF8 deleted)
+		uint8_t  track;
+		uint8_t  head;
+		uint8_t  sector;
+		uint8_t  size_code;      // Sector size (128 << size_code)
+	};
+
+	struct decoded_track_data
+	{
+		std::vector<uint8_t>         decoded_data; // Pure byte stream of the track
+		std::vector<uint8_t>         clock_data;   // Corresponding raw clock bytes (useful for FM/syncs)
+		std::vector<sector_metadata> sectors;      // Identified sector descriptors
+	};
+
 	static int calc_default_pc_gap3_size(uint32_t form_factor, int sector_size);
 	static void build_wd_track_fm(int track, int head, floppy_image &image, int cell_count, int sector_count, const desc_pc_sector *sects, int gap_3, int gap_1, int gap_2);
 	static void build_wd_track_mfm(int track, int head, floppy_image &image, int cell_count, int sector_count, const desc_pc_sector *sects, int gap_3, int gap_1, int gap_2=22);
@@ -357,6 +382,9 @@ protected:
 
 	//! PC-type sectors with FM encoding
 	static std::vector<std::vector<uint8_t>> extract_sectors_from_bitstream_fm_pc(const std::vector<bool> &bitstream);
+
+	//! PC-type sectors with MFM and FM encoding mixed on same track, sector size can go from 128 bytes to 16K.
+	static floppy_image_format_t::decoded_track_data extract_sectors_from_bitstream_mix_pc(const std::vector<bool> &bitstream);
 
 	//! Commodore type sectors with GCR5 encoding
 	static std::vector<std::vector<uint8_t>> extract_sectors_from_bitstream_gcr5(const std::vector<bool> &bitstream, int head, int tracks);

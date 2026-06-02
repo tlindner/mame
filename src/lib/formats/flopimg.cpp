@@ -1598,6 +1598,214 @@ uint8_t floppy_image_format_t::sbyte_gcr5_r(const std::vector<bool> &bitstream, 
 	return (gcr5bw_tb[gcr >> 5] << 4) | gcr5bw_tb[gcr & 0x1f];
 }
 
+// Helper to safely extract a standard MFM decoded byte at a specific bitstream position
+// inline uint8_t sbyte_mfm_r(const std::vector<bool> &bitstream, uint32_t &pos)
+// {
+// 	uint8_t data = 0;
+// 	for (int i = 0; i < 8; i++)
+// 	{
+// 		// Skip the clock bit (even positions) and sample the data bit (odd positions)
+// 		pos++;
+// 		if (pos < bitstream.size() && bitstream[pos])
+// 			data |= (0x80 >> i);
+// 		pos++;
+// 	}
+// 	return data;
+// }
+
+floppy_image_format_t::decoded_track_data floppy_image_format_t::extract_sectors_from_bitstream_mix_pc(const std::vector<bool> &bitstream)
+{
+	floppy_image_format_t::decoded_track_data track_out;
+
+	if (bitstream.size() < 100)
+		return track_out;
+
+	// Pre-reserve vectors based on a uniform double-density track target size
+	track_out.decoded_data.reserve(bitstream.size() / 8);
+	track_out.clock_data.reserve(bitstream.size() / 8);
+
+	uint32_t mfm_shift = 0;
+	uint16_t fm_shift = 0;
+
+	// Precharge shift registers from the end of the stream to catch wrapping syncs
+	for (size_t i = 0; i < 32; i++)
+	{
+		bool bit = (bitstream.size() - 32 + i < bitstream.size()) ? bitstream[bitstream.size() - 32 + i] : false;
+		mfm_shift = (mfm_shift << 1) | bit;
+		if (i >= 16)
+			fm_shift = (fm_shift << 1) | bit;
+	}
+
+	uint32_t i = 0;
+	while (i < bitstream.size())
+	{
+		bool bit = bitstream[i];
+		mfm_shift = (mfm_shift << 1) | bit;
+		fm_shift = (fm_shift << 1) | bit;
+		i++;
+
+		// -----------------------------------------------------------------
+		// 1. PROCESS MFM ADDRESS MARKS (A1 Sync with Missing Clock = 0x4489)
+		// -----------------------------------------------------------------
+		if ((mfm_shift & 0xffff) == 0x4489)
+		{
+			uint32_t sync_pos = i;
+			uint8_t mark_type = sbyte_mfm_r(bitstream, i);
+
+			if (mark_type == 0xFE) // IDAM Found
+			{
+				sector_metadata meta;
+				meta.byte_offset = track_out.decoded_data.size();
+				meta.is_mfm       = true;
+				meta.track        = sbyte_mfm_r(bitstream, i);
+				meta.head         = sbyte_mfm_r(bitstream, i);
+				meta.sector       = sbyte_mfm_r(bitstream, i);
+				meta.size_code    = sbyte_mfm_r(bitstream, i);
+				meta.dam_type     = 0xFB;
+
+				// Lookahead scan for adjacent MFM Data Address Mark (DAM)
+				uint32_t scan_pos = i;
+				uint32_t lookahead_limit = i + 1500;
+				uint32_t look_shift = 0;
+				while (scan_pos < bitstream.size() && scan_pos < lookahead_limit)
+				{
+					look_shift = (look_shift << 1) | bitstream[scan_pos++];
+					if ((look_shift & 0xffff) == 0x4489)
+					{
+						uint8_t potential_dam = sbyte_mfm_r(bitstream, scan_pos);
+						if (potential_dam >= 0xF8 && potential_dam <= 0xFB)
+						{
+							meta.dam_type = potential_dam;
+							break;
+						}
+					}
+				}
+
+				track_out.sectors.push_back(meta);
+
+				track_out.decoded_data.push_back(0xA1);         track_out.clock_data.push_back(0x0A);
+				track_out.decoded_data.push_back(mark_type);    track_out.clock_data.push_back(0x00);
+				track_out.decoded_data.push_back(meta.track);    track_out.clock_data.push_back(0x00);
+				track_out.decoded_data.push_back(meta.head);     track_out.clock_data.push_back(0x00);
+				track_out.decoded_data.push_back(meta.sector);   track_out.clock_data.push_back(0x00);
+				track_out.decoded_data.push_back(meta.size_code); track_out.clock_data.push_back(0x00);
+
+				mfm_shift = 0;
+				continue;
+			}
+			else if (mark_type >= 0xF8 && mark_type <= 0xFB) // Standalone DAM
+			{
+				track_out.decoded_data.push_back(0xA1);
+				track_out.clock_data.push_back(0x0A);
+				track_out.decoded_data.push_back(mark_type);
+				track_out.clock_data.push_back(0x00);
+
+				mfm_shift = 0;
+				continue;
+			}
+			i = sync_pos;
+		}
+
+		// -----------------------------------------------------------------
+		// 2. PROCESS FM ADDRESS MARKS (Single Density C7 Clock Rules)
+		// -----------------------------------------------------------------
+		if (fm_shift == 0xF57E || fm_shift == 0xF56A || fm_shift == 0xF56F)
+		{
+			uint8_t fm_clock = 0;
+			uint8_t fm_data  = 0;
+			for (int j = 0; j < 8; j++)
+			{
+				if (fm_shift & (0x8000 >> (j * 2))) fm_clock |= (0x80 >> j);
+				if (fm_shift & (0x4000 >> (j * 2))) fm_data  |= (0x80 >> j);
+			}
+
+			if (fm_data == 0xFE) // FM IDAM Found
+			{
+				sector_metadata meta;
+				meta.byte_offset = track_out.decoded_data.size();
+				meta.is_mfm       = false;
+				meta.dam_type     = 0xFB;
+
+				// Parse consecutive FM elements from the bitstream
+				auto read_fm_byte = [&bitstream, &i](uint8_t &out_clk, uint8_t &out_dat) {
+					uint16_t word = 0;
+					for (int j = 0; j < 16 && i < bitstream.size(); j++)
+						word = (word << 1) | bitstream[i++];
+					out_clk = 0; out_dat = 0;
+					for (int j = 0; j < 8; j++) {
+						if (word & (0x8000 >> (j * 2))) out_clk |= (0x80 >> j);
+						if (word & (0x4000 >> (j * 2))) out_dat |= (0x80 >> j);
+					}
+				};
+
+				read_fm_byte(fm_clock, meta.track);
+				read_fm_byte(fm_clock, meta.head);
+				read_fm_byte(fm_clock, meta.sector);
+				read_fm_byte(fm_clock, meta.size_code);
+
+				// Lookahead scan for adjacent FM data address marks
+				uint32_t scan_pos = i;
+				uint32_t lookahead_limit = i + 1000;
+				uint16_t look_shift = 0;
+				while (scan_pos < bitstream.size() && scan_pos < lookahead_limit)
+				{
+					look_shift = (look_shift << 1) | bitstream[scan_pos++];
+					if (look_shift == 0xF56A) { meta.dam_type = 0xF8; break; } // DDAM
+					if (look_shift == 0xF56F) { meta.dam_type = 0xFB; break; } // DAM
+				}
+
+				track_out.sectors.push_back(meta);
+
+				// UNCONDITIONAL DOUBLE-BYTE STORAGE PATH
+				// Write out each element twice to normalize spacing against MFM timelines
+				for (int repeat = 0; repeat < 2; repeat++)
+				{
+					track_out.decoded_data.push_back(fm_data);   track_out.clock_data.push_back(fm_clock);
+					track_out.decoded_data.push_back(meta.track);  track_out.clock_data.push_back(0x00);
+					track_out.decoded_data.push_back(meta.head);   track_out.clock_data.push_back(0x00);
+					track_out.decoded_data.push_back(meta.sector); track_out.clock_data.push_back(0x00);
+					track_out.decoded_data.push_back(meta.size_code); track_out.clock_data.push_back(0x00);
+				}
+
+				fm_shift = 0;
+				continue;
+			}
+			else // Standalone FM Data Mark
+			{
+				// Double-write individual FM data markers
+				track_out.decoded_data.push_back(fm_data);
+				track_out.clock_data.push_back(fm_clock);
+				track_out.decoded_data.push_back(fm_data);
+				track_out.clock_data.push_back(fm_clock);
+
+				fm_shift = 0;
+				continue;
+			}
+		}
+
+		// -----------------------------------------------------------------
+		// 3. STANDARD DATA FRAME WINDOW FLOW (16-Bit Grid Boundary Alignment)
+		// -----------------------------------------------------------------
+		if ((i % 16) == 0)
+		{
+			uint16_t word = (mfm_shift & 0xffff);
+			uint8_t standard_data = 0;
+			uint8_t standard_clock = 0;
+
+			for (int j = 0; j < 8; j++)
+			{
+				if (word & (0x8000 >> (j * 2))) standard_clock |= (0x80 >> j);
+				if (word & (0x4000 >> (j * 2))) standard_data  |= (0x80 >> j);
+			}
+
+			track_out.decoded_data.push_back(standard_data);
+			track_out.clock_data.push_back(standard_clock);
+		}
+	}
+
+	return track_out;
+}
+
 std::vector<std::vector<uint8_t>> floppy_image_format_t::extract_sectors_from_bitstream_mfm_pc(const std::vector<bool> &bitstream)
 {
 	std::vector<std::vector<uint8_t>> sectors;
