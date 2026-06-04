@@ -1616,7 +1616,7 @@ uint8_t floppy_image_format_t::sbyte_gcr5_r(const std::vector<bool> &bitstream, 
 void floppy_image_format_t::dump_decoded_track_details(const floppy_image_format_t::decoded_track_data &track)
 {
 	fprintf(stderr, "=====================================================================\n");
-	fprintf(stderr, "DECODER TRACK DUMP REPORT\n");
+	fprintf(stderr, "DECODER TRACK DUMP REPORT (MARK-ALIGNED POSITIONING)\n");
 	fprintf(stderr, "=====================================================================\n");
 	fprintf(stderr, "Total Decoded Bytes: %zu\n", track.decoded_data.size());
 	fprintf(stderr, "Total Sectors Found: %zu\n", track.sectors.size());
@@ -1632,8 +1632,8 @@ void floppy_image_format_t::dump_decoded_track_details(const floppy_image_format
 		const auto &sector = track.sectors[idx];
 		fprintf(stderr, "Sector Index [%02zu]:\n", idx);
 		fprintf(stderr, "  Density Type : %s\n", sector.is_mfm ? "MFM (Double Density)" : "FM (Single Density)");
-		fprintf(stderr, "  Byte Offset  : %u (0x%04X) [Pointer to Data: 0x%04X]\n",
-			sector.byte_offset, sector.byte_offset, sector.byte_offset + 64 + 1);
+		fprintf(stderr, "  Byte Offset  : %u (0x%04X) [Pointer to Mark: 0x%04X]\n",
+			sector.byte_offset, sector.byte_offset, 128 + sector.byte_offset);
 		fprintf(stderr, "  Geometry     : Cylinder/Track: %u, Head: %u, Sector ID: %u\n",
 			sector.track, sector.head, sector.sector);
 		fprintf(stderr, "  Sector Size  : Code %u (%d Bytes)\n",
@@ -1641,7 +1641,7 @@ void floppy_image_format_t::dump_decoded_track_details(const floppy_image_format
 		fprintf(stderr, "  DAM Mark Type: 0x%02X (%s)\n",
 			sector.dam_type, (sector.dam_type == 0xF8) ? "Deleted Data Mark" : "Normal Data Mark");
 
-		// Print a small hex/ASCII preview of the bytes surrounding this sector marker
+		// Print a small hex/ASCII preview centered closely around the IDAM marker byte
 		fprintf(stderr, "  Byte Stream Preview (Offset -4 to +16):\n");
 		fprintf(stderr, "    Hex:  ");
 
@@ -1680,21 +1680,20 @@ void floppy_image_format_t::dump_decoded_track_details(const floppy_image_format
 	fprintf(stderr, "=====================================================================\n");
 }
 
+
 floppy_image_format_t::decoded_track_data floppy_image_format_t::extract_sectors_from_bitstream_mix_pc(const std::vector<bool> &bitstream)
 {
-	floppy_image_format_t::decoded_track_data track_out;
+	decoded_track_data track_out;
 
 	if (bitstream.size() < 100)
 		return track_out;
 
-	// Pre-reserve vectors based on a uniform double-density track target size
 	track_out.decoded_data.reserve(bitstream.size() / 8);
 	track_out.clock_data.reserve(bitstream.size() / 8);
 
 	uint32_t mfm_shift = 0;
 	uint16_t fm_shift = 0;
 
-	// Precharge shift registers from the end of the stream to catch wrapping syncs
 	for (size_t i = 0; i < 32; i++)
 	{
 		bool bit = (bitstream.size() - 32 + i < bitstream.size()) ? bitstream[bitstream.size() - 32 + i] : false;
@@ -1722,7 +1721,6 @@ floppy_image_format_t::decoded_track_data floppy_image_format_t::extract_sectors
 			if (mark_type == 0xFE) // IDAM Found
 			{
 				sector_metadata meta;
-				meta.byte_offset = track_out.decoded_data.size();
 				meta.is_mfm       = true;
 				meta.track        = sbyte_mfm_r(bitstream, i);
 				meta.head         = sbyte_mfm_r(bitstream, i);
@@ -1730,7 +1728,6 @@ floppy_image_format_t::decoded_track_data floppy_image_format_t::extract_sectors
 				meta.size_code    = sbyte_mfm_r(bitstream, i);
 				meta.dam_type     = 0xFB;
 
-				// Lookahead scan for adjacent MFM Data Address Mark (DAM)
 				uint32_t scan_pos = i;
 				uint32_t lookahead_limit = i + 1500;
 				uint32_t look_shift = 0;
@@ -1748,9 +1745,14 @@ floppy_image_format_t::decoded_track_data floppy_image_format_t::extract_sectors
 					}
 				}
 
+				// Push sync data first
+				track_out.decoded_data.push_back(0xA1);         track_out.clock_data.push_back(0x0A);
+
+				// Capture offset precisely pointing to the IDAM (0xFE) byte
+				meta.byte_offset = track_out.decoded_data.size();
+
 				track_out.sectors.push_back(meta);
 
-				track_out.decoded_data.push_back(0xA1);         track_out.clock_data.push_back(0x0A);
 				track_out.decoded_data.push_back(mark_type);    track_out.clock_data.push_back(0x00);
 				track_out.decoded_data.push_back(meta.track);    track_out.clock_data.push_back(0x00);
 				track_out.decoded_data.push_back(meta.head);     track_out.clock_data.push_back(0x00);
@@ -1760,10 +1762,12 @@ floppy_image_format_t::decoded_track_data floppy_image_format_t::extract_sectors
 				mfm_shift = 0;
 				continue;
 			}
-			else if (mark_type >= 0xF8 && mark_type <= 0xFB) // Standalone DAM
+			else if (mark_type >= 0xF8 && mark_type <= 0xFB) // Standalone DAM/DDAM
 			{
 				track_out.decoded_data.push_back(0xA1);
 				track_out.clock_data.push_back(0x0A);
+
+				// (Optional context: If standalone DAMs need targeting, capture here)
 				track_out.decoded_data.push_back(mark_type);
 				track_out.clock_data.push_back(0x00);
 
@@ -1789,11 +1793,9 @@ floppy_image_format_t::decoded_track_data floppy_image_format_t::extract_sectors
 			if (fm_data == 0xFE) // FM IDAM Found
 			{
 				sector_metadata meta;
-				meta.byte_offset = track_out.decoded_data.size();
 				meta.is_mfm       = false;
 				meta.dam_type     = 0xFB;
 
-				// Parse consecutive FM elements from the bitstream
 				auto read_fm_byte = [&bitstream, &i](uint8_t &out_clk, uint8_t &out_dat) {
 					uint16_t word = 0;
 					for (int j = 0; j < 16 && i < bitstream.size(); j++)
@@ -1810,21 +1812,22 @@ floppy_image_format_t::decoded_track_data floppy_image_format_t::extract_sectors
 				read_fm_byte(fm_clock, meta.sector);
 				read_fm_byte(fm_clock, meta.size_code);
 
-				// Lookahead scan for adjacent FM data address marks
 				uint32_t scan_pos = i;
 				uint32_t lookahead_limit = i + 1000;
 				uint16_t look_shift = 0;
 				while (scan_pos < bitstream.size() && scan_pos < lookahead_limit)
 				{
 					look_shift = (look_shift << 1) | bitstream[scan_pos++];
-					if (look_shift == 0xF56A) { meta.dam_type = 0xF8; break; } // DDAM
-					if (look_shift == 0xF56F) { meta.dam_type = 0xFB; break; } // DAM
+					if (look_shift == 0xF56A) { meta.dam_type = 0xF8; break; }
+					if (look_shift == 0xF56F) { meta.dam_type = 0xFB; break; }
 				}
+
+				// Capture offset precisely pointing to the FM IDAM (0xFE) byte
+				// within the uniform double-write sequence
+				meta.byte_offset = track_out.decoded_data.size();
 
 				track_out.sectors.push_back(meta);
 
-				// UNCONDITIONAL DOUBLE-BYTE STORAGE PATH
-				// Write out each element twice to normalize spacing against MFM timelines
 				for (int repeat = 0; repeat < 2; repeat++)
 				{
 					track_out.decoded_data.push_back(fm_data);   track_out.clock_data.push_back(fm_clock);
@@ -1839,7 +1842,6 @@ floppy_image_format_t::decoded_track_data floppy_image_format_t::extract_sectors
 			}
 			else // Standalone FM Data Mark
 			{
-				// Double-write individual FM data markers
 				track_out.decoded_data.push_back(fm_data);
 				track_out.clock_data.push_back(fm_clock);
 				track_out.decoded_data.push_back(fm_data);
@@ -1850,9 +1852,6 @@ floppy_image_format_t::decoded_track_data floppy_image_format_t::extract_sectors
 			}
 		}
 
-		// -----------------------------------------------------------------
-		// 3. STANDARD DATA FRAME WINDOW FLOW (16-Bit Grid Boundary Alignment)
-		// -----------------------------------------------------------------
 		if ((i % 16) == 0)
 		{
 			uint16_t word = (mfm_shift & 0xffff);
@@ -1872,6 +1871,7 @@ floppy_image_format_t::decoded_track_data floppy_image_format_t::extract_sectors
 
 	return track_out;
 }
+
 
 std::vector<std::vector<uint8_t>> floppy_image_format_t::extract_sectors_from_bitstream_mfm_pc(const std::vector<bool> &bitstream)
 {

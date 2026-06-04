@@ -342,13 +342,6 @@ protected:
 		uint8_t *data;
 	};
 
-	enum class track_density
-	{
-		FORCE_FM,
-		FORCE_MFM,
-		MIXED
-	};
-
 	struct sector_metadata
 	{
 		uint32_t byte_offset;    // Offset within the decoded_data vector

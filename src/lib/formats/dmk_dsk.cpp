@@ -445,9 +445,8 @@ bool dmk_format::save(util::random_read_write &io, const std::vector<uint32_t> &
 				if (128 + sector.byte_offset + 1 >= (track_length - 1))
 					continue;
 
-				// Point directly to the 0xFE mark byte, shifted past the 128-byte header
-				uint16_t offset_value = 128 + sector.byte_offset + 1;
-
+				// Point directly to the 0xFE mark byte using the updated decoder offset alignment
+				uint16_t offset_value = 128 + sector.byte_offset;
 				if (sector.is_mfm)
 				{
 					offset_value |= 0x8000;
