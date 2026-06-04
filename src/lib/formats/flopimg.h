@@ -384,6 +384,7 @@ protected:
 	static std::vector<std::vector<uint8_t>> extract_sectors_from_bitstream_fm_pc(const std::vector<bool> &bitstream);
 
 	//! PC-type sectors with MFM and FM encoding mixed on same track, sector size can go from 128 bytes to 16K.
+	static void dump_decoded_track_details(const floppy_image_format_t::decoded_track_data &track);
 	static floppy_image_format_t::decoded_track_data extract_sectors_from_bitstream_mix_pc(const std::vector<bool> &bitstream);
 
 	//! Commodore type sectors with GCR5 encoding

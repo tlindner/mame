@@ -79,7 +79,10 @@ int dmk_format::identify(util::random_read &io, uint32_t form_factor, const std:
 {
 	uint64_t size;
 	if (io.length(size))
+	{
+		fprintf(stderr,"*\n");
 		return 0;
+	}
 
 	std::error_condition err;
 	size_t actual;
@@ -87,7 +90,10 @@ int dmk_format::identify(util::random_read &io, uint32_t form_factor, const std:
 	uint8_t header[HEADER_SIZE];
 	std::tie(err, actual) = read_at(io, 0, header, HEADER_SIZE);
 	if (err || (HEADER_SIZE != actual))
+	{
+		fprintf(stderr,"**\n");
 		return 0;
+	}
 
 	const int tracks_from_header = header[1];
 	const int track_size = get_u16le(&header[2]);
@@ -96,6 +102,7 @@ int dmk_format::identify(util::random_read &io, uint32_t form_factor, const std:
 	// The first header byte must be 00 or FF
 	if (header[0] != 0x00 && header[0] != 0xff)
 	{
+		fprintf(stderr,"***\n");
 		return 0;
 	}
 
@@ -103,12 +110,18 @@ int dmk_format::identify(util::random_read &io, uint32_t form_factor, const std:
 	for (int i = 5; i < 0x10; i++)
 	{
 		if (header[i] != 0x00)
+		{
+			fprintf(stderr,"*****\n");
 			return 0;
+		}
 	}
 
 	// Check track size within limits
 	if (track_size < 0x80 || track_size > 0x3fff)
+	{
+		fprintf(stderr,"******\n");
 		return 0;
+	}
 
 	const int tracks_in_file = (size - HEADER_SIZE) / (heads * track_size);
 	for (int track = 0; track < tracks_in_file; track++)
@@ -119,7 +132,10 @@ int dmk_format::identify(util::random_read &io, uint32_t form_factor, const std:
 			std::vector<uint8_t> track_data(track_size);
 			std::tie(err, actual) = read_at(io, HEADER_SIZE + (heads * track + head) * track_size, &track_data[0], track_size);
 			if (err || track_size != actual)
+			{
+				fprintf(stderr,"*******\n");
 				return 0;
+			}
 
 			// Verify idam entries
 			for (int idam_index = 0; idam_index < 64; idam_index++)
@@ -129,9 +145,16 @@ int dmk_format::identify(util::random_read &io, uint32_t form_factor, const std:
 					continue;
 				const uint16_t idam_offset = idam_entry & 0x3fff;
 				if (idam_offset >= track_size)
+				{
+					fprintf(stderr,"********\n");
 					return 0;
+				}
 				if (track_data[idam_offset] != 0xfe)
+				{
+					fprintf(stderr,"********* track %d, idam_index, %d, idam_offset %d, track_data[idam_offset]: %x\n",
+						track, idam_index, idam_offset, track_data[idam_offset]);
 					return 0;
+				}
 			}
 		}
 	}
@@ -351,14 +374,14 @@ bool dmk_format::load(util::random_read &io, uint32_t form_factor, const std::ve
 	return true;
 }
 
+
+
 bool dmk_format::save(util::random_read_write &io, const std::vector<uint32_t> &variants, const floppy_image &image) const
 {
 	int tracks, heads;
 	image.get_actual_geometry(tracks, heads);
 
 	// Determine uniform DMK track length boundaries.
-	// Standard/Double Density tracks use 0x2000 (8192 bytes).
-	// High Density tracks use 0x4000 (16384 bytes).
 	uint16_t track_length = 0x2000;
 	if (image.get_variant() == floppy_image::DSHD || image.get_variant() == floppy_image::DSED)
 	{
@@ -366,13 +389,11 @@ bool dmk_format::save(util::random_read_write &io, const std::vector<uint32_t> &
 	}
 
 	// 1. CONSTRUCT AND WRITE FILE HEADER (16 Bytes)
-	uint8_t file_header[16];
-	std::fill(std::begin(file_header), std::end(file_header), 0x00);
+	uint8_t file_header[16] = { 0 };
 
 	file_header[0] = 0x00;                        // Write protect flag (0 = writable)
 	file_header[1] = tracks;                      // Total tracks/cylinders
 
-	// Safely commit 16-bit track length to the header
 	put_s16le(file_header + 2, track_length);
 
 	file_header[4] = (heads == 1) ? 0x10 : 0x00;   // Flags (Bit 4 = Single Sided Only)
@@ -388,10 +409,8 @@ bool dmk_format::save(util::random_read_write &io, const std::vector<uint32_t> &
 	{
 		for (int head = 0; head < heads; head++)
 		{
-			// Leverage MAME's native track bitstream generator at a 2000ns cell size
 			auto bitstream = generate_bitstream_from_track(track, head, 2000, image);
 
-			// Handle unformatted or empty track surfaces safely
 			if (bitstream.empty())
 			{
 				std::vector<uint8_t> empty_padding(track_length, 0x00);
@@ -405,40 +424,47 @@ bool dmk_format::save(util::random_read_write &io, const std::vector<uint32_t> &
 
 			// Run your custom mixed-mode decoder
 			decoded_track_data parsed_track = extract_sectors_from_bitstream_mix_pc(bitstream);
+			dump_decoded_track_details(parsed_track);
 
 			// Allocate a flat, zero-filled track payload buffer
 			std::vector<uint8_t> final_track_block(track_length, 0x00);
 
-			// 3. POPULATE THE 64-BYTE TRACK HEADER TABLE
+			// 3. POPULATE THE 128-BYTE TRACK HEADER TABLE EXPLICITLY (64 slots)
+			for (int p = 0; p < 64; p++)
+			{
+				put_s16le(final_track_block.data() + (p * 2), 0x0000);
+			}
+
 			uint32_t pointer_index = 0;
 			for (const auto &sector : parsed_track.sectors)
 			{
-				if (pointer_index >= 32)
-					break; // DMK hard-coded ceiling of 32 IDAM pointers per track
+				if (pointer_index >= 64)
+					break;
 
-				// Calculate exact pointer offset relative to the very start of this track record
-				uint16_t offset_value = 64 + sector.byte_offset;
+				// Guard check: Ensure the pointer plus data shifts stay within bounds
+				if (128 + sector.byte_offset + 1 >= (track_length - 1))
+					continue;
 
-				// Apply DMK density rules: set high bit (Bit 15) to 1 for MFM sectors
+				// Point directly to the 0xFE mark byte, shifted past the 128-byte header
+				uint16_t offset_value = 128 + sector.byte_offset + 1;
+
 				if (sector.is_mfm)
 				{
 					offset_value |= 0x8000;
 				}
 
-				// Safely write the little-endian entry into the table using the standard helper
 				put_s16le(final_track_block.data() + (pointer_index * 2), offset_value);
 				pointer_index++;
 			}
 
-			// 4. COPY DECODER DATA RECOGNITIONS
-			// Ensure we do not overflow past the fixed track allocation block boundary
-			size_t copy_bytes = std::min(parsed_track.decoded_data.size(), size_t(track_length - 64));
+			// 4. COPY DECODER DATA RECOGNITIONS PAST THE 128-BYTE HEADER
+			size_t copy_bytes = std::min(parsed_track.decoded_data.size(), size_t(track_length - 128));
 
 			if (copy_bytes > 0)
 			{
 				std::copy(parsed_track.decoded_data.begin(),
 				          parsed_track.decoded_data.begin() + copy_bytes,
-				          final_track_block.begin() + 64);
+				          final_track_block.begin() + 128);
 			}
 
 			// 5. COMMIT COMPLETED TRACK RECORD TO STORAGE
@@ -452,5 +478,6 @@ bool dmk_format::save(util::random_read_write &io, const std::vector<uint32_t> &
 
 	return true;
 }
+
 
 const dmk_format FLOPPY_DMK_FORMAT;

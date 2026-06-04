@@ -1613,6 +1613,73 @@ uint8_t floppy_image_format_t::sbyte_gcr5_r(const std::vector<bool> &bitstream, 
 // 	return data;
 // }
 
+void floppy_image_format_t::dump_decoded_track_details(const floppy_image_format_t::decoded_track_data &track)
+{
+	fprintf(stderr, "=====================================================================\n");
+	fprintf(stderr, "DECODER TRACK DUMP REPORT\n");
+	fprintf(stderr, "=====================================================================\n");
+	fprintf(stderr, "Total Decoded Bytes: %zu\n", track.decoded_data.size());
+	fprintf(stderr, "Total Sectors Found: %zu\n", track.sectors.size());
+	fprintf(stderr, "---------------------------------------------------------------------\n");
+
+	if (track.sectors.empty())
+	{
+		fprintf(stderr, "  [!] No valid sector IDAM markings isolated on this track surface.\n");
+	}
+
+	for (size_t idx = 0; idx < track.sectors.size(); idx++)
+	{
+		const auto &sector = track.sectors[idx];
+		fprintf(stderr, "Sector Index [%02zu]:\n", idx);
+		fprintf(stderr, "  Density Type : %s\n", sector.is_mfm ? "MFM (Double Density)" : "FM (Single Density)");
+		fprintf(stderr, "  Byte Offset  : %u (0x%04X) [Pointer to Data: 0x%04X]\n",
+			sector.byte_offset, sector.byte_offset, sector.byte_offset + 64 + 1);
+		fprintf(stderr, "  Geometry     : Cylinder/Track: %u, Head: %u, Sector ID: %u\n",
+			sector.track, sector.head, sector.sector);
+		fprintf(stderr, "  Sector Size  : Code %u (%d Bytes)\n",
+			sector.size_code, 128 << sector.size_code);
+		fprintf(stderr, "  DAM Mark Type: 0x%02X (%s)\n",
+			sector.dam_type, (sector.dam_type == 0xF8) ? "Deleted Data Mark" : "Normal Data Mark");
+
+		// Print a small hex/ASCII preview of the bytes surrounding this sector marker
+		fprintf(stderr, "  Byte Stream Preview (Offset -4 to +16):\n");
+		fprintf(stderr, "    Hex:  ");
+
+		int start_offset = static_cast<int>(sector.byte_offset) - 4;
+		int end_offset = static_cast<int>(sector.byte_offset) + 16;
+
+		// Render Hex row
+		for (int pos = start_offset; pos < end_offset; pos++)
+		{
+			if (pos >= 0 && pos < static_cast<int>(track.decoded_data.size()))
+			{
+				fprintf(stderr, "%02X ", track.decoded_data[pos]);
+			}
+			else
+			{
+				fprintf(stderr, "-- ");
+			}
+		}
+		fprintf(stderr, "\n    ASCII: ");
+
+		// Render ASCII row
+		for (int pos = start_offset; pos < end_offset; pos++)
+		{
+			if (pos >= 0 && pos < static_cast<int>(track.decoded_data.size()))
+			{
+				uint8_t ch = track.decoded_data[pos];
+				fprintf(stderr, " %c ", (ch >= 32 && ch <= 126) ? static_cast<char>(ch) : '.');
+			}
+			else
+			{
+				fprintf(stderr, "   ");
+			}
+		}
+		fprintf(stderr, "\n---------------------------------------------------------------------\n");
+	}
+	fprintf(stderr, "=====================================================================\n");
+}
+
 floppy_image_format_t::decoded_track_data floppy_image_format_t::extract_sectors_from_bitstream_mix_pc(const std::vector<bool> &bitstream)
 {
 	floppy_image_format_t::decoded_track_data track_out;
