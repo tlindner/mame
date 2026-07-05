@@ -56,7 +56,7 @@
 #include "emu.h"
 #include "coco.h"
 
-#include "cpu/m6809/m6809.h"
+//#include "cpu/m6809/m6809.h"
 #include "screen.h"
 
 
@@ -74,6 +74,7 @@ coco_state::coco_state(const machine_config &mconfig, device_type type, const ch
 	m_maincpu(*this, MAINCPU_TAG),
 	m_pia_0(*this, "pia0"),
 	m_pia_1(*this, "pia1"),
+	m_mux(*this, "mux"),
 	m_dac(*this, "dac"),
 	m_sbs(*this, "sbs"),
 	m_screen(*this, "screen"),
@@ -674,7 +675,8 @@ bool coco_state::poll_joystick()
 			{
 				/* conventional joystick */
 				joyval = analog->input(joystick, joystick_axis);
-				joyin_value = (dac_output() <= (joyval / 16));
+// 				joyin_value = (dac_output() <= (joyval / 16));
+				joyin_value = (dac_output() <= m_mux->zx_value());
 			}
 			break;
 
@@ -935,6 +937,21 @@ void coco_state::pia1_pb_changed(uint8_t data)
 INPUT_CHANGED_MEMBER(coco_state::keyboard_changed)
 {
 	poll_keyboard();
+}
+
+
+
+//-------------------------------------------------
+//  joy_changed
+//-------------------------------------------------
+
+// void name(ioport_field &field, u32 param, ioport_value oldval, ioport_value newval)
+INPUT_CHANGED_MEMBER(coco_state::joy_changed)
+{
+	/* joystick is currently defined as 10 bit value
+	 * to be reused with this hi-res devices
+	 */
+	m_mux->x_analog_w(mc14529_device::SEL_X, newval >> 4);
 }
 
 
