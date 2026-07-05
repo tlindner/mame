@@ -11,6 +11,7 @@
 #ifndef MAME_TRS_COCO_H
 #define MAME_TRS_COCO_H
 
+#include "emu.h"
 #pragma once
 
 #include "coco_vhd.h"
@@ -20,6 +21,7 @@
 #include "bus/rs232/rs232.h"
 #include "imagedev/cassette.h"
 #include "machine/6821pia.h"
+#include "machine/mc14529.h"
 #include "machine/bankdev.h"
 #include "machine/input_merger.h"
 #include "machine/ram.h"
@@ -78,6 +80,7 @@ public:
 
 	// driver update handlers
 	virtual DECLARE_INPUT_CHANGED_MEMBER(keyboard_changed);
+	DECLARE_INPUT_CHANGED_MEMBER(joy_changed);
 	DECLARE_INPUT_CHANGED_MEMBER(joystick_mode_changed);
 
 	// IO
@@ -208,6 +211,7 @@ protected:
 	required_device<cpu_device> m_maincpu;
 	required_device<pia6821_device> m_pia_0;
 	required_device<pia6821_device> m_pia_1;
+	required_device<mc14529_device> m_mux;
 	required_device<dac_byte_interface> m_dac;
 	required_device<dac_1bit_device> m_sbs;
 	optional_device<screen_device> m_screen;
