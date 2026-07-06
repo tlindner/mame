@@ -6,11 +6,11 @@
 
     See mc14529.h for details.
 
-    Timing model: each of the two independent selectors (X and Y) owns a
-    small fixed-size pool of timers (MAX_PENDING slots), regardless of
-    which mode that selector is running in. Every input edge that changes
-    what that selector's output will eventually settle to allocates the
-    next slot (round-robin) and starts a timer:
+    MODE_DIGITAL / MODE_ANALOG timing model: each of the two independent
+    selectors (X and Y) owns a small fixed-size pool of timers
+    (MAX_PENDING slots). Every input edge that changes what that
+    selector's output will eventually settle to allocates the next slot
+    (round-robin) and starts a timer:
 
       MODE_DIGITAL -- tPLH if the new bit is 1, tPHL if it is 0.
 
@@ -18,8 +18,7 @@
         greater than the previously scheduled one (rising swing on the
         real analog node), tPHL if it is lower (falling swing). The full
         multi-bit value is carried as the pending payload and delivered
-        as one unit when its timer fires -- there is one physical node
-        settling, not independent per-bit propagation.
+        as one unit when its timer fires.
 
     Because MAME fires timers in absolute time order regardless of
     allocation order, multiple overlapping in-flight transitions still
@@ -40,17 +39,33 @@
     6809-bus speeds against a ~200 ns worst-case delay, but is handled
     rather than left as undefined behavior.
 
+    MODE_SOUND model: no timer pool is used. Each selector's audio output
+    is just whichever input channel (0-3) is currently addressed for it,
+    copied sample-for-sample, or silence if that selector is inhibited.
+    address_w()/inhibit_x_w()/inhibit_y_w() call m_stream->update() before
+    changing any state that a MODE_SOUND selector depends on, so the
+    switch-over happens at the correct sample boundary rather than being
+    deferred to the end of the current audio update -- this is what makes
+    the mode delay-free while still being sample-accurate.
+
 ***************************************************************************/
 
 #include "emu.h"
 #include "mc14529.h"
 
+#define LOG_GENERAL (1U << 0)
+#define LOG_READS   (1U << 1)
+//#define VERBOSE (LOG_GENERAL | LOG_READS)
+#include "logmacro.h"
+
 DEFINE_DEVICE_TYPE(MC14529, mc14529_device, "mc14529", "MC14529 Dual 4-Channel Analog Data Selector (measured timing)")
 
 mc14529_device::mc14529_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock)
 	: device_t(mconfig, MC14529, tag, owner, clock)
+	, device_sound_interface(mconfig, *this)
 	, m_write_z{ { *this }, { *this } }
 	, m_write_z_analog{ { *this }, { *this } }
+	, m_stream(nullptr)
 	, m_tplh(attotime::from_nsec(94))
 	, m_tphl(attotime::from_nsec(200))
 	, m_address(0)
@@ -96,10 +111,12 @@ mc14529_device &mc14529_device::set_analog_width(unsigned selector, unsigned bit
 
 void mc14529_device::device_start()
 {
-// 	for (auto &cb : m_write_z)
-// 		cb.resolve_safe();
-// 	for (auto &cb : m_write_z_analog)
-// 		cb.resolve_safe();
+	// devcb callbacks self-resolve; no explicit resolve_safe() call needed.
+
+	// Always allocate the sound stream (4 inputs per selector, 1 output
+	// per selector). Harmless if neither selector uses MODE_SOUND -- the
+	// outputs are simply filled with silence and never routed anywhere.
+	m_stream = stream_alloc(NUM_SELECTORS * NUM_CHANNELS, NUM_SELECTORS, SAMPLE_RATE_INPUT_ADAPTIVE);
 
 	for (unsigned s = 0; s < NUM_SELECTORS; s++)
 		for (unsigned slot = 0; slot < MAX_PENDING; slot++)
@@ -143,8 +160,28 @@ void mc14529_device::device_reset()
 
 		if (m_mode[s] == MODE_ANALOG)
 			m_write_z_analog[s](0);
-		else
+		else if (m_mode[s] == MODE_DIGITAL)
 			m_write_z[s](0);
+	}
+}
+
+void mc14529_device::sound_stream_update(sound_stream &stream)
+{
+	for (unsigned selector = 0; selector < NUM_SELECTORS; selector++)
+	{
+		if (m_mode[selector] != MODE_SOUND)
+		{
+			stream.fill(selector, 0);
+			continue;
+		}
+
+		if (m_inhibit[selector])
+			stream.fill(selector, 0);
+		else
+			stream.copy(selector, selector * NUM_CHANNELS + m_address);
+
+		logerror("sound stream update source: %d, accumulate: %d\n",
+		selector * NUM_CHANNELS + m_address, stream.accumulate(selector * NUM_CHANNELS + m_address));
 	}
 }
 
@@ -155,12 +192,16 @@ void mc14529_device::commit(unsigned selector, unsigned slot)
 
 	if (m_mode[selector] == MODE_ANALOG)
 		m_write_z_analog[selector](m_current_output[selector]);
-	else
+	else if (m_mode[selector] == MODE_DIGITAL)
 		m_write_z[selector](m_current_output[selector] ? 1 : 0);
+	// MODE_SOUND does not use commit()/the timer pool at all.
 }
 
 void mc14529_device::update_selector(unsigned selector)
 {
+	if (m_mode[selector] == MODE_SOUND)
+		return; // handled entirely in sound_stream_update()
+
 	u8 new_output;
 
 	if (m_inhibit[selector])
@@ -210,14 +251,31 @@ TIMER_CALLBACK_MEMBER(mc14529_device::delay_expired)
 	commit(selector, slot);
 }
 
+u8 mc14529_device::zx_value()
+{
+	LOGMASKED(LOG_READS, "read x value: %d\n", m_current_output[SEL_X]);
+	return m_current_output[SEL_X];
+}
+
+u8 mc14529_device::zy_value()
+{
+	LOGMASKED(LOG_READS, "read y value: %d\n", m_current_output[SEL_Y]);
+	return m_current_output[SEL_Y];
+}
+
 void mc14529_device::address_w(int bit, int state)
 {
 	state = state ? 1 : 0;
-	u8 const mask = 1 << bit;
+	u8 const mask = u8(1) << bit;
 	u8 const new_address = state ? (m_address | mask) : (m_address & ~mask);
+
+	logerror("address_w: bit: %d, state: %d, new address: %d\n",bit, state, new_address);
 
 	if (new_address == m_address)
 		return;
+
+	if (m_stream)
+		m_stream->update(); // flush MODE_SOUND output(s) at the old address before switching
 
 	m_address = new_address;
 	update_selector(SEL_X);
@@ -229,6 +287,10 @@ void mc14529_device::inhibit_x_w(int state)
 	state = state ? 1 : 0;
 	if (m_inhibit[SEL_X] == state)
 		return;
+
+	if (m_stream)
+		m_stream->update();
+
 	m_inhibit[SEL_X] = state;
 	update_selector(SEL_X);
 }
@@ -238,6 +300,10 @@ void mc14529_device::inhibit_y_w(int state)
 	state = state ? 1 : 0;
 	if (m_inhibit[SEL_Y] == state)
 		return;
+
+	if (m_stream)
+		m_stream->update();
+
 	m_inhibit[SEL_Y] = state;
 	update_selector(SEL_Y);
 }

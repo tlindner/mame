@@ -102,7 +102,7 @@ public:
 	void pia1_pa_w(uint8_t data);
 	void pia1_pb_w(uint8_t data);
 	void pia1_ca2_w(int state);
-	void pia1_cb2_w(int state);
+// 	void pia1_cb2_w(int state);
 
 	// floating bus & "space"
 	uint8_t floating_bus_r()   { return floating_bus_read(); }
@@ -240,7 +240,7 @@ protected:
 
 	// remember the last audio sample level from the analog sources (DAC, cart, cassette) so that we don't
 	// introduce step changes when the audio output is enabled/disabled via PIA1 CB2
-	uint8_t m_analog_audio_level = 0U;
+// 	uint8_t m_analog_audio_level = 0U;
 
 	// hires interface
 	emu_timer *m_hiresjoy_transition_timer[2]{};

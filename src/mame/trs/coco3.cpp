@@ -287,10 +287,19 @@ void coco3_state::coco3(machine_config &config)
 	m_pia_1->readpb_handler().set(FUNC(coco_state::pia1_pb_r));
 	m_pia_1->writepa_handler().set(FUNC(coco_state::pia1_pa_w));
 	m_pia_1->writepb_handler().set(FUNC(coco_state::pia1_pb_w));
-	m_pia_1->ca2_handler().set(FUNC(coco_state::pia1_ca2_w));
-	m_pia_1->cb2_handler().set(FUNC(coco_state::pia1_cb2_w));
+// 	m_pia_1->ca2_handler().set(FUNC(coco_state::pia1_ca2_w));
+	m_pia_1->ca2_handler().set([this] (int state) { m_cassette->set_motor(state ? true : false);});
+// 	m_pia_1->cb2_handler().set(FUNC(coco_state::pia1_cb2_w));
+	m_pia_1->cb2_handler().set(m_mux, FUNC(mc14529_device::inhibit_y_w));
 	m_pia_1->irqa_handler().set(m_firqs, FUNC(input_merger_device::in_w<0>));
 	m_pia_1->irqb_handler().set(m_firqs, FUNC(input_merger_device::in_w<1>));
+
+	MC14529(config, m_mux);
+	m_mux->set_propagation_delay(attotime::from_nsec(94), attotime::from_nsec(200));
+	m_mux->set_mode(mc14529_device::SEL_X, mc14529_device::MODE_ANALOG);
+	m_mux->set_analog_width(mc14529_device::SEL_X, 6 /* bits */);
+	m_mux->set_mode(mc14529_device::SEL_Y, mc14529_device::MODE_SOUND);
+	m_mux->add_route(mc14529_device::y_sound_output(), "speaker", 1.0);
 
 	// Becker Port device
 	COCO_DWSOCK(config, m_beckerport);

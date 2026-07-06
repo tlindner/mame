@@ -161,7 +161,7 @@ void coco_state::machine_reset()
 {
 	/* reset state */
 	m_dac_output = 0;
-	m_analog_audio_level = 0;
+// 	m_analog_audio_level = 0;
 	m_hiresjoy_ca = false;
 	m_dclg_previous_bit = false;
 	m_dclg_output_h = 0;
@@ -342,7 +342,8 @@ void coco_state::pia0_pb_w(uint8_t data)
 
 void coco_state::pia0_ca2_w(int state)
 {
-	update_sound();     // analog mux SEL1 is tied to PIA0 CA2
+	m_mux->a0_w(state);
+// 	update_sound();     // analog mux SEL1 is tied to PIA0 CA2
 	poll_keyboard();
 }
 
@@ -354,7 +355,8 @@ void coco_state::pia0_ca2_w(int state)
 
 void coco_state::pia0_cb2_w(int state)
 {
-	update_sound();     // analog mux SEL2 is tied to PIA0 CB2
+	m_mux->a1_w(state);
+// 	update_sound();     // analog mux SEL2 is tied to PIA0 CB2
 	poll_keyboard();
 }
 
@@ -477,10 +479,10 @@ void coco_state::pia1_ca2_w(int state)
 //  pia1_cb2_w
 //-------------------------------------------------
 
-void coco_state::pia1_cb2_w(int state)
-{
-	update_sound();     // SOUND_ENABLE is connected to PIA1 CB2
-}
+// void coco_state::pia1_cb2_w(int state)
+// {
+// 	update_sound();     // SOUND_ENABLE is connected to PIA1 CB2
+// }
 
 
 /***************************************************************************
@@ -543,17 +545,17 @@ coco_state::soundmux_status_t coco_state::soundmux_status()
 void coco_state::update_sound()
 {
 	/* determine the sound mux status */
-	soundmux_status_t status = soundmux_status();
+// 	soundmux_status_t status = soundmux_status();
 
 	/* the SC77526 DAC chip internally biases the AC-coupled sound inputs for Cassette and Cartridge at the midpoint of the 3.9v output range */
-	bool bCassSoundEnable = (status == (SOUNDMUX_ENABLE | SOUNDMUX_SEL1));
-	bool bCartSoundEnable = (status == (SOUNDMUX_ENABLE | SOUNDMUX_SEL2));
-	uint8_t cassette_sound = (bCassSoundEnable ? 0x20 : 0);
-	uint8_t cart_sound = (bCartSoundEnable ? 0x20 : 0);
+// 	bool bCassSoundEnable = (status == (SOUNDMUX_ENABLE | SOUNDMUX_SEL1));
+// 	bool bCartSoundEnable = (status == (SOUNDMUX_ENABLE | SOUNDMUX_SEL2));
+// 	uint8_t cassette_sound = (bCassSoundEnable ? 0x20 : 0);
+// 	uint8_t cart_sound = (bCartSoundEnable ? 0x20 : 0);
 
 	/* determine the value to send to the DAC (this is used by the Joystick read as well as audio out) */
-	m_dac_output = (pia_1().a_output() & 0xFC) >> 2;
-	uint8_t dac_sound =  (status == SOUNDMUX_ENABLE ? m_dac_output : 0);
+	m_dac_output = pia_1().a_output() >> 2;
+// 	uint8_t dac_sound =  (status == SOUNDMUX_ENABLE ? m_dac_output : 0);
 
 	/* The CoCo uses the main 6-bit DAC for both audio output and joystick axis position measurement.
 	 * To avoid introducing artifacts while reading the axis positions, some software will disable
@@ -564,21 +566,23 @@ void coco_state::update_sound()
 	 * used analog audio output value while the audio is disabled, to avoid introducing artifacts in
 	 * software such as Tandy's Popcorn and Sock Master's Donkey Kong.
 	 */
-	if ((status & SOUNDMUX_ENABLE) != 0)
-	{
-		m_analog_audio_level = dac_sound + cassette_sound + cart_sound;
-	}
+// 	if ((status & SOUNDMUX_ENABLE) != 0)
+// 	{
+// 		m_analog_audio_level = dac_sound + cassette_sound + cart_sound;
+// 	}
 
-	m_dac->write(m_analog_audio_level);
+	logerror( "dac: %d\n", m_dac_output );
+	m_dac->write(m_dac_output);
+// 	m_dac->write(m_analog_audio_level);
 
 	/* determine the cassette sound status */
-	cassette_state cas_sound = bCassSoundEnable ? CASSETTE_SPEAKER_ENABLED : CASSETTE_SPEAKER_MUTED;
-	m_cassette->change_state(cas_sound, CASSETTE_MASK_SPEAKER);
+// 	cassette_state cas_sound = bCassSoundEnable ? CASSETTE_SPEAKER_ENABLED : CASSETTE_SPEAKER_MUTED;
+// 	m_cassette->change_state(cas_sound, CASSETTE_MASK_SPEAKER);
 
 	/* determine the cartridge sound status */
-	m_cococart->set_line_value(
-		cococart_slot_device::line::SOUND_ENABLE,
-		bCartSoundEnable ? cococart_slot_device::line_value::ASSERT : cococart_slot_device::line_value::CLEAR);
+// 	m_cococart->set_line_value(
+// 		cococart_slot_device::line::SOUND_ENABLE,
+// 		bCartSoundEnable ? cococart_slot_device::line_value::ASSERT : cococart_slot_device::line_value::CLEAR);
 }
 
 
@@ -951,7 +955,7 @@ INPUT_CHANGED_MEMBER(coco_state::joy_changed)
 	/* joystick is currently defined as 10 bit value
 	 * to be reused with this hi-res devices
 	 */
-	m_mux->x_analog_w(mc14529_device::SEL_X, newval >> 4);
+	m_mux->x_analog_w(param, newval >> 4);
 }
 
 

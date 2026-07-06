@@ -157,7 +157,7 @@ INPUT_PORTS_START( coco_joystick )
 	PORT_START(JOYSTICK_RX_TAG)
 		PORT_BIT( 0x3ff, 0x200,  IPT_AD_STICK_X)
 		PORT_NAME("Right Joystick X")
-		PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco12_state::coco_state::joy_changed), 2)
+		PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco12_state::coco_state::joy_changed), 0)
 		PORT_SENSITIVITY(JOYSTICK_SENSITIVITY)
 		PORT_KEYDELTA(JOYSTICK_DELTA)
 		PORT_MINMAX(0,1023)
@@ -170,7 +170,7 @@ INPUT_PORTS_START( coco_joystick )
 	PORT_START(JOYSTICK_RY_TAG)
 		PORT_BIT( 0x3ff, 0x200,  IPT_AD_STICK_Y)
 		PORT_NAME("Right Joystick Y")
-		PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco12_state::coco_state::joy_changed), 3)
+		PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco12_state::coco_state::joy_changed), 1)
 		PORT_SENSITIVITY(JOYSTICK_SENSITIVITY)
 		PORT_KEYDELTA(JOYSTICK_DELTA)
 		PORT_MINMAX(0,1023)
@@ -183,7 +183,7 @@ INPUT_PORTS_START( coco_joystick )
 	PORT_START(JOYSTICK_LX_TAG)
 		PORT_BIT( 0x3ff, 0x200,  IPT_AD_STICK_X)
 		PORT_NAME("Left Joystick X")
-		PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco12_state::coco_state::joy_changed), 0)
+		PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco12_state::coco_state::joy_changed), 2)
 		PORT_SENSITIVITY(JOYSTICK_SENSITIVITY)
 		PORT_KEYDELTA(JOYSTICK_DELTA)
 		PORT_MINMAX(0,1023)
@@ -196,7 +196,7 @@ INPUT_PORTS_START( coco_joystick )
 	PORT_START(JOYSTICK_LY_TAG)
 		PORT_BIT( 0x3ff, 0x200,  IPT_AD_STICK_Y)
 		PORT_NAME("Left Joystick Y")
-		PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco12_state::coco_state::joy_changed), 1)
+		PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco12_state::coco_state::joy_changed), 3)
 		PORT_SENSITIVITY(JOYSTICK_SENSITIVITY)
 		PORT_KEYDELTA(JOYSTICK_DELTA)
 		PORT_MINMAX(0,1023) PORT_CODE_DEC(KEYCODE_8_PAD)
@@ -488,7 +488,8 @@ void coco_state::coco_sound(machine_config &config)
 	SPEAKER(config, "speaker").front_center();
 
 	// 6-bit D/A: R10-15 = 10K, 20K, 40.2K, 80.6K, 162K, 324K (according to parts list); output also controls joysticks
-	DAC_6BIT_BINARY_WEIGHTED(config, m_dac, 0).add_route(ALL_OUTPUTS, "speaker", 0.125);
+// 	DAC_6BIT_BINARY_WEIGHTED(config, m_dac, 0).add_route(ALL_OUTPUTS, "speaker", 0.125);
+	DAC_6BIT_BINARY_WEIGHTED(config, m_dac, 0).add_route(ALL_OUTPUTS, m_mux, 0.125, mc14529_device::y_sound_input(0));
 
 	// Single-bit sound: R22 = 10K
 	DAC_1BIT(config, "sbs", 0).set_output_range(-1, 1).add_route(ALL_OUTPUTS, "speaker", 0.125);
@@ -558,8 +559,10 @@ void coco12_state::coco(machine_config &config)
 	m_pia_0->writepa_handler().set(FUNC(coco_state::pia0_pa_w));
 	m_pia_0->writepb_handler().set(FUNC(coco_state::pia0_pb_w));
 	m_pia_0->tspb_handler().set_constant(0xff);
-	m_pia_0->ca2_handler().set(FUNC(coco_state::pia0_ca2_w));
-	m_pia_0->cb2_handler().set(FUNC(coco_state::pia0_cb2_w));
+// 	m_pia_0->ca2_handler().set(FUNC(coco_state::pia0_ca2_w));
+// 	m_pia_0->cb2_handler().set(FUNC(coco_state::pia0_cb2_w));
+	m_pia_0->ca2_handler().set(m_mux, FUNC(mc14529_device::a0_w));
+	m_pia_0->cb2_handler().set(m_mux, FUNC(mc14529_device::a1_w));
 	m_pia_0->irqa_handler().set(m_irqs, FUNC(input_merger_device::in_w<0>));
 	m_pia_0->irqb_handler().set(m_irqs, FUNC(input_merger_device::in_w<1>));
 
@@ -568,8 +571,11 @@ void coco12_state::coco(machine_config &config)
 	m_pia_1->readpb_handler().set(FUNC(coco_state::pia1_pb_r));
 	m_pia_1->writepa_handler().set(FUNC(coco_state::pia1_pa_w));
 	m_pia_1->writepb_handler().set(FUNC(coco_state::pia1_pb_w));
-	m_pia_1->ca2_handler().set(FUNC(coco_state::pia1_ca2_w));
-	m_pia_1->cb2_handler().set(FUNC(coco_state::pia1_cb2_w));
+// 	m_pia_1->ca2_handler().set(FUNC(coco_state::pia1_ca2_w));
+	m_pia_1->ca2_handler().set([this] (int state) { m_cassette->set_motor(state ? true : false);});
+// 	m_pia_1->cb2_handler().set(FUNC(coco_state::pia1_cb2_w));
+	m_pia_1->cb2_handler().set(m_mux, FUNC(mc14529_device::inhibit_y_w));
+
 	m_pia_1->irqa_handler().set(m_firqs, FUNC(input_merger_device::in_w<0>));
 	m_pia_1->irqb_handler().set(m_firqs, FUNC(input_merger_device::in_w<1>));
 
@@ -587,6 +593,8 @@ void coco12_state::coco(machine_config &config)
 	m_mux->set_propagation_delay(attotime::from_nsec(94), attotime::from_nsec(200));
 	m_mux->set_mode(mc14529_device::SEL_X, mc14529_device::MODE_ANALOG);
 	m_mux->set_analog_width(mc14529_device::SEL_X, 6 /* bits */);
+	m_mux->set_mode(mc14529_device::SEL_Y, mc14529_device::MODE_SOUND);
+	m_mux->add_route(mc14529_device::y_sound_output(), "speaker", 1.0);
 
 	// Becker Port device
 	COCO_DWSOCK(config, m_beckerport);
@@ -597,6 +605,7 @@ void coco12_state::coco(machine_config &config)
 	CASSETTE(config, m_cassette);
 	m_cassette->set_formats(coco_cassette_formats);
 	m_cassette->set_default_state(CASSETTE_PLAY | CASSETTE_MOTOR_DISABLED | CASSETTE_SPEAKER_ENABLED);
+	m_cassette->add_route(ALL_OUTPUTS, m_mux, 0.125, mc14529_device::y_sound_input(1));
 
 	rs232_port_device &rs232(RS232_PORT(config, RS232_TAG, default_rs232_devices, "rs_printer"));
 	rs232.dcd_handler().set(m_pia_1, FUNC(pia6821_device::ca1_w));
