@@ -105,12 +105,12 @@ coco_state::coco_state(const machine_config &mconfig, device_type type, const ch
 void coco_state::machine_start()
 {
 	// look up analog ports
-	analog_port_start(&m_joystick, JOYSTICK_RX_TAG, JOYSTICK_RY_TAG,
-		JOYSTICK_LX_TAG, JOYSTICK_LY_TAG, JOYSTICK_BUTTONS_TAG);
-	analog_port_start(&m_rat_mouse, RAT_MOUSE_RX_TAG, RAT_MOUSE_RY_TAG,
-		RAT_MOUSE_LX_TAG, RAT_MOUSE_LY_TAG, RAT_MOUSE_BUTTONS_TAG);
-	analog_port_start(&m_diecom_lightgun, DIECOM_LIGHTGUN_RX_TAG, DIECOM_LIGHTGUN_RY_TAG,
-		DIECOM_LIGHTGUN_LX_TAG, DIECOM_LIGHTGUN_LY_TAG, DIECOM_LIGHTGUN_BUTTONS_TAG);
+// 	analog_port_start(&m_joystick, JOYSTICK_RX_TAG, JOYSTICK_RY_TAG,
+// 		JOYSTICK_LX_TAG, JOYSTICK_LY_TAG, JOYSTICK_BUTTONS_TAG);
+// 	analog_port_start(&m_rat_mouse, RAT_MOUSE_RX_TAG, RAT_MOUSE_RY_TAG,
+// 		RAT_MOUSE_LX_TAG, RAT_MOUSE_LY_TAG, RAT_MOUSE_BUTTONS_TAG);
+// 	analog_port_start(&m_diecom_lightgun, DIECOM_LIGHTGUN_RX_TAG, DIECOM_LIGHTGUN_RY_TAG,
+// 		DIECOM_LIGHTGUN_LX_TAG, DIECOM_LIGHTGUN_LY_TAG, DIECOM_LIGHTGUN_BUTTONS_TAG);
 
 	// timers
 // 	m_hiresjoy_transition_timer[0] = timer_alloc(FUNC(coco_state::joystick_update), this);
@@ -165,14 +165,14 @@ void coco_state::machine_reset()
 //  analog_port_start
 //-------------------------------------------------
 
-void coco_state::analog_port_start(analog_input_t *analog, const char *rx_tag, const char *ry_tag, const char *lx_tag, const char *ly_tag, const char *buttons_tag)
-{
-	analog->m_input[0][0] =  ioport(rx_tag);
-	analog->m_input[0][1] =  ioport(ry_tag);
-	analog->m_input[1][0] =  ioport(lx_tag);
-	analog->m_input[1][1] =  ioport(ly_tag);
-	analog->m_buttons =  ioport(buttons_tag);
-}
+// void coco_state::analog_port_start(analog_input_t *analog, const char *rx_tag, const char *ry_tag, const char *lx_tag, const char *ly_tag, const char *buttons_tag)
+// {
+// 	analog->m_input[0][0] =  ioport(rx_tag);
+// 	analog->m_input[0][1] =  ioport(ry_tag);
+// 	analog->m_input[1][0] =  ioport(lx_tag);
+// 	analog->m_input[1][1] =  ioport(ly_tag);
+// 	analog->m_buttons =  ioport(buttons_tag);
+// }
 
 
 void coco_state::joystick_mode_changed(ioport_field &field, u32 param, ioport_value oldval, ioport_value newval)

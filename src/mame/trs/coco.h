@@ -210,7 +210,7 @@ protected:
 		uint8_t buttons() const { return m_buttons ? m_buttons->read() : 0x00; }
 	};
 
-	void analog_port_start(analog_input_t *analog, const char *rx_tag, const char *ry_tag, const char *lx_tag, const char *ly_tag, const char *buttons_tag);
+// 	void analog_port_start(analog_input_t *analog, const char *rx_tag, const char *ry_tag, const char *lx_tag, const char *ly_tag, const char *buttons_tag);
 
 	// wrappers for configuration
 // 	joystick_type_t joystick_type(int index);
