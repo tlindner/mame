@@ -858,16 +858,12 @@ void pia6821_device::set_a_input(uint8_t data)
 
 
 //-------------------------------------------------
-//  set_a_input - set the mask-defined bits of
-//  port A input
+//  set_a_input
 //-------------------------------------------------
 
 void pia6821_device::set_a_input(uint8_t data, uint8_t mask)
 {
-	// Combine: keep unmasked bits from m_in_a, take masked bits from data
 	uint8_t combined_data = (m_in_a & ~mask) | (data & mask);
-
-	// Forward to the original set_a_input to handle logging and updates
 	set_a_input(combined_data);
 }
 
@@ -1025,25 +1021,21 @@ void pia6821_device::write_portb_line(int line, bool state)
 //  set_b_input
 //-------------------------------------------------
 
-void pia6821_device::set_b_input(uint8_t data, uint8_t mask)
+void pia6821_device::set_b_input(uint8_t data)
 {
-	// Merge the new data into the current input register state using the mask
-	uint8_t new_in_b = (m_in_b & ~mask) | (data & mask);
-
-	// Invoke the internal, private port_b_w(uint8_t data) to handle
-	// logging, side-effects, and notifying the emulation core
-	port_b_w(new_in_b);
+	portb_w(data);
 }
-
 
 //-------------------------------------------------
 //  set_b_input
 //-------------------------------------------------
 
-void pia6821_device::set_b_input(uint8_t data)
+void pia6821_device::set_b_input(uint8_t data, uint8_t mask)
 {
-	set_b_input(data, 0xff);
+	uint8_t new_in_b = (m_in_b & ~mask) | (data & mask);
+	set_b_input(new_in_b);
 }
+
 
 //-------------------------------------------------
 //  b_output
