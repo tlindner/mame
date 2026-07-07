@@ -62,6 +62,7 @@ protected:
 	virtual void update_input_ports(uint8_t left_selection, uint8_t right_selection) override;
 
 	std::unique_ptr<coco_joy_handler> make_handler_for_port(int selection, int port);
+	virtual void update_input_port(int port, uint8_t selection) override;
 	virtual void machine_start() override ATTR_COLD;
 	void configure_sam();
 

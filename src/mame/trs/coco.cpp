@@ -177,31 +177,11 @@ void coco_state::machine_reset()
 
 void coco_state::joystick_mode_changed(ioport_field &field, u32 param, ioport_value oldval, ioport_value newval)
 {
-    // Default to Unconnected if pointers aren't ready yet
-    uint8_t right_selection = 0;
-    uint8_t left_selection  = 0;
+    // param == 0 is Right (Port 1), param == 1 is Left (Port 0)
+    int port = (param == 0) ? 1 : 0;
+    uint8_t selection = newval & 0x0f;
 
-    // Check if our smart-pointers are actually bound and safe to use yet
-    if (m_joystick_type_right.found() && m_joystick_type_left.found())
-    {
-        right_selection = m_joystick_type_right->read() & 0x0f;
-        left_selection  = m_joystick_type_left->read() & 0x0f;
-    }
-    else
-    {
-        // Early-boot fallback: use the active field's 'newval'
-        // param == 0 is Right, param == 1 is Left
-        if (param == 0)
-        {
-            right_selection = newval & 0x0f;
-        }
-        else
-        {
-            left_selection = newval & 0x0f;
-        }
-    }
-
-    update_input_ports(left_selection, right_selection);
+    update_input_port(port, selection);
 }
 
 

@@ -96,6 +96,7 @@ public:
     void rat_changed(int port, int axis, int delta);
     void port_timer_fired(int32_t port);
 	void write_mixer_slot(int slot, uint8_t val);
+	virtual void update_input_port(int port, uint8_t selection) { }
 
     // Your 6809 PIA/GIME read handlers will access m_mixer_slots here
     uint8_t read_active_mixer_slot(int selected_line);
@@ -321,34 +322,15 @@ public:
 class coco_joy_disconnected : public coco_joy_handler {
 public:
     // Inherit the constructor cleanly
-//     using coco_joy_handler::coco_joy_handler;
-	coco_joy_disconnected(coco_state &device, int port)
-        : coco_joy_handler(device, port)
-    {
-        osd_printf_info("coco_joy_disconnected: Instantiated on Port %d\n", port);
-    }
+    using coco_joy_handler::coco_joy_handler;
 
-    virtual ~coco_joy_disconnected() override
-    {
-        osd_printf_info("coco_joy_disconnected: Destroyed on Port %d\n", m_base_slot / 2);
-    }
     // Inherits all the empty {} methods from the base class,
     // effectively swallowing all MAME input events safely.
 };
 
 class coco_joy_standard : public coco_joy_handler {
 public:
-//     using coco_joy_handler::coco_joy_handler;
-coco_joy_standard(coco_state &device, int port)
-        : coco_joy_handler(device, port)
-    {
-        osd_printf_info("coco_joy_standard: Instantiated on Port %d\n", port);
-	}
-
-    virtual ~coco_joy_standard() override
-    {
-        osd_printf_info("coco_joy_standard: Destroyed on Port %d\n", m_base_slot / 2);
-    }
+    using coco_joy_handler::coco_joy_handler;
     void joy_changed(int axis, int new_val) override;
 };
 

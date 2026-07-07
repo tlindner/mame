@@ -138,7 +138,25 @@ std::unique_ptr<coco_joy_handler> coco12_state::make_handler(uint8_t selection, 
 	}
 }
 
-
+void coco12_state::update_input_port(int port, uint8_t selection)
+{
+    if (port == 0) // Left Port
+    {
+        if (selection != m_current_left_type)
+        {
+            m_port_handlers[0] = make_handler(selection, 0);
+            m_current_left_type = selection;
+        }
+    }
+    else if (port == 1) // Right Port
+    {
+        if (selection != m_current_right_type)
+        {
+            m_port_handlers[1] = make_handler(selection, 1);
+            m_current_right_type = selection;
+        }
+    }
+}
 
 //-------------------------------------------------
 //  deluxecoco_state::machine_start
