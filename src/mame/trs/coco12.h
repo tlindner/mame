@@ -59,11 +59,15 @@ public:
 	void ms1600(machine_config &config);
 
 protected:
+	virtual void update_input_ports(uint8_t left_selection, uint8_t right_selection) override;
+
+	std::unique_ptr<coco_joy_handler> make_handler_for_port(int selection, int port);
 	virtual void machine_start() override ATTR_COLD;
 	void configure_sam();
 
 	// PIA1
-	virtual void pia1_pb_changed(uint8_t data) override;
+// 	virtual void pia1_pb_changed(uint8_t data) override;
+	virtual void pia1_pb_w(uint8_t data) override;
 
 	sam6883_device &sam() { return *m_sam; }
 	required_device<sam6883_device> m_sam;
@@ -81,6 +85,10 @@ protected:
 
 protected:
 	required_device<mc6847_base_device> m_vdg;
+
+private:
+	std::unique_ptr<coco_joy_handler> make_handler(uint8_t selection, int port);
+
 };
 
 class deluxecoco_state : public coco12_state
@@ -114,6 +122,6 @@ protected:
 private:
 	memory_view m_ram_view;
 	memory_view m_rom_view;
-};
 
+};
 #endif // MAME_TRS_COCO12_H

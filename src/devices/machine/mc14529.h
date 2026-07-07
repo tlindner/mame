@@ -1,16 +1,19 @@
 // license:BSD-3-Clause
-// copyright-holders:Tim Lindner
+// copyright-holders:tim lindner
 /***************************************************************************
 
     mc14529.h
 
-    MC14529 Dual 4-Channel Analog Data Selector, with asymmetric
-    propagation delay characterized from oscilloscope measurements of a
-    real MC14529 as used in the CoCo 1 audio/joystick mux.
+    MC14529 Dual 4-Channel Analog Data Selector, with support for asymmetric
+    propagation delay. By default it will use a symmetrical 150ns delay marked
+    as typical by the data sheet.
+
+    But I characterized a part from a Color Computer using an oscilloscope to
+    have real measurements.
 
     Measured select-to-output propagation delay (n=4 transitions each):
-        tPLH (rising, L->H)  avg ~93.75 ns  -> default 94 ns
-        tPHL (falling, H->L) avg ~200.00 ns -> default 200 ns
+        tPLH (rising, L->H)  avg ~93.75 ns
+        tPHL (falling, H->L) avg ~200.00 ns
 
     Real hardware is switching a single analog node between two levels;
     "L->H" and "H->L" are really "rising swing" and "falling swing" on
@@ -33,7 +36,7 @@
         The selected channel's audio is passed straight through to this
         device's own sound output (x_sound_output()/y_sound_output()
         route index), which can in turn be routed to a SPEAKER device.
-        No propagation delay is modeled in this mode -- the switch is
+        No propagation delay is modeled in this mode. The switch is
         treated as instantaneous, cutting over exactly at the sample
         boundary corresponding to the address/inhibit change.
 
@@ -53,7 +56,7 @@
     MODE_DIGITAL and MODE_ANALOG share a fixed-size per-selector timer
     pool (see mc14529.cpp) so multiple in-flight transitions are
     preserved in chronological order. MODE_SOUND does not use that pool
-    at all; it is handled entirely inside sound_stream_update().
+    at all; it is handled, without delays, entirely inside sound_stream_update().
 
     Pinout:
         A0, A1        -> address_w(bit, state)   (shared by both selectors)
@@ -72,10 +75,13 @@
                          zy_analog_callback()  (write8)     [MODE_ANALOG]
                          route from y_sound_output() index  [MODE_SOUND]
 
+	TODO:
     This device treats the part as a 2-level digital selector, a
     quantized-analog-level selector, or an audio-stream selector,
-    depending on mode -- not a true continuous bidirectional analog
+    depending on mode. Not a true continuous bidirectional analog
     switch.
+
+    This device does not implement the combined 8-channel mode.
 
 ***************************************************************************/
 
@@ -106,7 +112,7 @@ public:
 	// configuration
 	mc14529_device &set_propagation_delay(const attotime &tplh, const attotime &tphl);
 	mc14529_device &set_mode(unsigned selector, mode_t mode);
-	mc14529_device &set_analog_width(unsigned selector, unsigned bits); // default 6 bits (0-63)
+	mc14529_device &set_analog_width(unsigned selector, unsigned bits); // default 8 bits
 
 	// digital-mode outputs
 	auto zx_callback() { return m_write_z[SEL_X].bind(); }
@@ -190,7 +196,7 @@ private:
 	TIMER_CALLBACK_MEMBER(delay_expired);
 
 	devcb_write_line m_write_z[NUM_SELECTORS];        // MODE_DIGITAL output
-	devcb_write8 m_write_z_analog[NUM_SELECTORS];      // MODE_ANALOG output
+	devcb_write8 m_write_z_analog[NUM_SELECTORS];     // MODE_ANALOG output
 
 	sound_stream *m_stream; // MODE_SOUND input/output
 

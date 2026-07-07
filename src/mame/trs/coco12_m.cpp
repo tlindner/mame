@@ -19,20 +19,9 @@ void coco12_state::machine_start()
 {
 	coco_state::machine_start();
 	configure_sam();
-}
 
-
-
-//-------------------------------------------------
-//  coco12_state::configure_sam
-//-------------------------------------------------
-
-void coco12_state::configure_sam()
-{
-	offs_t ramsize = m_ram->size();
-	m_sam->space(0).install_ram(0, ramsize - 1, m_ram->pointer());
-	if (ramsize < 65536)
-		m_sam->space(0).nop_readwrite(ramsize, 0xffff);
+	m_port_handlers[0] = std::make_unique<coco_joy_standard>(*this, 0); // Left
+    m_port_handlers[1] = std::make_unique<coco_joy_standard>(*this, 2); // Right
 }
 
 
@@ -60,6 +49,19 @@ void coco12_state::field_sync(int state)
 
 
 //-------------------------------------------------
+//  coco12_state::configure_sam
+//-------------------------------------------------
+
+void coco12_state::configure_sam()
+{
+	offs_t ramsize = m_ram->size();
+	m_sam->space(0).install_ram(0, ramsize - 1, m_ram->pointer());
+	if (ramsize < 65536)
+		m_sam->space(0).nop_readwrite(ramsize, 0xffff);
+}
+
+
+//-------------------------------------------------
 //  sam_read
 //-------------------------------------------------
 
@@ -77,10 +79,26 @@ uint8_t coco12_state::sam_read(offs_t offset)
 //  pia1_pb_changed
 //-------------------------------------------------
 
-void coco12_state::pia1_pb_changed(uint8_t data)
+// void coco12_state::pia1_pb_changed(uint8_t data)
+// {
+// 	/* call inherited function */
+// 	coco_state::pia1_pb_changed(data);
+//
+// 	m_vdg->css_w(data & 0x08);
+// 	m_vdg->intext_w(data & 0x10);
+// 	m_vdg->gm0_w(data & 0x10);
+// 	m_vdg->gm1_w(data & 0x20);
+// 	m_vdg->gm2_w(data & 0x40);
+// 	m_vdg->ag_w(data & 0x80);
+// }
+//-------------------------------------------------
+//  pia1_pb_changed
+//-------------------------------------------------
+
+void coco12_state::pia1_pb_w(uint8_t data)
 {
 	/* call inherited function */
-	coco_state::pia1_pb_changed(data);
+	coco_state::pia1_pb_w(data);
 
 	m_vdg->css_w(data & 0x08);
 	m_vdg->intext_w(data & 0x10);
@@ -88,6 +106,36 @@ void coco12_state::pia1_pb_changed(uint8_t data)
 	m_vdg->gm1_w(data & 0x20);
 	m_vdg->gm2_w(data & 0x40);
 	m_vdg->ag_w(data & 0x80);
+}
+
+
+void coco12_state::update_input_ports(uint8_t left_selection, uint8_t right_selection)
+{
+    if (left_selection != m_current_left_type)
+    {
+        m_port_handlers[0] = make_handler(left_selection, 0);
+        m_current_left_type = left_selection;
+    }
+
+    if (right_selection != m_current_right_type)
+    {
+        m_port_handlers[1] = make_handler(right_selection, 1);
+        m_current_right_type = right_selection;
+    }
+}
+
+std::unique_ptr<coco_joy_handler> coco12_state::make_handler(uint8_t selection, int port)
+{
+	int base_slot = (port == 0) ? 0 : 2; // Port 0 = Left, Port 1 = Right
+
+	switch (selection) {
+		case 0x00: // "Unconnected"
+			return std::make_unique<coco_joy_disconnected>(*this, base_slot);
+		case 0x01: // "Joystick"
+			return std::make_unique<coco_joy_standard>(*this, base_slot);
+		default:
+			return std::make_unique<coco_joy_disconnected>(*this, base_slot);
+	}
 }
 
 
