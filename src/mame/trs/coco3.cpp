@@ -274,11 +274,15 @@ void coco3_state::coco3(machine_config &config)
 	m_gime->floating_bus_rd_callback().set(FUNC(coco3_state::floating_bus_r));
 
 	PIA6821(config, m_pia_0);
-	m_pia_0->writepa_handler().set(FUNC(coco_state::pia0_pa_w));
-	m_pia_0->writepb_handler().set(FUNC(coco_state::pia0_pb_w));
+// 	m_pia_0->writepa_handler().set(FUNC(coco_state::pia0_pa_w));
+// 	m_pia_0->writepb_handler().set(FUNC(coco_state::pia0_pb_w));
+	m_pia_0->writepa_handler().set(FUNC(coco_state::update_a_side_keyboard));
+	m_pia_0->writepb_handler().set(FUNC(coco_state::update_b_side_keyboard));
 	m_pia_0->tspb_handler().set_constant(0xff);
-	m_pia_0->ca2_handler().set(FUNC(coco_state::pia0_ca2_w));
-	m_pia_0->cb2_handler().set(FUNC(coco_state::pia0_cb2_w));
+// 	m_pia_0->ca2_handler().set(FUNC(coco_state::pia0_ca2_w));
+// 	m_pia_0->cb2_handler().set(FUNC(coco_state::pia0_cb2_w));
+	m_pia_0->ca2_handler().set(m_mux, FUNC(mc14529_device::a0_w));
+	m_pia_0->cb2_handler().set(m_mux, FUNC(mc14529_device::a1_w));
 	m_pia_0->irqa_handler().set(m_irqs, FUNC(input_merger_device::in_w<0>));
 	m_pia_0->irqb_handler().set(m_irqs, FUNC(input_merger_device::in_w<1>));
 
@@ -290,7 +294,7 @@ void coco3_state::coco3(machine_config &config)
 // 	m_pia_1->ca2_handler().set(FUNC(coco_state::pia1_ca2_w));
 	m_pia_1->ca2_handler().set([this] (int state) { m_cassette->set_motor(state ? true : false);});
 // 	m_pia_1->cb2_handler().set(FUNC(coco_state::pia1_cb2_w));
-	m_pia_1->cb2_handler().set(m_mux, FUNC(mc14529_device::inhibit_y_w));
+	m_pia_1->cb2_handler().set(m_mux, FUNC(mc14529_device::inhibit_y_w)).invert();;
 	m_pia_1->irqa_handler().set(m_firqs, FUNC(input_merger_device::in_w<0>));
 	m_pia_1->irqb_handler().set(m_firqs, FUNC(input_merger_device::in_w<1>));
 
@@ -310,6 +314,7 @@ void coco3_state::coco3(machine_config &config)
 	CASSETTE(config, m_cassette);
 	m_cassette->set_formats(coco_cassette_formats);
 	m_cassette->set_default_state(CASSETTE_PLAY | CASSETTE_MOTOR_DISABLED | CASSETTE_SPEAKER_ENABLED);
+	m_cassette->add_route(ALL_OUTPUTS, m_mux, 0.125, mc14529_device::y_sound_input(1));
 
 	rs232_port_device &rs232(RS232_PORT(config, RS232_TAG, default_rs232_devices, "rs_printer"));
 	rs232.dcd_handler().set(m_pia_1, FUNC(pia6821_device::ca1_w));

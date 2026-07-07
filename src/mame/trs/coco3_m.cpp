@@ -107,7 +107,7 @@ void coco3_state::ff40_write(offs_t offset, uint8_t data)
 
 INPUT_CHANGED_MEMBER(coco3_state::keyboard_changed)
 {
-	coco_state::keyboard_changed(field, param, oldval, newval);
+// 	coco_state::keyboard_changed(field, param, oldval, newval);
 
 	/* Support for CoCo 3 keyboard GIME interrupt */
 	uint8_t any_pressed = 0;

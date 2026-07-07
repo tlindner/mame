@@ -58,7 +58,7 @@
 //#define VERBOSE (LOG_GENERAL | LOG_READS)
 #include "logmacro.h"
 
-DEFINE_DEVICE_TYPE(MC14529, mc14529_device, "mc14529", "MC14529 Dual 4-Channel Analog Data Selector (measured timing)")
+DEFINE_DEVICE_TYPE(MC14529, mc14529_device, "mc14529", "MC14529 Dual 4-Channel Analog Data Selector")
 
 mc14529_device::mc14529_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock)
 	: device_t(mconfig, MC14529, tag, owner, clock)
@@ -66,12 +66,12 @@ mc14529_device::mc14529_device(const machine_config &mconfig, const char *tag, d
 	, m_write_z{ { *this }, { *this } }
 	, m_write_z_analog{ { *this }, { *this } }
 	, m_stream(nullptr)
-	, m_tplh(attotime::from_nsec(94))
-	, m_tphl(attotime::from_nsec(200))
+	, m_tplh(attotime::from_nsec(150))
+	, m_tphl(attotime::from_nsec(150))
 	, m_address(0)
 {
 	std::fill(std::begin(m_mode), std::end(m_mode), MODE_DIGITAL);
-	std::fill(std::begin(m_width_mask), std::end(m_width_mask), 0x3f); // default 6-bit
+	std::fill(std::begin(m_width_mask), std::end(m_width_mask), 0xff);
 	std::fill(std::begin(m_inhibit), std::end(m_inhibit), 0);
 	std::fill(std::begin(m_current_output), std::end(m_current_output), 0);
 	std::fill(std::begin(m_last_scheduled), std::end(m_last_scheduled), 0);
@@ -179,9 +179,6 @@ void mc14529_device::sound_stream_update(sound_stream &stream)
 			stream.fill(selector, 0);
 		else
 			stream.copy(selector, selector * NUM_CHANNELS + m_address);
-
-		logerror("sound stream update source: %d, accumulate: %d\n",
-		selector * NUM_CHANNELS + m_address, stream.accumulate(selector * NUM_CHANNELS + m_address));
 	}
 }
 
@@ -269,7 +266,7 @@ void mc14529_device::address_w(int bit, int state)
 	u8 const mask = u8(1) << bit;
 	u8 const new_address = state ? (m_address | mask) : (m_address & ~mask);
 
-	logerror("address_w: bit: %d, state: %d, new address: %d\n",bit, state, new_address);
+// 	logerror("address_w: bit: %d, state: %d, new address: %d\n",bit, state, new_address);
 
 	if (new_address == m_address)
 		return;
