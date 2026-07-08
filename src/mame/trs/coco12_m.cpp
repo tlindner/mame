@@ -109,54 +109,20 @@ void coco12_state::pia1_pb_w(uint8_t data)
 }
 
 
-void coco12_state::update_input_ports(uint8_t left_selection, uint8_t right_selection)
-{
-    if (left_selection != m_current_left_type)
-    {
-        m_port_handlers[0] = make_handler(left_selection, 0);
-        m_current_left_type = left_selection;
-    }
-
-    if (right_selection != m_current_right_type)
-    {
-        m_port_handlers[1] = make_handler(right_selection, 1);
-        m_current_right_type = right_selection;
-    }
-}
-
-std::unique_ptr<coco_joy_handler> coco12_state::make_handler(uint8_t selection, int port)
-{
-	int base_slot = (port == 0) ? 0 : 2; // Port 0 = Left, Port 1 = Right
-
-	switch (selection) {
-		case 0x00: // "Unconnected"
-			return std::make_unique<coco_joy_disconnected>(*this, base_slot);
-		case 0x01: // "Joystick"
-			return std::make_unique<coco_joy_standard>(*this, base_slot);
-		default:
-			return std::make_unique<coco_joy_disconnected>(*this, base_slot);
-	}
-}
-
-void coco12_state::update_input_port(int port, uint8_t selection)
-{
-    if (port == 0) // Left Port
-    {
-        if (selection != m_current_left_type)
-        {
-            m_port_handlers[0] = make_handler(selection, 0);
-            m_current_left_type = selection;
-        }
-    }
-    else if (port == 1) // Right Port
-    {
-        if (selection != m_current_right_type)
-        {
-            m_port_handlers[1] = make_handler(selection, 1);
-            m_current_right_type = selection;
-        }
-    }
-}
+// void coco12_state::update_input_ports(uint8_t left_selection, uint8_t right_selection)
+// {
+//     if (left_selection != m_left_joyport_device)
+//     {
+//         m_port_handlers[0] = make_handler(left_selection, 0);
+//         m_left_joyport_device = left_selection;
+//     }
+//
+//     if (right_selection != m_right_joyport_device)
+//     {
+//         m_port_handlers[1] = make_handler(right_selection, 1);
+//         m_right_joyport_device = right_selection;
+//     }
+// }
 
 //-------------------------------------------------
 //  deluxecoco_state::machine_start

@@ -136,8 +136,8 @@ void coco_state::machine_start()
 	// miscellaneous
 	m_in_floating_bus_read = false;
 
-	m_current_left_type = 0xff;
-    m_current_right_type = 0xff;
+	m_left_joyport_device = 0xff;
+    m_right_joyport_device = 0xff;
 
 }
 
@@ -318,6 +318,41 @@ void coco_state::floating_space_write(offs_t offset, uint8_t data)
 	m_floating->write8(offset, data);
 }
 
+
+std::unique_ptr<coco_joy_handler> coco_state::make_handler(uint8_t selection, int port)
+{
+    switch (selection)
+    {
+        case 0x00: return std::make_unique<coco_joy_disconnected>(*this, port);
+        case 0x01: return std::make_unique<coco_joy_standard>(*this, port);
+        default:   return nullptr; // Fallback for unknown types
+    }
+}
+
+void coco_state::update_input_port(int port, uint8_t selection)
+{
+	// Inside coco_state::update_input_port
+// 	osd_printf_info("coco_state::update_input_port update_input_port: port=%d, selection=%d, handlers=[%p, %p]\n", port, selection, (void*)m_port_handlers[0].get(), (void*)m_port_handlers[1].get());
+
+    if (port == 0) // Left Port
+    {
+        if (selection != m_left_joyport_device)
+        {
+            // Left port uses base_slot 0
+            m_port_handlers[0] = make_handler(selection, 0);
+            m_left_joyport_device = selection;
+        }
+    }
+    else if (port == 1) // Right Port
+    {
+        if (selection != m_right_joyport_device)
+        {
+            // Right port MUST use base_slot 2!
+            m_port_handlers[1] = make_handler(selection, 2);
+            m_right_joyport_device = selection;
+        }
+    }
+}
 
 /***************************************************************************
   PIA0 ($FF00-$FF1F) (Chip U8)
@@ -829,48 +864,49 @@ uint8_t coco_state::poll_joystick_buttons()
 // 	}
 // }
 
-void coco_state::update_keyboard(coco_state::keyboard_side_t side, uint8_t value)
+// void coco_state::update_keyboard(coco_state::keyboard_side_t side, uint8_t value)
+void coco_state::pia0_pa_w(uint8_t value)
 {
-	switch (side)
+	uint8_t pia0_pb = 0xFF; // Port B pulls up to 0xFF by default
+
+	// Iterate through all 7 keyboard rows (PA0 to PA6)
+	for (unsigned i = 0; i < m_keyboard.size(); i++)
 	{
-		case PORT_A_WRITE:
+		// Check if this specific row is being driven low by Port A's write value
+		if (!(value & (0x01 << i)))
 		{
-			uint8_t pia0_pb = 0xFF; // Port B pulls up to 0xFF by default
-
-			// Iterate through all 7 keyboard rows (PA0 to PA6)
-			for (unsigned i = 0; i < m_keyboard.size(); i++)
-			{
-				// Check if this specific row is being driven low by Port A's write value
-				if (!(value & (0x01 << i)))
-				{
-					// Read the pressed keys for this row (0 = pressed)
-					uint8_t key_column = m_keyboard[i]->read();
-					pia0_pb &= key_column;
-				}
-			}
-
-			pia_0().set_b_input(pia0_pb);
-		}
-		case PORT_B_WRITE:
-		{
-			uint8_t pia0_pa = 0x7F;
-			/* poll the keyboard, and update PA6-PA0 accordingly*/
-			for (unsigned i = 0; i < m_keyboard.size(); i++)
-			{
-				int key_column = m_keyboard[i]->read();
-				if ((key_column | value) != 0xFF)
-				{
-					pia0_pa &= ~(0x01 << i);
-				}
-			}
-
-			const uint8_t buttons = poll_joystick_buttons();
-			pia0_pa &= ~buttons;
-			pia_0().set_a_input(pia0_pa, 0x7f);
-			break;
+			// Read the pressed keys for this row (0 = pressed)
+			uint8_t key_column = m_keyboard[i]->read();
+			pia0_pb &= key_column;
 		}
 	}
+
+	pia_0().set_b_input(pia0_pb);
 }
+
+void coco_state::pia0_pb_w(uint8_t value)
+{
+	uint8_t pia0_pa = 0x7F;
+	/* poll the keyboard, and update PA6-PA0 accordingly*/
+	for (unsigned i = 0; i < m_keyboard.size(); i++)
+	{
+		int key_column = m_keyboard[i]->read();
+		if ((key_column | value) != 0xFF)
+		{
+			pia0_pa &= ~(0x01 << i);
+		}
+	}
+
+    uint8_t raw_buttons = ioport(JOYSTICK_BUTTONS_TAG)->read();
+    uint8_t gated_buttons = 0;
+    gated_buttons |= (m_right_joyport_device != 0) ? (raw_buttons & 0x05) : 0x00;
+    gated_buttons |= (m_left_joyport_device != 0)  ? (raw_buttons & 0x0a) : 0x00;
+    pia0_pa &= ~gated_buttons;
+
+	pia_0().set_a_input(pia0_pa, 0x7f);
+}
+// 	}
+// }
 
 // 	uint8_t pia0_pb = pia_0().b_output();
 //
@@ -1520,10 +1556,19 @@ void coco_state::mouse_changed(ioport_field &field, u32 param, ioport_value oldv
     rat_changed(port, axis, delta);
 }
 
-// Keep our clean strategy router running exactly as before
-void coco_state::joy_changed(int port, int axis, int new_val)
+// // Keep our clean strategy router running exactly as before
+// void coco_state::joy_changed(int port, int axis, int new_val)
+// {
+//     m_port_handlers[port]->joy_changed(axis, new_val);
+// }
+
+void coco_state::joy_changed(int port, int axis, int newval)
 {
-    m_port_handlers[port]->joy_changed(axis, new_val);
+    // Guard against uninitialized or disconnected ports
+    if (m_port_handlers[port] != nullptr)
+    {
+        m_port_handlers[port]->joy_changed(axis, newval);
+    }
 }
 
 void coco_state::rat_changed(int port, int axis, int delta)
@@ -1550,4 +1595,10 @@ void coco_joy_standard::joy_changed(int axis, int new_val)
 void coco_state::write_mixer_slot(int slot, uint8_t val)
 {
 	m_mux->x_analog_w(slot, val);
+}
+
+void coco_state::add_sound_route(device_sound_interface &sound_device, int output_index, double gain)
+{
+    // Directly tell MAME to route this sound device into your multiplexer input
+    sound_device.add_route(output_index, *m_mux, gain, mc14529_device::y_sound_input(2));
 }

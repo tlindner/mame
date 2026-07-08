@@ -151,6 +151,7 @@ class device_cococart_host_interface
 {
 public:
 	virtual address_space &cartridge_space() = 0;
+	virtual void add_sound_route(device_sound_interface &sound_device, int output_index, double gain) = 0;
 };
 
 
@@ -189,6 +190,8 @@ protected:
 	// cartridges (e.g. - Orch-90, Multi-Pak interface) for their control registers, independently
 	// of the SCS or CTS lines
 	address_space &cartridge_space();
+	virtual void add_sound_route(device_sound_interface &sound_device, int output_index, double gain);
+
 	template <typename R>
 	void install_read_handler(u16 addrstart, u16 addrend, R &&rhandler)
 	{

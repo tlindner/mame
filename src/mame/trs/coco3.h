@@ -36,7 +36,7 @@ public:
 	virtual void ff40_write(offs_t offset, uint8_t data) override;
 
 	uint32_t screen_update(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
-	DECLARE_INPUT_CHANGED_MEMBER(keyboard_changed);
+// 	DECLARE_INPUT_CHANGED_MEMBER(keyboard_changed);
 
 	void coco3p(machine_config &config);
 	void coco3h(machine_config &config);
@@ -48,6 +48,8 @@ protected:
 	virtual void machine_start() override ATTR_COLD;
 
 	virtual void update_cart_base(uint8_t *cart_base) override;
+	void pia0_pa_w(uint8_t value);
+	void pia0_pb_w(uint8_t value);
 
 	// miscellaneous
 	virtual void cart_w(bool line) override;

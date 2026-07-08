@@ -57,6 +57,9 @@ void coco3_state::machine_start()
 	// save state support
 	save_item(NAME(m_prev_keyboard_pressed));
 	save_item(NAME(m_pia1b_control_register));
+
+	m_port_handlers[0] = std::make_unique<coco_joy_standard>(*this, 0); // Left
+    m_port_handlers[1] = std::make_unique<coco_joy_standard>(*this, 2); // Right
 }
 
 
@@ -101,13 +104,29 @@ void coco3_state::ff40_write(offs_t offset, uint8_t data)
 
 
 
-//-------------------------------------------------
-//  keyboard_changed
-//-------------------------------------------------
-
-INPUT_CHANGED_MEMBER(coco3_state::keyboard_changed)
+void coco3_state::pia0_pa_w(uint8_t value)
 {
-// 	coco_state::keyboard_changed(field, param, oldval, newval);
+	coco_state::pia0_pb_w(value);
+
+	uint8_t any_pressed = 0;
+	for (unsigned i = 0; i < m_keyboard.size(); i++)
+	{
+		any_pressed |= (~(m_keyboard[i]->read()) | poll_joystick_buttons()) & 0xff;
+	}
+
+	bool pressed = any_pressed != 0;
+	if (pressed != m_prev_keyboard_pressed)
+	{
+		m_gime->set_il1(true);
+		m_gime->set_il1(false);
+	}
+
+	m_prev_keyboard_pressed = pressed;
+}
+
+void coco3_state::pia0_pb_w(uint8_t value)
+{
+	coco_state::pia0_pb_w(value);
 
 	/* Support for CoCo 3 keyboard GIME interrupt */
 	uint8_t any_pressed = 0;
@@ -125,6 +144,31 @@ INPUT_CHANGED_MEMBER(coco3_state::keyboard_changed)
 
 	m_prev_keyboard_pressed = pressed;
 }
+
+//-------------------------------------------------
+//  keyboard_changed
+//-------------------------------------------------
+
+// INPUT_CHANGED_MEMBER(coco3_state::keyboard_changed)
+// {
+// // 	coco_state::keyboard_changed(field, param, oldval, newval);
+//
+// 	/* Support for CoCo 3 keyboard GIME interrupt */
+// 	uint8_t any_pressed = 0;
+// 	for (unsigned i = 0; i < m_keyboard.size(); i++)
+// 	{
+// 		any_pressed |= (~(m_keyboard[i]->read()) | poll_joystick_buttons()) & 0xff;
+// 	}
+//
+// 	bool pressed = any_pressed != 0;
+// 	if (pressed != m_prev_keyboard_pressed)
+// 	{
+// 		m_gime->set_il1(true);
+// 		m_gime->set_il1(false);
+// 	}
+//
+// 	m_prev_keyboard_pressed = pressed;
+// }
 
 //-------------------------------------------------
 //  cart_w
