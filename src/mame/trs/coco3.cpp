@@ -152,6 +152,21 @@ static INPUT_PORTS_START( coco3_keyboard )
 	PORT_BIT(0x80, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("SHIFT") PORT_CODE(KEYCODE_LSHIFT) PORT_CODE(KEYCODE_RSHIFT) PORT_CHAR(UCHAR_SHIFT_1)
 INPUT_PORTS_END
 
+//-------------------------------------------------
+//  INPUT_PORTS( coco3_analog_control )
+//-------------------------------------------------
+
+static INPUT_PORTS_START( coco3_analog_control )
+	PORT_INCLUDE( coco_analog_control )
+
+	PORT_MODIFY("CTRL_SEL_RIGHT")
+	PORT_BIT( 0xff, IP_ACTIVE_HIGH, IPT_OUTPUT ) // Or whatever the base mask/type is in coco_analog_control
+	PORT_CONFSETTING(  coco3_state::JOY_DEVICE_TANDY_HIRES, "Tandy Hi-res Joystick" )
+
+	PORT_MODIFY("CTRL_SEL_LEFT")
+	PORT_BIT( 0xff, IP_ACTIVE_HIGH, IPT_OUTPUT )
+	PORT_CONFSETTING(  coco3_state::JOY_DEVICE_TANDY_HIRES, "Tandy Hi-res Joystick" )
+INPUT_PORTS_END
 
 
 //-------------------------------------------------
@@ -318,7 +333,8 @@ INPUT_PORTS_END
 static INPUT_PORTS_START( coco3 )
 	PORT_INCLUDE( coco3_keyboard )
 	PORT_INCLUDE( coco3_joystick )
-	PORT_INCLUDE( coco_analog_control )
+// 	PORT_INCLUDE( coco_analog_control )
+	PORT_INCLUDE( coco3_analog_control )
 // 	PORT_INCLUDE( coco_rat_mouse )
 // 	PORT_INCLUDE( coco_lightgun )
 	PORT_INCLUDE( coco_beckerport )

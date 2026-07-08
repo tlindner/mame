@@ -141,6 +141,7 @@ public:
 	void address_w(int bit, int state);
 	void a0_w(int state) { address_w(0, state); }
 	void a1_w(int state) { address_w(1, state); }
+	int current_address() { return m_address; }
 
 	// per-selector active-high inhibit
 	void inhibit_x_w(int state);

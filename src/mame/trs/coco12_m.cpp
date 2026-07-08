@@ -20,8 +20,8 @@ void coco12_state::machine_start()
 	coco_state::machine_start();
 	configure_sam();
 
-	m_port_handlers[0] = std::make_unique<coco_joy_standard>(*this, 0); // Left
-    m_port_handlers[1] = std::make_unique<coco_joy_standard>(*this, 2); // Right
+	m_joy_handlers[0] = std::make_unique<coco_joy_standard>(*this, 0); // Left
+    m_joy_handlers[1] = std::make_unique<coco_joy_standard>(*this, 2); // Right
 }
 
 
@@ -111,16 +111,16 @@ void coco12_state::pia1_pb_w(uint8_t data)
 
 // void coco12_state::update_input_ports(uint8_t left_selection, uint8_t right_selection)
 // {
-//     if (left_selection != m_left_joyport_device)
+//     if (left_selection != m_left_joy_device)
 //     {
-//         m_port_handlers[0] = make_handler(left_selection, 0);
-//         m_left_joyport_device = left_selection;
+//         m_joy_handlers[0] = make_joy_handler(left_selection, 0);
+//         m_left_joy_device = left_selection;
 //     }
 //
-//     if (right_selection != m_right_joyport_device)
+//     if (right_selection != m_right_joy_device)
 //     {
-//         m_port_handlers[1] = make_handler(right_selection, 1);
-//         m_right_joyport_device = right_selection;
+//         m_joy_handlers[1] = make_joy_handler(right_selection, 1);
+//         m_right_joy_device = right_selection;
 //     }
 // }
 

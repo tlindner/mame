@@ -171,15 +171,14 @@ void deluxecoco_state::deluxecoco_io1(address_map &map)
 INPUT_PORTS_START( coco_analog_control )
 	PORT_START("CTRL_SEL_RIGHT")
 	PORT_CONFNAME( 0x0f, 0x01, "Right Controller Port (P1)" ) PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_state::joystick_mode_changed), 0)
-	PORT_CONFSETTING(  0x00, "Unconnected" )
-	PORT_CONFSETTING(  0x01, "Joystick" )
+	PORT_CONFSETTING(  coco_state::JOY_DEVICE_UNCONNECTED, "Unconnected" )
+	PORT_CONFSETTING(  coco_state::JOY_DEVICE_STANDARD, "Joystick" )
 
 	PORT_START("CTRL_SEL_LEFT")
 	PORT_CONFNAME( 0x0f, 0x01, "Left Controller Port (P2)" )  PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_state::joystick_mode_changed), 1)
-	PORT_CONFSETTING(  0x00, "Unconnected" )
-	PORT_CONFSETTING(  0x01, "Joystick" )
+	PORT_CONFSETTING(  coco_state::JOY_DEVICE_UNCONNECTED, "Unconnected" )
+	PORT_CONFSETTING(  coco_state::JOY_DEVICE_STANDARD, "Joystick" )
 INPUT_PORTS_END
-
 
 
 //-------------------------------------------------
