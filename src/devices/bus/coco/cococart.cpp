@@ -811,6 +811,16 @@ address_space &device_cococart_interface::cartridge_space()
 
 
 //-------------------------------------------------
+//  add_sound_route
+//-------------------------------------------------
+
+void device_cococart_interface::add_sound_route(device_sound_interface &sound_device, int output_index, double gain)
+{
+	return host().add_sound_route(sound_device, output_index, gain);
+}
+
+
+//-------------------------------------------------
 //  set_line_value
 //-------------------------------------------------
 

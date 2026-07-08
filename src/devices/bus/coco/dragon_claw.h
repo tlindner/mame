@@ -43,6 +43,7 @@ protected:
 	virtual u32 get_cart_size() override;
 
 	virtual address_space &cartridge_space() override;
+	virtual void add_sound_route(device_sound_interface &sound_device, int output_index, double gain) override;
 
 private:
 	void irq_w(int state);

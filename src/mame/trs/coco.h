@@ -96,7 +96,7 @@ public:
     void rat_changed(int port, int axis, int delta);
     void port_timer_fired(int32_t port);
 	void write_mixer_slot(int slot, uint8_t val);
-	virtual void update_input_port(int port, uint8_t selection) { }
+// 	virtual void update_input_port(int port, uint8_t selection) { }
 
     // Your 6809 PIA/GIME read handlers will access m_mixer_slots here
     uint8_t read_active_mixer_slot(int selected_line);
@@ -113,18 +113,22 @@ public:
 // 	void pia0_pb_w(uint8_t data);
 // 	void pia0_ca2_w(int state);
 // 	void pia0_cb2_w(int state);
+// 	void pia0_pa_w(uint8_t value) { update_keyboard(PORT_A_WRITE, value); }
+// 	void pia0_pb_w(uint8_t value) { update_keyboard(PORT_B_WRITE, value); }
+	void pia0_pa_w(uint8_t value);
+	void pia0_pb_w(uint8_t value);
 	void comparator_changed(uint8_t data);
 
 	// PIA1
 	uint8_t pia1_pa_r();
 	uint8_t pia1_pb_r();
-	void pia1_pa_w(uint8_t data);
+	virtual void pia1_pa_w(uint8_t data);
 	virtual void pia1_pb_w(uint8_t data);
 // 	void pia1_ca2_w(int state);
 // 	void pia1_cb2_w(int state);
 
-	uint8_t m_current_left_type;
-    uint8_t m_current_right_type;
+	uint8_t m_left_joyport_device;
+    uint8_t m_right_joyport_device;
 
 	// floating bus & "space"
 	uint8_t floating_bus_r()   { return floating_bus_read(); }
@@ -134,6 +138,7 @@ public:
 	// cartridge stuff
 	void cart_w(int state) { cart_w((bool) state); }
 	virtual address_space &cartridge_space() override;
+	virtual void add_sound_route(device_sound_interface &sound_device, int output_index, double gain) override;
 
 	// disassembly override
 	static offs_t os9_dasm_override(std::ostream &stream, offs_t pc, const util::disasm_interface::data_buffer &opcodes, const util::disasm_interface::data_buffer &params);
@@ -149,9 +154,6 @@ public:
 		PORT_A_WRITE,
 		PORT_B_WRITE
 	};
-
-	void update_a_side_keyboard(uint8_t value) { update_keyboard(PORT_A_WRITE, value); }
-	void update_b_side_keyboard(uint8_t value) { update_keyboard(PORT_B_WRITE, value); }
 
 protected:
 	virtual void machine_start() override ATTR_COLD;
@@ -176,7 +178,7 @@ protected:
 	virtual void update_cart_base(uint8_t *cart_base) { }
 
 protected:
-	virtual void update_input_ports(uint8_t left_selection, uint8_t right_selection) = 0;
+// 	virtual void update_input_ports(uint8_t left_selection, uint8_t right_selection) = 0;
 
 // 	enum soundmux_status_t
 // 	{
@@ -224,7 +226,8 @@ protected:
 	uint8_t poll_joystick_buttons();
 // 	void poll_keyboard();
 
-	void update_keyboard(coco_state::keyboard_side_t side, uint8_t value);
+// 	void update_keyboard(coco_state::keyboard_side_t side, uint8_t value);
+
 // 	void poll_hires_joystick();
 	void update_cassout(int cassout);
 	void update_prinout(bool prinout);
@@ -300,6 +303,9 @@ protected:
 
 	// safety to prevent stack overflow when reading floating bus
 	bool m_in_floating_bus_read = false;
+	virtual void update_input_port(int port, uint8_t selection);
+
+	virtual std::unique_ptr<coco_joy_handler> make_handler(uint8_t selection, int port);
 };
 
 class coco_joy_handler {
@@ -331,7 +337,14 @@ public:
 class coco_joy_standard : public coco_joy_handler {
 public:
     using coco_joy_handler::coco_joy_handler;
-    void joy_changed(int axis, int new_val) override;
+
+// 	coco_joy_standard(coco_state& state, int base_slot) : coco_joy_handler(state, base_slot)
+// 	{
+// 		osd_printf_info("coco_joy_standard::coco_joy_standard update_input_port: state_ptr=%p, base_slot=%d\n",
+// 			(void*)&state, base_slot);
+// 	}
+
+     void joy_changed(int axis, int new_val) override;
 };
 
 #endif // MAME_TRS_COCO_H

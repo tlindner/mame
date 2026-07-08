@@ -589,14 +589,11 @@ void coco12_state::coco(machine_config &config)
 	INPUT_MERGER_ANY_HIGH(config, m_firqs).output_handler().set_inputline(m_maincpu, M6809_FIRQ_LINE);
 
 	PIA6821(config, m_pia_0);
-// 	m_pia_0->writepa_handler().set(FUNC(coco_state::pia0_pa_w));
-// 	m_pia_0->writepb_handler().set(FUNC(coco_state::pia0_pb_w));
-	m_pia_0->writepa_handler().set(FUNC(coco_state::update_a_side_keyboard));
-	m_pia_0->writepb_handler().set(FUNC(coco_state::update_b_side_keyboard));
-
+	m_pia_0->writepa_handler().set(FUNC(coco_state::pia0_pa_w));
+	m_pia_0->writepb_handler().set(FUNC(coco_state::pia0_pb_w));
 	m_pia_0->tspb_handler().set_constant(0xff);
-// 	m_pia_0->ca2_handler().set(FUNC(coco_state::pia0_ca2_w));
-// 	m_pia_0->cb2_handler().set(FUNC(coco_state::pia0_cb2_w));
+//  	m_pia_0->ca2_handler().set(FUNC(coco_state::pia0_ca2_w));
+//  	m_pia_0->cb2_handler().set(FUNC(coco_state::pia0_cb2_w));
 	m_pia_0->ca2_handler().set(m_mux, FUNC(mc14529_device::a0_w));
 	m_pia_0->cb2_handler().set(m_mux, FUNC(mc14529_device::a1_w));
 	m_pia_0->irqa_handler().set(m_irqs, FUNC(input_merger_device::in_w<0>));
