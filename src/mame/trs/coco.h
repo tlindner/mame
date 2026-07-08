@@ -80,22 +80,28 @@ class coco_joy_handler;
 class coco_state : public driver_device, public device_cococart_host_interface
 {
 public:
-	coco_state(const machine_config &mconfig, device_type type, const char *tag);
+	enum {
+		JOY_DEVICE_UNCONNECTED = 0,
+		JOY_DEVICE_STANDARD    = 1,
+		JOY_DEVICE_TANDY_HIRES = 2
+	};
+
+    	coco_state(const machine_config &mconfig, device_type type, const char *tag);
 
 	// driver update handlers
 // 	virtual DECLARE_INPUT_CHANGED_MEMBER(keyboard_changed);
 	DECLARE_INPUT_CHANGED_MEMBER(joystick_changed);
-	DECLARE_INPUT_CHANGED_MEMBER(mouse_changed);
+	DECLARE_INPUT_CHANGED_MEMBER(joy_rat_changed);
 	DECLARE_INPUT_CHANGED_MEMBER(joystick_mode_changed);
 
 // 	void joystick_changed(ioport_field &field, u32 param, ioport_value oldval, ioport_value newval);
-// 	void mouse_changed(ioport_field &field, u32 param, ioport_value oldval, ioport_value newval);
+// 	void joy_rat_changed(ioport_field &field, u32 param, ioport_value oldval, ioport_value newval);
 
-	std::unique_ptr<coco_joy_handler> m_port_handlers[2];
+	std::unique_ptr<coco_joy_handler> m_joy_handlers[2];
 	void joy_changed(int port, int axis, int new_val);
-    void rat_changed(int port, int axis, int delta);
-    void port_timer_fired(int32_t port);
-	void write_mixer_slot(int slot, uint8_t val);
+//     void rat_changed(int port, int axis, int delta);
+//     void port_timer_fired(int32_t port);
+	void write_joystick_mux(int slot, uint8_t val);
 // 	virtual void update_input_port(int port, uint8_t selection) { }
 
     // Your 6809 PIA/GIME read handlers will access m_mixer_slots here
@@ -127,8 +133,8 @@ public:
 // 	void pia1_ca2_w(int state);
 // 	void pia1_cb2_w(int state);
 
-	uint8_t m_left_joyport_device;
-    uint8_t m_right_joyport_device;
+	uint8_t m_left_joy_device;
+    uint8_t m_right_joy_device;
 
 	// floating bus & "space"
 	uint8_t floating_bus_r()   { return floating_bus_read(); }
@@ -149,11 +155,13 @@ public:
 
 	void coco_floating_map(address_map &map) ATTR_COLD;
 
-	enum keyboard_side_t
-	{
-		PORT_A_WRITE,
-		PORT_B_WRITE
-	};
+// 	enum keyboard_side_t
+// 	{
+// 		PORT_A_WRITE,
+// 		PORT_B_WRITE
+// 	};
+
+	void adjust_host_joy_timer(attotime duration);
 
 protected:
 	virtual void machine_start() override ATTR_COLD;
@@ -163,6 +171,7 @@ protected:
 // 	virtual void pia1_pa_changed(uint8_t data);
 // 	virtual void pia1_pb_changed(uint8_t data);
 
+ 	TIMER_CALLBACK_MEMBER(joy_timer_callback);
 // 	TIMER_CALLBACK_MEMBER(diecom_lightgun_hit);
 // 	TIMER_CALLBACK_MEMBER(joystick_update);
 
@@ -283,6 +292,8 @@ protected:
 	// introduce step changes when the audio output is enabled/disabled via PIA1 CB2
 // 	uint8_t m_analog_audio_level = 0U;
 
+	emu_timer *m_joy_timer;
+
 	// hires interface
 // 	emu_timer *m_hiresjoy_transition_timer[2]{};
 // 	bool m_hiresjoy_ca = false;
@@ -305,24 +316,24 @@ protected:
 	bool m_in_floating_bus_read = false;
 	virtual void update_input_port(int port, uint8_t selection);
 
-	virtual std::unique_ptr<coco_joy_handler> make_handler(uint8_t selection, int port);
+	virtual std::unique_ptr<coco_joy_handler> make_joy_handler(uint8_t selection, int port);
 };
 
 class coco_joy_handler {
 protected:
-    coco_state& m_state;
+    coco_state& m_host;
     int m_base_slot;
 
 public:
-    coco_joy_handler(coco_state& state, int base_slot)
-        : m_state(state), m_base_slot(base_slot) {}
+    coco_joy_handler(coco_state& host, int base_slot)
+        : m_host(host), m_base_slot(base_slot) {}
 
     virtual ~coco_joy_handler() = default;
 
     // Default implementations do absolutely nothing
     virtual void joy_changed(int axis, int new_val) {}
-    virtual void rat_changed(int axis, int delta) {}
-    virtual void port_timer_expired() {}
+	virtual void joy_initiate_trigger(int joy_val) {}
+    virtual void joy_trigger_callback() {}
 };
 
 class coco_joy_disconnected : public coco_joy_handler {
@@ -340,11 +351,28 @@ public:
 
 // 	coco_joy_standard(coco_state& state, int base_slot) : coco_joy_handler(state, base_slot)
 // 	{
-// 		osd_printf_info("coco_joy_standard::coco_joy_standard update_input_port: state_ptr=%p, base_slot=%d\n",
+// 		osd_printf_info("coco_joy_standard::coco_joy_standard update_input_port: host_ptr=%p, base_slot=%d\n",
 // 			(void*)&state, base_slot);
 // 	}
 
      void joy_changed(int axis, int new_val) override;
+};
+
+class coco_tandy_hires_joy : public coco_joy_handler {
+public:
+	coco_tandy_hires_joy(coco_state& state, int base_slot)
+		: coco_joy_handler(state, base_slot)
+		, m_fired(false)
+	{
+		osd_printf_info("coco_tandy_hires_joy constructor: host_ptr=%p, base_slot=%d\n",
+			(void*)&state, base_slot);
+	}
+
+     void joy_changed(int axis, int new_val) override;
+     virtual void joy_initiate_trigger(int joy_val) override;
+     virtual void joy_trigger_callback() override;
+
+     bool m_fired;
 };
 
 #endif // MAME_TRS_COCO_H

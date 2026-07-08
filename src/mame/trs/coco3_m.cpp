@@ -58,8 +58,8 @@ void coco3_state::machine_start()
 	save_item(NAME(m_prev_keyboard_pressed));
 	save_item(NAME(m_pia1b_control_register));
 
-	m_port_handlers[0] = std::make_unique<coco_joy_standard>(*this, 0); // Left
-    m_port_handlers[1] = std::make_unique<coco_joy_standard>(*this, 2); // Right
+	m_joy_handlers[0] = std::make_unique<coco_joy_standard>(*this, 0); // Left
+    m_joy_handlers[1] = std::make_unique<coco_joy_standard>(*this, 2); // Right
 }
 
 
