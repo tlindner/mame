@@ -17,18 +17,32 @@
 
     Real hardware is switching a single analog node between two levels;
     "L->H" and "H->L" are really "rising swing" and "falling swing" on
-    that node. This device supports three independent per-selector modes:
+    that node. Signal propagation through an already-closed switch is
+    fast enough to treat as zero delay. The measured delay only shows up
+    at the moment the switch changes which channel is connected to the
+    output -- i.e. an address (A0/A1) or inhibit change -- because that is
+    when the output node has to slew from its old level to the newly
+    selected channel's level. A data value changing on the channel that
+    is *already* selected reaches the output immediately, with no delay,
+    because no switching event occurred. This device supports three
+    independent per-selector modes:
 
       MODE_DIGITAL (default) -- each channel is a single bit (0/1).
-        tPLH/tPHL chosen directly from the new bit value. Delivered via
-        x_w()/y_w() and zx_callback()/zy_callback() (write_line).
+        A channel switch (address_w()/inhibit_x_w()/inhibit_y_w()) that
+        changes the selected/output bit incurs tPLH or tPHL, chosen from
+        the new bit value. A data write to the already-selected channel
+        (x_w()/y_w()) is applied immediately. Delivered via
+        zx_callback()/zy_callback() (write_line).
 
       MODE_ANALOG -- each channel carries a quantized multi-bit value
-        (e.g. a 6-bit joystick comparator level, 0-63). tPLH vs tPHL is
-        chosen by comparing the new quantized value against the
-        previously scheduled one (higher = rising = tPLH, lower =
-        falling = tPHL). Delivered via x_analog_w()/y_analog_w() and
-        zx_analog_callback()/zy_analog_callback() (write8).
+        (e.g. a 6-bit joystick comparator level, 0-63). A channel switch
+        that changes the output level incurs tPLH or tPHL, chosen by
+        comparing the newly selected channel's value against the
+        previously committed one (higher = rising = tPLH, lower =
+        falling = tPHL). A data write to the already-selected channel
+        (x_analog_w()/y_analog_w()) is applied immediately, with no
+        delay. Delivered via zx_analog_callback()/zy_analog_callback()
+        (write8).
 
       MODE_SOUND -- each channel is a live audio signal, routed in via
         MAME's device_sound_interface, e.g. from another sound-generating
@@ -47,16 +61,15 @@
     into audio, route it through an external DAC device instead: wire
     the MODE_ANALOG selector's zx_analog_callback()/zy_analog_callback()
     to a MAME DAC device (e.g. a dac_byte_interface implementation), then
-    add_route() that DAC's sound output into a *different* selector on
-    this device (or another mc14529) configured as MODE_SOUND, and from
-    there to a SPEAKER. This keeps the propagation delay applied exactly
-    once, at the MODE_ANALOG stage, with no timing logic needed in the
-    sound path itself.
+    add_route() that DAC's sound output.
 
     MODE_DIGITAL and MODE_ANALOG share a fixed-size per-selector timer
-    pool (see mc14529.cpp) so multiple in-flight transitions are
-    preserved in chronological order. MODE_SOUND does not use that pool
-    at all; it is handled, without delays, entirely inside sound_stream_update().
+    pool (see mc14529.cpp) used only for channel-switch events (address
+    or inhibit changes), so multiple in-flight switch transitions are
+    preserved in chronological order. Data writes to the already-selected
+    channel bypass the pool entirely and are applied immediately.
+    MODE_SOUND does not use the pool at all; it is handled, without
+    delays, entirely inside sound_stream_update().
 
     Pinout:
         A0, A1        -> address_w(bit, state)   (shared by both selectors)
@@ -178,6 +191,7 @@ public:
 protected:
 	virtual void device_start() override;
 	virtual void device_reset() override;
+	virtual void device_resolve_objects() override;
 
 	// device_sound_interface
 	virtual void sound_stream_update(sound_stream &stream) override;
@@ -192,7 +206,8 @@ private:
 	// this)
 	static constexpr unsigned MAX_PENDING = 8;
 
-	void update_selector(unsigned selector);
+	void switch_selector(unsigned selector);     // channel/inhibit change: may incur tPLH/tPHL
+	void update_active_value(unsigned selector); // data write to already-selected channel: immediate, no delay
 	void commit(unsigned selector, unsigned slot);
 	TIMER_CALLBACK_MEMBER(delay_expired);
 
