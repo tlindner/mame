@@ -59,6 +59,9 @@
 //#include "cpu/m6809/m6809.h"
 // #include "screen.h"
 
+#define VERBOSE (LOG_GENERAL)
+#include "logmacro.h"
+
 
 
 //**************************************************************************
@@ -90,7 +93,7 @@ coco_state::coco_state(const machine_config &mconfig, device_type type, const ch
 	m_irqs(*this, "irqs"),
 	m_firqs(*this, "firqs"),
 	m_keyboard(*this, "row%u", 0),
-// 	m_joystick_type_control(*this, CTRL_SEL_TAG),
+// 	m_joystick_type_control(*this, CTRL_SEL_RIGHT),
 	m_joystick_type_right(*this, CTRL_SEL_RIGHT),
 	m_joystick_type_left(*this, CTRL_SEL_LEFT),
 // 	m_joystick_hires_control(*this, HIRES_INTF_TAG),
@@ -104,7 +107,7 @@ coco_state::coco_state(const machine_config &mconfig, device_type type, const ch
 
 void coco_state::machine_start()
 {
-	// look up analog ports
+// look up analog ports
 // 	analog_port_start(&m_joystick, JOYSTICK_RX_TAG, JOYSTICK_RY_TAG,
 // 		JOYSTICK_LX_TAG, JOYSTICK_LY_TAG, JOYSTICK_BUTTONS_TAG);
 // 	analog_port_start(&m_rat_mouse, RAT_MOUSE_RX_TAG, RAT_MOUSE_RY_TAG,
@@ -126,6 +129,7 @@ void coco_state::machine_start()
 
 	// save state support
 	save_item(NAME(m_dac_output));
+	save_item(NAME(m_pia0_pa_buffer));
 // 	save_item(NAME(m_hiresjoy_ca));
 // 	save_item(NAME(m_dclg_previous_bit));
 // 	save_item(NAME(m_dclg_output_h));
@@ -153,6 +157,7 @@ void coco_state::machine_reset()
 {
 	/* reset state */
 	m_dac_output = 0;
+	m_pia0_pa_buffer = 0;
 // 	m_analog_audio_level = 0;
 // 	m_hiresjoy_ca = false;
 // 	m_dclg_previous_bit = false;
@@ -179,9 +184,11 @@ void coco_state::machine_reset()
 
 void coco_state::joystick_mode_changed(ioport_field &field, u32 param, ioport_value oldval, ioport_value newval)
 {
-    // param == 0 is Right (Port 1), param == 1 is Left (Port 0)
-    int port = (param == 0) ? 1 : 0;
+    // param == 0 is Right (Port 0), param == 1 is Left (Port 1)
+    int port = BIT(param, 0); //(param == 0) ? 0 : 1;
     uint8_t selection = newval & 0x0f;
+// 	LOG( "joystick_mode_changed: field: %p, param: %d, old_val: %d, newval: %d\n",
+// 	&field, param, oldval, newval );
 
     update_input_port(port, selection);
 }
@@ -325,33 +332,39 @@ std::unique_ptr<coco_joy_handler> coco_state::make_joy_handler(uint8_t selection
 {
     switch (selection)
     {
-        case 0x00: return std::make_unique<coco_joy_disconnected>(*this, port);
-        case 0x01: return std::make_unique<coco_joy_standard>(*this, port);
-        case 0x02: return std::make_unique<coco_tandy_hires_joy>(*this, port);
-        default:   return nullptr; // Fallback for unknown types
+        case JOY_DEVICE_UNCONNECTED: return std::make_unique<coco_joy_disconnected>(*this, port);
+        case JOY_DEVICE_STANDARD:    return std::make_unique<coco_joy_standard>(*this, port);
+        case JOY_DEVICE_TANDY_HIRES: return std::make_unique<coco_tandy_hires_joy>(*this, port);
+        case JOY_DEVICE_CM3_HIRES:   return std::make_unique<coco_cm3_hires_joy>(*this, port);
+        case JOY_DEVICE_RAT_MOUSE:   return std::make_unique<coco_rat_mouse>(*this, port);
+        case JOY_DEVICE_DIECOM_LG:   return std::make_unique<coco_diecom_light_gun>(*this, port,
+        	ioport(DIECOM_LIGHTGUN_RX_TAG), ioport(DIECOM_LIGHTGUN_RY_TAG), ioport(DIECOM_LIGHTGUN_BUTTONS_TAG));
+        default:
+			osd_printf_warning("Unknown Color Computer joystick.\n");
+			return nullptr; // Fallback for unknown types
     }
 }
 
 void coco_state::update_input_port(int port, uint8_t selection)
 {
-    if (port == 0) // Left Port
+    if (port == 0) // Right Port
     {
         // Force creation if the handler is missing (e.g., after a state restore or reset)
-        if (selection != m_left_joy_device || m_joy_handlers[0] == nullptr)
+        if (selection != m_right_joy_device || m_joy_handlers[0] == nullptr)
         {
-            // Left port uses base_slot 0
+            // Right port uses base_slot 0
             m_joy_handlers[0] = make_joy_handler(selection, 0);
-            m_left_joy_device = selection;
+            m_right_joy_device = selection;
         }
     }
-    else if (port == 1) // Right Port
+    else if (port == 1) // Left Port
     {
         // Force creation if the handler is missing
-        if (selection != m_right_joy_device || m_joy_handlers[1] == nullptr)
+        if (selection != m_left_joy_device || m_joy_handlers[1] == nullptr)
         {
-            // Right port MUST use base_slot 2!
+            // Left port MUST use base_slot 2!
             m_joy_handlers[1] = make_joy_handler(selection, 2);
-            m_right_joy_device = selection;
+            m_left_joy_device = selection;
         }
     }
 }
@@ -449,6 +462,95 @@ void coco_state::ff20_write(offs_t offset, uint8_t data)
 
 
 
+// void coco_state::update_keyboard(coco_state::keyboard_side_t side, uint8_t value)
+void coco_state::pia0_pa_w(uint8_t value)
+{
+    uint8_t pia0_pb = 0xFF;
+
+//     uint8_t raw_buttons = ioport(JOYSTICK_BUTTONS_TAG)->read();
+
+//     uint8_t gated_buttons = 0;
+//     gated_buttons |= (m_right_joy_device != 0) ? (raw_buttons & 0x05) : 0x00;
+//     gated_buttons |= (m_left_joy_device != 0)  ? (raw_buttons & 0x0a) : 0x00;
+	uint8_t gated_buttons = m_joy_handlers[0]->button_status() | m_joy_handlers[1]->button_status();
+
+    uint8_t effective_value = value & ~gated_buttons;
+
+    // Iterate through all 7 keyboard rows (PA0 to PA6)
+    for (unsigned i = 0; i < m_keyboard.size(); i++)
+    {
+        // Check if this specific row is being driven low, either by the
+        // CPU's write or by a joystick button pulling the line down
+        if (!(effective_value & (0x01 << i)))
+        {
+            // Read the pressed keys for this row (0 = pressed)
+            uint8_t key_column = m_keyboard[i]->read();
+            pia0_pb &= key_column;
+        }
+    }
+	pia_0().portb_w(pia0_pb);
+//     pia_0().set_b_input(pia0_pb);
+}
+
+void coco_state::pia0_pb_w(uint8_t value)
+{
+	uint8_t pia0_pa = 0x7F;
+	for (unsigned i = 0; i < m_keyboard.size(); i++)
+	{
+		int key_column = m_keyboard[i]->read();
+		if ((key_column | value) != 0xFF)
+		{
+			pia0_pa &= ~(0x01 << i);
+		}
+	}
+
+//     uint8_t raw_buttons = ioport(JOYSTICK_BUTTONS_TAG)->read();
+//     uint8_t gated_buttons = 0;
+//     gated_buttons |= (m_right_joy_device != 0) ? (raw_buttons & 0x05) : 0x00;
+//     gated_buttons |= (m_left_joy_device != 0)  ? (raw_buttons & 0x0a) : 0x00;
+	uint8_t gated_buttons = m_joy_handlers[0]->button_status() | m_joy_handlers[1]->button_status();
+
+    pia0_pa &= ~gated_buttons;
+
+	m_pia0_pa_buffer = (m_pia0_pa_buffer & ~0x7f) | (pia0_pa & 0x7f);
+	pia_0().set_a_input(m_pia0_pa_buffer);
+}
+// 	}
+// }
+
+// 	uint8_t pia0_pb = pia_0().b_output();
+//
+// 	uint8_t pia0_pa = 0x7F;
+//
+// 	/* poll the keyboard, and update PA6-PA0 accordingly*/
+// 	for (unsigned i = 0; i < m_keyboard.size(); i++)
+// 	{
+// 		int value = m_keyboard[i]->read();
+// 		if ((value | pia0_pb) != 0xFF)
+// 		{
+// 			pia0_pa &= ~(0x01 << i);
+// 		}
+// 	}
+//
+// 	/* hires joystick */
+// 	poll_hires_joystick();
+//
+// 	/* poll the joystick (*/
+// 	bool joyin;
+// 	joyin = poll_joystick();
+//
+// 	/* PA7 comes from JOYIN */
+// 	pia0_pa |= joyin ? 0x80 : 0x00;
+//
+// 	/* mask out the buttons */
+// 	uint8_t buttons;
+// 	buttons = poll_joystick_buttons();
+// 	pia0_pa &= ~buttons;
+//
+// 	/* and write the result to PIA0 */
+// 	update_keyboard_input(pia0_pa);
+
+
 //-------------------------------------------------
 //  pia1_pa_r
 //-------------------------------------------------
@@ -499,41 +601,78 @@ uint8_t coco_state::pia1_pb_r()
 
 void coco_state::pia1_pa_w(uint8_t data)
 {
-// 	update_sound();     // DAC is connected to PIA1 PA2-PA7
-	m_dac_output = data >> 2;
-	m_dac->write(m_dac_output);
-	comparator_changed(m_mux->zx_value());
+	//f(stderr, "before: %d, after: %d\n", m_dac_output, data >> 2);
+// 	bool changed = (m_dac_output != (data >> 2));
 
-// 	poll_keyboard();
-	update_cassout(dac_output());
-	update_prinout(data & 0x02 ? true : false);
+	m_dac_output = data >> 2;
+	//LOG( "dac write: %d\n", m_dac_output);
+	// 	update_sound();     // DAC is connected to PIA1 PA2-PA7
+	m_dac->write(m_dac_output);
+// 	if (changed) pia0_pa7_w(m_mux->zx_value());
+ 	pia0_pa7_w(0, m_mux->zx_value(), 0xff);
+
+	// 	poll_keyboard();
+// 	update_cassout(m_dac_output);
+// 	update_prinout( ? true : false);
+
+	m_cassette->output((m_dac_output - 0x20) / 32.0);
+
+	if (m_rs232 != nullptr)
+	{
+// 		m_rs232->write_txd(data & 0x02 ? 1 : 0);
+		m_rs232->write_txd(BIT(data,2));
+	}
+
+// 	if ((joystick_type(0) == JOYSTICK_DIECOM_LIGHT_GUN) || (joystick_type(1) == JOYSTICK_DIECOM_LIGHT_GUN))
+	if (m_right_joy_device == JOY_DEVICE_DIECOM_LG)
+	{
+		m_joy_handlers[0]->lightgun_clock(BIT(data,2));
+	}
+	else
+	{
+		/* output bitbanger if present (only on CoCos) */
+		if (m_rs232 != nullptr)
+		{
+			m_rs232->write_txd(BIT(data,2));
+		}
+	}
 
 	// Hi-res joystick/mouse hardware trigger
-    // On the CoCo, setting the DAC to 0 typically releases the analog ramp circuit
-// 	uint8_t mux_addr = m_mux->current_address();
-// 	int joy_port = (mux_addr >= 2) ? 0 : 1;
-// 	int device = (joy_port == 0) ? m_left_joy_device : m_right_joy_device;
-//     if (device == JOY_DEVICE_TANDY_HIRES && m_dac_output == 0)
-    if (m_dac_output == 0)
-    {
-		uint8_t mux_addr = m_mux->current_address();
-		int joy_port = (mux_addr >= 2) ? 0 : 1;
-        if (m_joy_handlers[joy_port] != nullptr)
-        {
-            int raw_axis_value = 0;
-            switch (mux_addr)
-            {
-                case 0: raw_axis_value = ioport(JOYSTICK_RX_TAG)->read(); break;
-                case 1: raw_axis_value = ioport(JOYSTICK_RY_TAG)->read(); break;
-                case 2: raw_axis_value = ioport(JOYSTICK_LX_TAG)->read(); break;
-                case 3: raw_axis_value = ioport(JOYSTICK_LY_TAG)->read(); break;
-                default: break;
-            }
+	// On the CoCo, setting the DAC to 0 typically releases the analog ramp circuit
+	// 	uint8_t mux_addr = m_mux->current_address();
+	// 	int joy_port = (mux_addr >= 2) ? 0 : 1;
+	// 	int device = (joy_port == 0) ? m_left_joy_device : m_right_joy_device;
+	//     if (device == JOY_DEVICE_TANDY_HIRES && m_dac_output == 0)
 
-            // Initiate the flight
-            m_joy_handlers[joy_port]->joy_initiate_trigger(raw_axis_value);
-        }
-    }
+	// special things happen when this goes to zero for the hi-res joystick
+	//     if (m_dac_output == 0)
+// 	if (changed && m_dac_output == 0)
+	uint8_t mux_addr = m_mux->current_address();
+	int joy_port = BIT(mux_addr,1); //(mux_addr >> 1) & 1;
+	if (m_joy_handlers[joy_port]->is_hires())
+	{
+		if (m_dac_output == 0)
+		{
+			int raw_axis_value = 0;
+			switch (mux_addr)
+			{
+				case 0: raw_axis_value = ioport(JOYSTICK_RX_TAG)->read(); break;
+				case 1: raw_axis_value = ioport(JOYSTICK_RY_TAG)->read(); break;
+				case 2: raw_axis_value = ioport(JOYSTICK_LX_TAG)->read(); break;
+				case 3: raw_axis_value = ioport(JOYSTICK_LY_TAG)->read(); break;
+				default:
+					osd_printf_warning("Unknown Color Computer joystick axis.\n");
+					break;
+			}
+
+// 			LOG( "trigger: joy_port = %d, raw_axis_value = %d\n", joy_port, raw_axis_value);
+			m_joy_handlers[joy_port]->opamp_charge(mux_addr, raw_axis_value);
+		}
+		else
+		{
+			m_joy_handlers[joy_port]->opamp_discharge();
+		}
+	}
 }
 
 
@@ -592,7 +731,7 @@ void coco_state::pia1_pb_w(uint8_t data)
        |
        |
        |
-       |
+       | FIRQ
        |-<----------- PIA1
   -----
 
@@ -666,7 +805,7 @@ void coco_state::pia1_pb_w(uint8_t data)
 
 // 	logerror( "dac: %d\n", m_dac_output );
 // 	m_dac->write(m_dac_output);
-// 	comparator_changed(m_mux->zx_value());
+// 	pia0_pa7_w(m_mux->zx_value());
 
 // 	m_dac->write(m_analog_audio_level);
 
@@ -738,8 +877,6 @@ void coco_state::pia1_pb_w(uint8_t data)
 // 	return result;
 // }
 
-
-
 //-------------------------------------------------
 //  poll_joystick
 //-------------------------------------------------
@@ -804,8 +941,8 @@ void coco_state::pia1_pb_w(uint8_t data)
 //  poll_joystick_buttons
 //-------------------------------------------------
 
-uint8_t coco_state::poll_joystick_buttons()
-{
+// uint8_t coco_state::poll_joystick_buttons()
+// {
 // 	static const analog_input_t s_empty = {};
 // 	const analog_input_t *analog;
 // 	uint8_t joy0, joy1;
@@ -853,8 +990,8 @@ uint8_t coco_state::poll_joystick_buttons()
 // 	joy1 = analog->buttons();
 //
 // 	return joy0 | joy1;
-	return 0;
-}
+// 	return 0;
+// }
 
 
 //-------------------------------------------------
@@ -893,96 +1030,23 @@ uint8_t coco_state::poll_joystick_buttons()
 // 	}
 // }
 
-// void coco_state::update_keyboard(coco_state::keyboard_side_t side, uint8_t value)
-void coco_state::pia0_pa_w(uint8_t value)
-{
-    uint8_t pia0_pb = 0xFF;
-
-    uint8_t raw_buttons = ioport(JOYSTICK_BUTTONS_TAG)->read();
-    uint8_t gated_buttons = 0;
-    gated_buttons |= (m_right_joy_device != 0) ? (raw_buttons & 0x05) : 0x00;
-    gated_buttons |= (m_left_joy_device != 0)  ? (raw_buttons & 0x0a) : 0x00;
-
-    uint8_t effective_value = value & ~gated_buttons;
-
-    // Iterate through all 7 keyboard rows (PA0 to PA6)
-    for (unsigned i = 0; i < m_keyboard.size(); i++)
-    {
-        // Check if this specific row is being driven low, either by the
-        // CPU's write or by a joystick button pulling the line down
-        if (!(effective_value & (0x01 << i)))
-        {
-            // Read the pressed keys for this row (0 = pressed)
-            uint8_t key_column = m_keyboard[i]->read();
-            pia0_pb &= key_column;
-        }
-    }
-    pia_0().set_b_input(pia0_pb);
-}
-
-void coco_state::pia0_pb_w(uint8_t value)
-{
-	uint8_t pia0_pa = 0x7F;
-	for (unsigned i = 0; i < m_keyboard.size(); i++)
-	{
-		int key_column = m_keyboard[i]->read();
-		if ((key_column | value) != 0xFF)
-		{
-			pia0_pa &= ~(0x01 << i);
-		}
-	}
-
-    uint8_t raw_buttons = ioport(JOYSTICK_BUTTONS_TAG)->read();
-    uint8_t gated_buttons = 0;
-    gated_buttons |= (m_right_joy_device != 0) ? (raw_buttons & 0x05) : 0x00;
-    gated_buttons |= (m_left_joy_device != 0)  ? (raw_buttons & 0x0a) : 0x00;
-    pia0_pa &= ~gated_buttons;
-
-	pia_0().set_a_input(pia0_pa, 0x7f);
-}
-// 	}
-// }
-
-// 	uint8_t pia0_pb = pia_0().b_output();
-//
-// 	uint8_t pia0_pa = 0x7F;
-//
-// 	/* poll the keyboard, and update PA6-PA0 accordingly*/
-// 	for (unsigned i = 0; i < m_keyboard.size(); i++)
-// 	{
-// 		int value = m_keyboard[i]->read();
-// 		if ((value | pia0_pb) != 0xFF)
-// 		{
-// 			pia0_pa &= ~(0x01 << i);
-// 		}
-// 	}
-//
-// 	/* hires joystick */
-// 	poll_hires_joystick();
-//
-// 	/* poll the joystick (*/
-// 	bool joyin;
-// 	joyin = poll_joystick();
-//
-// 	/* PA7 comes from JOYIN */
-// 	pia0_pa |= joyin ? 0x80 : 0x00;
-//
-// 	/* mask out the buttons */
-// 	uint8_t buttons;
-// 	buttons = poll_joystick_buttons();
-// 	pia0_pa &= ~buttons;
-//
-// 	/* and write the result to PIA0 */
-// 	update_keyboard_input(pia0_pa);
 
 
 //-------------------------------------------------
-//  comparator_changed
+//  pia0_pa7_w - comparator output
 //-------------------------------------------------
 
-void coco_state::comparator_changed(uint8_t data)
+void coco_state::pia0_pa7_w(offs_t offset, uint8_t data, uint8_t mem_mask)
 {
-	pia_0().write_porta_line(7, data >= dac_output() ? 1 : 0);
+	uint8_t mux_addr = m_mux->current_address();
+	int joy_port = BIT(mux_addr,1); //(mux_addr >> 1) & 1;
+	bool result = m_joy_handlers[joy_port]->evaluate_comparator(m_dac_output, data);
+
+// 	LOG( "pia0_pa7_w: data: %d, m_dac_output = %d, result = %d (mt: %s)\n",
+// 		data, m_dac_output, result, machine().time().to_string().c_str());
+
+	m_pia0_pa_buffer = (m_pia0_pa_buffer & ~0x80) | (result ? 0x80 : 0);
+	pia_0().set_a_input(m_pia0_pa_buffer);
 }
 
 
@@ -1001,10 +1065,10 @@ void coco_state::comparator_changed(uint8_t data)
 //  update_cassout - called when CASSOUT changes
 //-------------------------------------------------
 
-void coco_state::update_cassout(int cassout)
-{
-	m_cassette->output((cassout - 0x20) / 32.0);
-}
+// void coco_state::update_cassout(int cassout)
+// {
+// 	m_cassette->output((cassout - 0x20) / 32.0);
+// }
 
 
 
@@ -1063,8 +1127,8 @@ void coco_state::update_cassout(int cassout)
 //  update_prinout - called when PRINOUT changes
 //-------------------------------------------------
 
-void coco_state::update_prinout(bool prinout)
-{
+// void coco_state::update_prinout(bool prinout)
+// {
 // 	if ((joystick_type(0) == JOYSTICK_DIECOM_LIGHT_GUN) || (joystick_type(1) == JOYSTICK_DIECOM_LIGHT_GUN))
 // 	{
 // 		/* printer port is connected to diecom light gun */
@@ -1078,12 +1142,12 @@ void coco_state::update_prinout(bool prinout)
 // 	else
 // 	{
 		/* output bitbanger if present (only on CoCos) */
-		if (m_rs232 != nullptr)
-		{
-			m_rs232->write_txd(prinout ? 1 : 0);
-		}
+// 		if (m_rs232 != nullptr)
+// 		{
+// 			m_rs232->write_txd(prinout ? 1 : 0);
+// 		}
 // 	}
-}
+// }
 
 
 
@@ -1280,7 +1344,9 @@ coco_vhd_image_device *coco_state::current_vhd()
 	{
 		case 0:     return m_vhd_0;
 		case 1:     return m_vhd_1;
-		default:    return nullptr;
+		default:
+			osd_printf_warning("Unknown Color Computer virtual hard disk index.\n");
+			return nullptr;
 	}
 }
 
@@ -1570,63 +1636,36 @@ offs_t coco_state::dasm_override(std::ostream &stream, offs_t pc, const util::di
 
 void coco_state::joystick_changed(ioport_field &field, u32 param, ioport_value oldval, ioport_value newval)
 {
-    // Decode param: Let's assume lower 2 bits are axis (0=X, 1=Y), next bit is port (0=Left, 1=Right)
-    int axis = param & 0x03;
-    int port = (param >> 2) & 0x01;
+    // Decode param: Let's assume lower 1 bits are axis (0=X, 1=Y), next bit is port (0=Right, 1=Left)
+    int axis = BIT(param, 0); //param & 0x01;
+    int port = BIT(param, 1); //(param >> 1) & 0x01;
+// 	bool rat_only = BIT(param, 2);
 
-    // Route to our strategy system
-    joy_changed(port, axis, newval);
+// 	int device_number = port ? m_right_joy_device : m_left_joy_device;
+// 	switch (device_number)
+// 	{
+// 		case JOY_DEVICE_UNCONNECTED:
+// 			break;
+// 		case JOY_DEVICE_STANDARD:
+// 		case JOY_DEVICE_TANDY_HIRES:
+// 		case JOY_DEVICE_CM3_HIRES:
+// 			if (!rat_only) joy_changed(port, axis, newval, rat_only);
+// 			break;
+// 		case JOY_DEVICE_RAT_MOUSE:
+// 			if (rat_only) joy_changed(port, axis, newval, rat_only);
+// 			break;
+// 		case JOY_DEVICE_DIECOM_LG:
+// 			break;
+// 	}
+     // Route to our strategy system
+     joy_changed(port, axis, newval);
 }
 
-void coco_state::joy_rat_changed(ioport_field &field, u32 param, ioport_value oldval, ioport_value newval)
+void coco_state::joy_changed(int port, int axis, int joy_val)
 {
-//     int axis = param & 0x03;
-//     int port = (param >> 2) & 0x01;
-//
-//     // MAME relative inputs give us the absolute counter value;
-//     // compute the signed relative delta
-//     int delta = (int32_t)(newval - oldval);
+// 	int device_number = port ? m_right_joy_device : m_left_joy_device;
 
-    // Route to our strategy system
-//     rat_changed(port, axis, delta);
-}
-
-// Keep our clean strategy router running exactly as before
-void coco_state::joy_changed(int port, int axis, int new_val)
-{
-    m_joy_handlers[port]->joy_changed(axis, new_val);
-}
-
-// void coco_state::joy_changed(int port, int axis, int newval)
-// {
-//     // Guard against uninitialized or disconnected ports
-//     if (m_joy_handlers[port] != nullptr)
-//     {
-//         m_joy_handlers[port]->joy_changed(axis, newval);
-//     }
-// }
-
-// void coco_state::rat_changed(int port, int axis, int delta)
-// {
-//     m_joy_handlers[port]->rat_changed(axis, delta);
-// }
-//
-// void coco_state::port_timer_fired(int32_t port) {
-// 	m_joy_handlers[port]->port_timer_expired();
-// }
-//
-
-void coco_joy_standard::joy_changed(int axis, int new_val)
-{
-    // axis 0 = X, axis 1 = Y
-    // Left port base is 0 -> Writes to slots 0 or 1
-    // Right port base is 2 -> Writes to slots 2 or 3
-    int target_slot = m_base_slot + axis;
-
-	// The joystick value is stored as 10 bits to accommodate devices
-	// with higher resolution; this device only has 6 bits of precision,
-	// so shift right 4 to drop the low-order bits we can't use.
-    m_host.write_joystick_mux(target_slot, new_val>>4);
+	m_joy_handlers[port]->joy_changed(axis, joy_val);
 }
 
 void coco_state::write_joystick_mux(int slot, uint8_t val)
@@ -1636,76 +1675,178 @@ void coco_state::write_joystick_mux(int slot, uint8_t val)
 
 void coco_state::add_sound_route(device_sound_interface &sound_device, int output_index, double gain)
 {
-    // Directly tell MAME to route this sound device into your multiplexer input
     sound_device.add_route(output_index, *m_mux, gain, mc14529_device::y_sound_input(2));
 }
 
-void coco_state::adjust_host_joy_timer(attotime duration)
+void coco_state::adjust_host_joy_timer(int mux_axis, attotime duration)
 {
-    // The second parameter is the 'param' passed to the callback
-    m_joy_timer->adjust(duration, m_mux->current_address());
+    m_joy_timer->adjust(duration, mux_axis);
 
 }
 
 TIMER_CALLBACK_MEMBER(coco_state::joy_timer_callback)
 {
-     int mux_address = param;
+	s32 mux_address = param;
+	int handler_index = (mux_address>>1) & 1;
 
-     coco_joy_handler* joy_handler = m_joy_handlers[mux_address/2].get();
+	//LOG( "timer callback: handler_index: %d (%p)\n", handler_index, m_joy_handlers[handler_index].get() );
+	coco_joy_handler* joy_handler = m_joy_handlers[handler_index].get();
 
-     if (joy_handler != nullptr)
-    {
-        // Route the expiration event to the correct device
-         joy_handler->joy_trigger_callback();
-    }
-}
-
-void coco_tandy_hires_joy::joy_changed(int axis, int new_val)
-{
-    // axis 0 = X, axis 1 = Y
-    // Left port base is 0 -> Writes to slots 0 or 1
-    // Right port base is 2 -> Writes to slots 2 or 3
-    int target_slot = m_base_slot + axis;
-
-	// The joystick value is stored as 10 bits to accommodate devices
-	// with higher resolution; this device only has 6 bits of precision,
-	// so shift right 4 to drop the low-order bits we can't use.
-
-	if( m_fired)
+	if (joy_handler != nullptr)
 	{
-		m_host.write_joystick_mux(target_slot, 0);
+		// Route the expiration event to the correct device
+		joy_handler->opamp_switchover(mux_address);
 	}
-	else
-		m_host.write_joystick_mux(target_slot, 63);
-
 }
 
-void coco_tandy_hires_joy::joy_initiate_trigger(int joy_val)
+
+//**************************************************************************
+//  coco_joy_handler - Classes for things that plug into the joystick port
+//**************************************************************************
+
+void coco_joy_standard::joy_changed(int axis, int joy_val)
+{
+    int target_slot = m_base_slot + axis;
+// 	m_host.machine().logerror( "coco_joy_standard::joy_changed: axis %d new_val: %d \n", axis, new_val);
+	// joystick defined to accomodiate hi res
+    m_host.write_joystick_mux(target_slot, joy_val>>4);
+}
+
+bool coco_joy_standard::evaluate_comparator(int dac, int joy_val)
+{
+	return joy_val >= dac;
+}
+
+uint8_t coco_joy_standard::button_status()
+{
+	return m_host.ioport(JOYSTICK_BUTTONS_TAG)->read() & ~(m_base_slot ? 0x5 : 0xa);
+}
+
+uint8_t coco_tandy_hires_joy::button_status()
+{
+	return m_host.ioport(JOYSTICK_BUTTONS_TAG)->read() & ~(m_base_slot ? 0x5 : 0xa);
+}
+
+bool coco_tandy_hires_joy::is_hires()
+{
+	return true;
+}
+
+void coco_tandy_hires_joy::opamp_discharge()
+{
+	if (m_charging)
+	{
+		m_charging = false;
+		m_host.adjust_host_joy_timer(0, attotime::never);
+	}
+}
+
+void coco_tandy_hires_joy::opamp_charge(int mux_axis, int joy_val)
 {
 	double value = joy_val / 1023.0;
+	value *= m_multiplier;
+    value += m_offset;
+    attotime duration = attotime::from_usec(value);
 
-	attotime duration;
-
-// 	if (is_cocomax3)
-// 	{
-// 		value *= 2885.0;
-// 		value += 380.0;
-// 	}
-// 	else /* Tandy Hi-Res Joystick Interface */
-// 	{
-		value *= 5850.0;
-		value += 535.0;
-// 	}
-
-	duration = attotime::from_usec(value);
-	m_host.adjust_host_joy_timer(duration);
 	m_fired = false;
-// 	m_hiresjoy_transition_timer[axis]->adjust(duration);
-
+	m_charging = true;
+    m_host.adjust_host_joy_timer(mux_axis, duration);
+    m_host.write_joystick_mux(mux_axis, 63);
 }
 
-void coco_tandy_hires_joy::joy_trigger_callback()
+void coco_tandy_hires_joy::opamp_switchover(s32 mux_address)
 {
 	m_fired = true;
+    m_host.write_joystick_mux(mux_address, 0);
+}
+
+bool coco_tandy_hires_joy::evaluate_comparator(int dac, int joy_val)
+{
+	return m_fired;
+}
+
+void coco_rat_mouse::joy_changed(int axis, int joy_val)
+{
+    int target_slot = m_base_slot + axis;
+// 	m_host.machine().logerror( "coco_joy_standard::joy_changed: axis %d new_val: %d\n", axis, new_val);
+    m_host.write_joystick_mux(target_slot, joy_val);
+}
+
+
+bool coco_rat_mouse::evaluate_comparator(int dac, int joy_val)
+{
+	static const int joy_rat_table[] = {15, 24, 42, 33 };
+// 	m_host.machine().logerror( "coco_rat_mouse::evaluate_comparator: dac %d, joy_val %d\n", dac, joy_val);
+	return dac <= joy_rat_table[joy_val];
+}
+
+uint8_t coco_rat_mouse::button_status()
+{
+	return m_host.ioport(RAT_MOUSE_BUTTONS_TAG)->read() & ~(m_base_slot ? 0x5 : 0xa);
+}
+
+void coco_diecom_light_gun::lightgun_clock(int clock)
+{
+	if (m_dclg_previous_bit != clock)
+	{
+		m_dclg_state++;
+		m_dclg_state &= 0x1f;
+		int half_state = m_dclg_state >> 1;
+
+		/* clear hit bit for every transistion */
+		m_dclg_output_h &= ~0x02;
+		m_dclg_output_v = 0;
+
+		if (half_state > 7)
+		{
+			/* bit shift timer data on half states 8 thru 15 */
+			if (m_dclg_timer & (1 << (half_state - 7)))
+			{
+				m_dclg_output_v |= 0x01;
+			}
+
+			/* bit 9 of timer is only available if half state == 8 */
+			if (half_state == 8 && (m_dclg_timer & (1 << 8)))
+				m_dclg_output_v |= 0x02;
+		}
+
+		/* during half state 15, this bit is high. */
+		/* it is used to sync the state of the converter box with the computer */
+		if (half_state == 15)
+			m_dclg_output_h |= 0x01;
+		else
+			m_dclg_output_h &= ~0x01;
+
+		/* while in full state 15, prepare to check next video frame for a hit */
+		if (m_dclg_state == 15)
+		{
+// 			int dclg_vpos = m_diecom_lightgun.input(sel2() ? 1 : 0, 1) + 12;
+// 			m_dclg_timer = m_diecom_lightgun.input(sel2() ? 1 : 0, 0);
+
+			int dclg_vpos = m_v_port->read() + 12;
+			m_dclg_timer = m_h_port->read();
+
+			int horizontal_pixel = ((m_dclg_timer - 105.) / (420. - 110.0)) * (639.0 - 0.0) + 0.0;
+			attotime dclg_time = m_host.get_screen()->time_until_pos(dclg_vpos, horizontal_pixel);
+// 			m_diecom_lightgun_timer->adjust(dclg_time);
+			m_host.adjust_host_joy_timer(0, dclg_time);
+		}
+		else
+		{
+// 			m_diecom_lightgun_timer->adjust(attotime::never);
+			m_host.adjust_host_joy_timer(0, attotime::never);
+		}
+
+		m_host.write_joystick_mux(m_base_slot, dclg_table[m_dclg_output_h]);
+		m_host.write_joystick_mux(m_base_slot+1, dclg_table[m_dclg_output_v]);
+	}
+
+	m_dclg_previous_bit = clock;
+}
+
+TIMER_CALLBACK_MEMBER(coco_diecom_light_gun::opamp_switchover)
+{
+	m_dclg_output_h |= 0x02;
+	m_host.write_joystick_mux(m_base_slot, dclg_table[m_dclg_output_h]);
 }
 

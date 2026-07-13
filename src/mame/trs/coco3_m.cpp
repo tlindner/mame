@@ -106,43 +106,105 @@ void coco3_state::ff40_write(offs_t offset, uint8_t data)
 
 void coco3_state::pia0_pa_w(uint8_t value)
 {
-	coco_state::pia0_pb_w(value);
+    // 1. Gather joystick buttons
+//     uint8_t raw_buttons = ioport(JOYSTICK_BUTTONS_TAG)->read();
+//     uint8_t gated_buttons = 0;
+//     if (m_right_joy_device != 0) gated_buttons |= (raw_buttons & 0x05);
+//     if (m_left_joy_device != 0)  gated_buttons |= (raw_buttons & 0x0a);
+	uint8_t gated_buttons = m_joy_handlers[0]->button_status() | m_joy_handlers[1]->button_status();
 
-	uint8_t any_pressed = 0;
-	for (unsigned i = 0; i < m_keyboard.size(); i++)
-	{
-		any_pressed |= (~(m_keyboard[i]->read()) | poll_joystick_buttons()) & 0xff;
-	}
+    // Compute active-low driven rows (including joystick interference)
+    uint8_t effective_value = value & ~gated_buttons;
 
-	bool pressed = any_pressed != 0;
-	if (pressed != m_prev_keyboard_pressed)
-	{
-		m_gime->set_il1(true);
-		m_gime->set_il1(false);
-	}
+    uint8_t pia0_pb = 0xFF;
+    uint8_t any_pressed = 0;
 
-	m_prev_keyboard_pressed = pressed;
+    // 2. Single-pass keyboard matrix scan
+    for (unsigned i = 0; i < m_keyboard.size(); i++)
+    {
+        uint8_t key_column = m_keyboard[i]->read();
+
+        // Accumulate inverse bits for CoCo 3 interrupt logic (0 = pressed, so ~key_column finds pressed keys)
+        any_pressed |= ~key_column;
+
+        // Base CoCo behavior: update column state if this row is driven low (0)
+        if (!(effective_value & (0x01 << i)))
+        {
+            pia0_pb &= key_column;
+        }
+    }
+
+    // Include gated joystick buttons in the CoCo 3 interrupt check
+    any_pressed |= gated_buttons;
+
+    // 3. Update Peripheral Interface Adapter (PIA)
+	pia_0().portb_w(pia0_pb);
+//     pia_0().set_b_input(pia0_pb);
+
+    // 4. CoCo 3 GIME Interrupt logic
+    bool pressed = (any_pressed != 0);
+    if (pressed != m_prev_keyboard_pressed)
+    {
+        m_gime->set_il1(true);
+        m_gime->set_il1(false);
+    }
+    m_prev_keyboard_pressed = pressed;
+
+// 	// Color Max 3 Trigger
+// 	if ((m_right_joy_device == JOY_DEVICE_CM3_HIRES) && (value & 0x04))
+// 		m_joy_handlers[0]->opamp_charge(m_mux->current_address(), int joy_val);
+//
+// 	if ((m_left_joy_device == JOY_DEVICE_CM3_HIRES) && (value & 0x08))
+// 		m_joy_handlers[1].opamp_charge(m_mux->current_address(), int joy_val);
 }
 
 void coco3_state::pia0_pb_w(uint8_t value)
 {
-	coco_state::pia0_pb_w(value);
+    // 1. Gather joystick buttons
+//     uint8_t raw_buttons = ioport(JOYSTICK_BUTTONS_TAG)->read();
+//     uint8_t gated_buttons = 0;
+//     if (m_right_joy_device != 0) gated_buttons |= (raw_buttons & 0x05);
+//     if (m_left_joy_device != 0)  gated_buttons |= (raw_buttons & 0x0a);
+	uint8_t gated_buttons = m_joy_handlers[0]->button_status() | m_joy_handlers[1]->button_status();
 
-	/* Support for CoCo 3 keyboard GIME interrupt */
-	uint8_t any_pressed = 0;
-	for (unsigned i = 0; i < m_keyboard.size(); i++)
-	{
-		any_pressed |= (~(m_keyboard[i]->read()) | poll_joystick_buttons()) & 0xff;
-	}
+    uint8_t pia0_pa = 0x7F;
+    uint8_t any_pressed = 0;
 
-	bool pressed = any_pressed != 0;
-	if (pressed != m_prev_keyboard_pressed)
-	{
-		m_gime->set_il1(true);
-		m_gime->set_il1(false);
-	}
+    // 2. Single-pass keyboard matrix scan
+    for (unsigned i = 0; i < m_keyboard.size(); i++)
+    {
+        uint8_t key_column = m_keyboard[i]->read();
 
-	m_prev_keyboard_pressed = pressed;
+        // Accumulate inverse bits for CoCo 3 GIME interrupt logic (0 = pressed)
+        any_pressed |= ~key_column;
+
+        // Base CoCo behavior: check if any columns driven low align with low bits in 'value'
+        if ((key_column | value) != 0xFF)
+        {
+            pia0_pa &= ~(0x01 << i);
+        }
+    }
+
+    // Apply base CoCo joystick interference
+    pia0_pa &= ~gated_buttons;
+
+    // Include gated joystick buttons in the CoCo 3 interrupt check
+    any_pressed |= gated_buttons;
+
+    // 3. Update Peripheral Interface Adapter (PIA)
+	m_pia0_pa_buffer = (m_pia0_pa_buffer & ~0x7f) | (pia0_pa & 0x7f);
+	pia_0().set_a_input(m_pia0_pa_buffer);
+
+//     pia_0().set_a_input(pia0_pa, 0x7f);
+
+    // 4. CoCo 3 GIME Interrupt logic
+    bool pressed = (any_pressed != 0);
+    if (pressed != m_prev_keyboard_pressed)
+    {
+        m_gime->set_il1(true);
+        m_gime->set_il1(false);
+    }
+    m_prev_keyboard_pressed = pressed;
 }
 
 //-------------------------------------------------
