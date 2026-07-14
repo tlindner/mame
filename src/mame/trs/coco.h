@@ -216,7 +216,7 @@ public:
     virtual ~coco_joy_handler() = default;
 	virtual uint8_t device_type() {return 0;}
     virtual void joy_changed(int axis, int joy_val) {}
-    virtual bool evaluate_comparator(int dac, int joy_val) {return false;}
+    virtual bool evaluate_comparator(int dac, int joy_val);
     virtual uint8_t button_status();
 	virtual bool is_hires() {return false;}
     virtual void opamp_discharge() {}
@@ -238,7 +238,6 @@ public:
     using coco_joy_handler::coco_joy_handler;
 	virtual uint8_t device_type() override {return coco_state::JOY_DEVICE_STANDARD;};
 	virtual void joy_changed(int axis, int joy_val) override;
-	virtual bool evaluate_comparator(int dac, int joy_val) override;
 };
 
 class coco_tandy_hires_joy : public coco_joy_handler
@@ -285,7 +284,6 @@ public:
     using coco_joy_handler::coco_joy_handler;
 	virtual uint8_t device_type() override {return coco_state::JOY_DEVICE_RAT_MOUSE;};
 	virtual void joy_changed(int axis, int joy_val) override;
-	virtual bool evaluate_comparator(int dac, int joy_val) override;
 };
 
 class coco_diecom_light_gun : public coco_joy_handler
@@ -295,25 +293,26 @@ public:
 		: coco_joy_handler(host, base_slot, buttons)
 		, m_h_port(h_port)
 		, m_v_port(v_port)
-		, m_dclg_output_h(0)
-		, m_dclg_output_v(0)
-		, m_dclg_previous_bit(0)
-		, m_dclg_state(0)
-		, m_dclg_timer(0) {}
+		, m_output_v(0)
+		, m_output_h(0)
+		, m_previous_bit(0)
+		, m_adaptor_state(0)
+		, m_horizontal_clock_count(0) {}
 
 	virtual uint8_t device_type() override {return coco_state::JOY_DEVICE_DIECOM_LG;};
 	virtual void lightgun_clock(int clock) override;
     virtual void opamp_switchover(s32 target_slot) override;
+
 protected:
 	constexpr static const int dclg_table[] = {0, 14, 30, 49 };
 
 	ioport_port *m_h_port;
 	ioport_port *m_v_port;
-	uint8_t m_dclg_output_h;
-	uint8_t m_dclg_output_v;
-	int m_dclg_previous_bit;
-	uint32_t m_dclg_state;
-	uint32_t m_dclg_timer;
+	uint8_t m_output_v;
+	uint8_t m_output_h;
+	int m_previous_bit;
+	uint32_t m_adaptor_state;
+	uint32_t m_horizontal_clock_count;
 };
 
 #endif // MAME_TRS_COCO_H

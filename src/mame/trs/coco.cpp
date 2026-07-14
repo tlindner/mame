@@ -448,17 +448,18 @@ void coco_state::pia1_pa_w(uint8_t data)
 	// update joystick comparator
  	pia0_pa7_w(m_mux->zx_value());
 
-	// Serial can have an optional joystick device
+	int serial_bit = BIT(data, 1);
 	if (m_joy_handlers[0]->device_type() == JOY_DEVICE_DIECOM_LG)
 	{
-		m_joy_handlers[0]->lightgun_clock(BIT(data, 2));
+		// serial can have an optional joystick device
+		m_joy_handlers[0]->lightgun_clock(serial_bit);
 	}
 	else
 	{
-		/* output bitbanger if present (only on CoCos) */
+		// output bitbanger if present (only on CoCos)
 		if (m_rs232 != nullptr)
 		{
-			m_rs232->write_txd(BIT(data,2));
+			m_rs232->write_txd(serial_bit);
 		}
 	}
 
@@ -973,7 +974,6 @@ void coco_state::write_joystick_mux(int slot, uint8_t val)
 void coco_state::adjust_host_joy_timer(int mux_axis, attotime duration)
 {
     m_joy_timer->adjust(duration, mux_axis);
-
 }
 
 
@@ -986,7 +986,7 @@ void coco_state::adjust_host_joy_timer(int mux_axis, attotime duration)
 TIMER_CALLBACK_MEMBER(coco_state::joy_timer_callback)
 {
 	s32 mux_address = param;
-	int handler_index = (mux_address>>1) & 1;
+	int handler_index = BIT(param, 1);
 
 	coco_joy_handler* joy_handler = m_joy_handlers[handler_index].get();
 
@@ -1004,13 +1004,24 @@ TIMER_CALLBACK_MEMBER(coco_state::joy_timer_callback)
 //**************************************************************************
 
 //-------------------------------------------------
-//  coco_joy_standard::button_status
+//  coco_joy_handler::button_status
 //-------------------------------------------------
 
 uint8_t coco_joy_handler::button_status()
 {
 	return m_buttons->read() & ~(m_base_slot ? 0x5 : 0xa);
 }
+
+
+//-------------------------------------------------
+//  coco_joy_handler::evaluate_comparator
+//-------------------------------------------------
+
+bool coco_joy_handler::evaluate_comparator(int dac, int joy_val)
+{
+	return joy_val >= dac;
+}
+
 
 
 //-------------------------------------------------
@@ -1021,17 +1032,6 @@ void coco_joy_standard::joy_changed(int axis, int joy_val)
 {
     int target_slot = m_base_slot + axis;
     m_host.write_joystick_mux(target_slot, joy_val>>4);
-}
-
-
-
-//-------------------------------------------------
-//  coco_joy_standard::evaluate_comparator
-//-------------------------------------------------
-
-bool coco_joy_standard::evaluate_comparator(int dac, int joy_val)
-{
-	return joy_val >= dac;
 }
 
 
@@ -1117,78 +1117,63 @@ void coco_rat_mouse::joy_changed(int axis, int joy_val)
 
 
 //-------------------------------------------------
-//  coco_rat_mouse::evaluate_comparator
-//-------------------------------------------------
-
-bool coco_rat_mouse::evaluate_comparator(int dac, int joy_val)
-{
-	static const int joy_rat_table[] = {15, 24, 42, 33 };
-	return dac <= joy_rat_table[joy_val];
-}
-
-
-
-//-------------------------------------------------
 //  coco_diecom_light_gun::lightgun_clock
 //-------------------------------------------------
 
 void coco_diecom_light_gun::lightgun_clock(int clock)
 {
-	if (m_dclg_previous_bit != clock)
+	if (m_previous_bit != clock)
 	{
-		m_dclg_state++;
-		m_dclg_state &= 0x1f;
-		int half_state = m_dclg_state >> 1;
+		m_previous_bit = clock;
+		m_adaptor_state++;
+		m_adaptor_state &= 0x1f;
+		int half_state = m_adaptor_state >> 1;
 
 		/* clear hit bit for every transistion */
-		m_dclg_output_h &= ~0x02;
-		m_dclg_output_v = 0;
+		m_output_v &= ~0x02;
+		m_output_h = 0;
 
 		if (half_state > 7)
 		{
 			/* bit shift timer data on half states 8 thru 15 */
-			if (m_dclg_timer & (1 << (half_state - 7)))
+			if (m_horizontal_clock_count & (1 << (half_state - 7)))
 			{
-				m_dclg_output_v |= 0x01;
+				m_output_h |= 0x01;
 			}
 
 			/* bit 9 of timer is only available if half state == 8 */
-			if (half_state == 8 && (m_dclg_timer & (1 << 8)))
-				m_dclg_output_v |= 0x02;
+			if (half_state == 8 && (m_horizontal_clock_count & (1 << 8)))
+				m_output_h |= 0x02;
 		}
 
 		/* during half state 15, this bit is high. */
 		/* it is used to sync the state of the converter box with the computer */
 		if (half_state == 15)
-			m_dclg_output_h |= 0x01;
+			m_output_v |= 0x01;
 		else
-			m_dclg_output_h &= ~0x01;
+			m_output_v &= ~0x01;
 
 		/* while in full state 15, prepare to check next video frame for a hit */
-		if (m_dclg_state == 15)
+		if (m_adaptor_state == 15)
 		{
-// 			int dclg_vpos = m_diecom_lightgun.input(sel2() ? 1 : 0, 1) + 12;
-// 			m_dclg_timer = m_diecom_lightgun.input(sel2() ? 1 : 0, 0);
-
 			int dclg_vpos = m_v_port->read() + 12;
-			m_dclg_timer = m_h_port->read();
+			// this clock starts at zero at the left edge of the screen,
+			// and rolls over every scanline
+			m_horizontal_clock_count = m_h_port->read();
 
-			int horizontal_pixel = ((m_dclg_timer - 105.) / (420. - 110.0)) * (639.0 - 0.0) + 0.0;
+			int horizontal_pixel = ((m_horizontal_clock_count - 105.0) / (420.0 - 110.0)) * (639.0 - 0.0) + 0.0;
 			attotime dclg_time = m_host.get_screen()->time_until_pos(dclg_vpos, horizontal_pixel);
-// 			m_diecom_lightgun_timer->adjust(dclg_time);
-			m_host.adjust_host_joy_timer(0, dclg_time);
+			m_host.adjust_host_joy_timer(m_base_slot, dclg_time);
+
 		}
 		else
 		{
-// 			m_diecom_lightgun_timer->adjust(attotime::never);
-			m_host.adjust_host_joy_timer(0, attotime::never);
+			m_host.adjust_host_joy_timer(m_base_slot, attotime::never);
 		}
 
-		m_host.write_joystick_mux(m_base_slot, dclg_table[m_dclg_output_h]);
-		m_host.write_joystick_mux(m_base_slot+1, dclg_table[m_dclg_output_v]);
+		m_host.write_joystick_mux(m_base_slot, dclg_table[m_output_h]);
+		m_host.write_joystick_mux(m_base_slot+1, dclg_table[m_output_v]);
 	}
-
-	m_dclg_previous_bit = clock;
 }
 
 
@@ -1199,7 +1184,7 @@ void coco_diecom_light_gun::lightgun_clock(int clock)
 
 TIMER_CALLBACK_MEMBER(coco_diecom_light_gun::opamp_switchover)
 {
-	m_dclg_output_h |= 0x02;
-	m_host.write_joystick_mux(m_base_slot, dclg_table[m_dclg_output_h]);
+	m_output_v |= 0x02;
+	m_host.write_joystick_mux(m_base_slot+1, dclg_table[m_output_v]);
 }
 
