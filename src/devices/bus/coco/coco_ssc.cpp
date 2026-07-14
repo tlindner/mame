@@ -35,11 +35,8 @@
 
 #include "cpu/tms7000/tms7000.h"
 #include "machine/ram.h"
-#include "sound/spkrdev.h"
 #include "sound/ay8910.h"
 #include "sound/sp0256.h"
-
-#include "speaker.h"
 
 #define LOG_INTERFACE   (1U << 1)
 #define LOG_INTERNAL    (1U << 2)
@@ -290,7 +287,7 @@ const tiny_rom_entry *coco_ssc_device::device_rom_region() const
 
 void coco_ssc_device::set_sound_enable(bool sound_enable)
 {
-	if( sound_enable )
+	if (sound_enable)
 	{
 		m_sac->set_output_gain(0, 1.0);
 		m_spo->set_output_gain(0, 1.0);
@@ -320,17 +317,17 @@ u8 coco_ssc_device::ff7d_read(offs_t offset)
 		case 0x01:
 			data = 0x1f;
 
-			if( m_tms7000_busy == false )
+			if (m_tms7000_busy == false)
 			{
 				data |= 0x80;
 			}
 
-			if( m_spo->sby_r() )
+			if (m_spo->sby_r())
 			{
 				data |= 0x40;
 			}
 
-			if(  m_sac->sound_activity_circuit_output() )
+			if (m_sac->sound_activity_circuit_output())
 			{
 				data |= 0x20;
 			}
@@ -364,12 +361,12 @@ void coco_ssc_device::ff7d_write(offs_t offset, u8 data)
 		case 0x00:
 			LOGINTERFACE( "[%s] ff7d write: %02x\n", machine().describe_context(), data );
 
-			if( (data & 1) == 1 )
+			if ((data & 1) == 1)
 			{
 				m_spo->reset();
 			}
 
-			if( ((m_reset_line & 1) == 1) && ((data & 1) == 0) )
+			if (((m_reset_line & 1) == 1) && ((data & 1) == 0))
 			{
 				m_tms7040->reset();
 				m_ay->reset();
@@ -397,7 +394,7 @@ u8 coco_ssc_device::ssc_port_a_r()
 {
 	LOGINTERNAL( "[%s] port a read: %02x\n", machine().describe_context(), m_tms7000_porta );
 
-	if( !machine().side_effects_disabled() )
+	if (!machine().side_effects_disabled())
 	{
 		m_tms7040->set_input_line(TMS7000_INT3_LINE, CLEAR_LINE);
 	}
@@ -421,7 +418,7 @@ u8 coco_ssc_device::ssc_port_c_r()
 
 void coco_ssc_device::ssc_port_c_w(u8 data)
 {
-	if( (data & C_RCS) == 0 && (data & C_RRW) == 0 ) /* static RAM write */
+	if ((data & C_RCS) == 0 && (data & C_RRW) == 0) /* static RAM write */
 	{
 		u16 address = u16(data) << 8;
 		address += m_tms7000_portb;
@@ -430,25 +427,25 @@ void coco_ssc_device::ssc_port_c_w(u8 data)
 		m_staticram->write(address, m_tms7000_portd);
 	}
 
-	if( (data & C_ACS) == 0 ) /* chip select for AY-3-8913 */
+	if ((data & C_ACS) == 0) /* chip select for AY-3-8913 */
 	{
-		if( (data & (C_BDR|C_BC1)) == (C_BDR|C_BC1) ) /* BDIR = 1, BC1 = 1: latch address */
+		if ((data & (C_BDR|C_BC1)) == (C_BDR|C_BC1)) /* BDIR = 1, BC1 = 1: latch address */
 		{
 			m_ay->address_w(m_tms7000_portd);
 		}
 
-		if( ((data & C_BDR) == C_BDR) && ((data & C_BC1) == 0) ) /* BDIR = 1, BC1 = 0: write data */
+		if (((data & C_BDR) == C_BDR) && ((data & C_BC1) == 0)) /* BDIR = 1, BC1 = 0: write data */
 		{
 			m_ay->data_w(m_tms7000_portd);
 		}
 	}
 
-	if( ((m_tms7000_portc & C_ALD) == C_ALD) && ((data & C_ALD) == 0) && (m_tms7000_portd < 64) )
+	if (((m_tms7000_portc & C_ALD) == C_ALD) && ((data & C_ALD) == 0) && (m_tms7000_portd < 64))
 	{
 		m_spo->ald_w(m_tms7000_portd); /* load allophone */
 	}
 
-	if( ((m_tms7000_portc & C_BSY) == 0) && ((data & C_BSY) == C_BSY) )
+	if (((m_tms7000_portc & C_BSY) == 0) && ((data & C_BSY) == C_BSY))
 	{
 		m_tms7000_busy = false;
 	}
@@ -470,10 +467,10 @@ void coco_ssc_device::ssc_port_c_w(u8 data)
 
 u8 coco_ssc_device::ssc_port_d_r()
 {
-	if( ((m_tms7000_portc & C_RCS) == 0) && ((m_tms7000_portc & C_ACS) == 0) )
+	if (((m_tms7000_portc & C_RCS) == 0) && ((m_tms7000_portc & C_ACS) == 0))
 		logerror( "[%s] Warning: Reading RAM and PSG at the same time!\n", machine().describe_context() );
 
-	if( ((m_tms7000_portc & C_RCS) == 0)  && ((m_tms7000_portc & C_RRW) == C_RRW)) /* static ram chip select (low) and static ram chip read (high) */
+	if (((m_tms7000_portc & C_RCS) == 0)  && ((m_tms7000_portc & C_RRW) == C_RRW)) /* static ram chip select (low) and static ram chip read (high) */
 	{
 		u16 address = u16(m_tms7000_portc) << 8;
 		address += m_tms7000_portb;
@@ -482,9 +479,9 @@ u8 coco_ssc_device::ssc_port_d_r()
 		m_tms7000_portd = m_staticram->read(address);
 	}
 
-	if( (m_tms7000_portc & C_ACS) == 0 ) /* chip select for AY-3-8913 */
+	if ((m_tms7000_portc & C_ACS) == 0) /* chip select for AY-3-8913 */
 	{
-		if( ((m_tms7000_portc & C_BDR) == 0) && ((m_tms7000_portc & C_BC1) == C_BC1) ) /* psg read data */
+		if ( ((m_tms7000_portc & C_BDR) == 0) && ((m_tms7000_portc & C_BC1) == C_BC1)) /* psg read data */
 		{
 			m_tms7000_portd = m_ay->data_r();
 		}

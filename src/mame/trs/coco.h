@@ -49,11 +49,8 @@ void coco_cart(device_slot_interface &device);
 #define RS232_TAG                   "rs232"
 
 // inputs
-// #define CTRL_SEL_RIGHT                "ctrl_sel"
-#define CTRL_SEL_RIGHT               "ctrl_sel_right"
-#define CTRL_SEL_LEFT                "ctrl_sel_left"
-
-// #define HIRES_INTF_TAG              "hires_intf"
+#define CTRL_SEL_RIGHT              "ctrl_sel_right"
+#define CTRL_SEL_LEFT               "ctrl_sel_left"
 #define BECKERPORT_TAG              "beckerport"
 #define JOYSTICK_RX_TAG             "joystick_rx"
 #define JOYSTICK_RY_TAG             "joystick_ry"
@@ -67,8 +64,6 @@ void coco_cart(device_slot_interface &device);
 #define RAT_MOUSE_BUTTONS_TAG       "rat_mouse_buttons"
 #define DIECOM_LIGHTGUN_RX_TAG      "dclg_rx"
 #define DIECOM_LIGHTGUN_RY_TAG      "dclg_ry"
-// #define DIECOM_LIGHTGUN_LX_TAG      "dclg_lx"
-// #define DIECOM_LIGHTGUN_LY_TAG      "dclg_ly"
 #define DIECOM_LIGHTGUN_BUTTONS_TAG "dclg_triggers"
 
 
@@ -89,26 +84,7 @@ public:
 		JOY_DEVICE_DIECOM_LG   = 5,
 	};
 
-    	coco_state(const machine_config &mconfig, device_type type, const char *tag);
-
-	// driver update handlers
-// 	virtual DECLARE_INPUT_CHANGED_MEMBER(keyboard_changed);
-	DECLARE_INPUT_CHANGED_MEMBER(joystick_changed);
-// 	DECLARE_INPUT_CHANGED_MEMBER(joy_rat_changed);
-	DECLARE_INPUT_CHANGED_MEMBER(joystick_mode_changed);
-
-// 	void joystick_changed(ioport_field &field, u32 param, ioport_value oldval, ioport_value newval);
-// 	void joy_rat_changed(ioport_field &field, u32 param, ioport_value oldval, ioport_value newval);
-
-	std::unique_ptr<coco_joy_handler> m_joy_handlers[2];
-	void joy_changed(int port, int axis, int joy_val);
-//     void rat_changed(int port, int axis, int delta);
-//     void port_timer_fired(int32_t port);
-	void write_joystick_mux(int slot, uint8_t val);
-// 	virtual void update_input_port(int port, uint8_t selection) { }
-
-    // Your 6809 PIA/GIME read handlers will access m_mixer_slots here
-    uint8_t read_active_mixer_slot(int selected_line);
+	coco_state(const machine_config &mconfig, device_type type, const char *tag);
 
 	// IO
 	virtual void ff20_write(offs_t offset, uint8_t data);
@@ -118,26 +94,23 @@ public:
 	void ff60_write(offs_t offset, uint8_t data);
 
 	// PIA0
-// 	void pia0_pa_w(uint8_t data);
-// 	void pia0_pb_w(uint8_t data);
-// 	void pia0_ca2_w(int state);
-// 	void pia0_cb2_w(int state);
-// 	void pia0_pa_w(uint8_t value) { update_keyboard(PORT_A_WRITE, value); }
-// 	void pia0_pb_w(uint8_t value) { update_keyboard(PORT_B_WRITE, value); }
 	void pia0_pa_w(uint8_t value);
 	void pia0_pb_w(uint8_t value);
-	void pia0_pa7_w(offs_t offset, uint8_t data, uint8_t mem_mask);
+	void pia0_pa7_w(uint8_t value);
 
 	// PIA1
 	uint8_t pia1_pa_r();
 	uint8_t pia1_pb_r();
 	virtual void pia1_pa_w(uint8_t data);
 	virtual void pia1_pb_w(uint8_t data);
-// 	void pia1_ca2_w(int state);
-// 	void pia1_cb2_w(int state);
 
-	uint8_t m_left_joy_device;
-    uint8_t m_right_joy_device;
+	// joystick handling
+	DECLARE_INPUT_CHANGED_MEMBER(joystick_changed);
+	DECLARE_INPUT_CHANGED_MEMBER(joystick_mode_changed);
+	std::unique_ptr<coco_joy_handler> m_joy_handlers[2];
+	void write_joystick_mux(int slot, uint8_t val);
+	void adjust_host_joy_timer(int target_slot, attotime duration);
+	screen_device* get_screen() { return m_screen; }
 
 	// floating bus & "space"
 	uint8_t floating_bus_r()   { return floating_bus_read(); }
@@ -158,28 +131,12 @@ public:
 
 	void coco_floating_map(address_map &map) ATTR_COLD;
 
-// 	enum keyboard_side_t
-// 	{
-// 		PORT_A_WRITE,
-// 		PORT_B_WRITE
-// 	};
-
-	void adjust_host_joy_timer(int target_slot, attotime duration);
-	screen_device* get_screen() { return m_screen; }
-
-
-
 protected:
 	virtual void machine_start() override ATTR_COLD;
 	virtual void machine_reset() override ATTR_COLD;
 
-	// changed handlers
-// 	virtual void pia1_pa_changed(uint8_t data);
-// 	virtual void pia1_pb_changed(uint8_t data);
-
+	emu_timer *m_joy_timer;
  	TIMER_CALLBACK_MEMBER(joy_timer_callback);
-// 	TIMER_CALLBACK_MEMBER(diecom_lightgun_hit);
-// 	TIMER_CALLBACK_MEMBER(joystick_update);
 
 	// accessors
 	pia6821_device &pia_0() { return *m_pia_0; }
@@ -188,72 +145,11 @@ protected:
 	ram_device &ram() { return *m_ram; }
 
 	// miscellaneous
-// 	void update_keyboard_input(uint8_t value);
 	virtual void cart_w(bool state);
 	virtual void update_cart_base(uint8_t *cart_base) { }
 
-protected:
-// 	virtual void update_input_ports(uint8_t left_selection, uint8_t right_selection) = 0;
-
-// 	enum soundmux_status_t
-// 	{
-// 		SOUNDMUX_SEL1 = 1,
-// 		SOUNDMUX_SEL2 = 2,
-// 		SOUNDMUX_ENABLE = 4
-// 	};
-
-// 	enum joystick_type_t
-// 	{
-// 		JOYSTICK_NONE = 0x00,
-// 		JOYSTICK_NORMAL = 0x01,
-// 		JOYSTICK_RAT_MOUSE = 0x02,
-// 		JOYSTICK_DIECOM_LIGHT_GUN = 0x03
-// 	};
-//
-// 	enum hires_type_t
-// 	{
-// 		HIRES_NONE = 0x00,
-// 		HIRES_RIGHT = 0x01,
-// 		HIRES_RIGHT_COCOMAX3 = 0x02,
-// 		HIRES_LEFT = 0x03,
-// 		HIRES_LEFT_COCOMAX3 = 0x04
-// 	};
-
-// 	struct analog_input_t
-// 	{
-// 		ioport_port *m_input[2][2]{};
-// 		ioport_port *m_buttons{};
-//
-// 		uint32_t input(int joystick, int axis) const { return m_input[joystick][axis] ? m_input[joystick][axis]->read() : 0x00; }
-// 		uint8_t buttons() const { return m_buttons ? m_buttons->read() : 0x00; }
-// 	};
-
-// 	void analog_port_start(analog_input_t *analog, const char *rx_tag, const char *ry_tag, const char *lx_tag, const char *ly_tag, const char *buttons_tag);
-
-	// wrappers for configuration
-// 	joystick_type_t joystick_type(int index);
-// 	hires_type_t hires_interface_type();
-// 	bool is_joystick_hires(int joystick_index);
-
-// 	soundmux_status_t soundmux_status();
-// 	void update_sound();
-// 	bool poll_joystick();
-// 	uint8_t poll_joystick_buttons();
-// 	void poll_keyboard();
-
-// 	void update_keyboard(coco_state::keyboard_side_t side, uint8_t value);
-
-// 	void poll_hires_joystick();
-// 	void update_cassout(int cassout);
-// 	void update_prinout(bool prinout);
-// 	void diecom_lightgun_clock();
-
-	// thin wrappers for PIA output
+	// PIA0 PA input mirror
 	uint8_t m_pia0_pa_buffer;
-// 	uint8_t dac_output()    { return m_dac_output; }    // PA drives the DAC
-// 	bool sel1()             { return m_pia_0->ca2_output() ? true : false; }
-// 	bool sel2()             { return m_pia_0->cb2_output() ? true : false; }
-// 	bool snden()            { return m_pia_1->cb2_output() ? true : false; }
 
 	// VHD selection
 	coco_vhd_image_device *current_vhd();
@@ -282,53 +178,26 @@ protected:
 	required_device<input_merger_device> m_firqs;
 
 	// input ports
+	void update_input_port(int port, uint8_t selection);
+	std::unique_ptr<coco_joy_handler> make_joy_handler(uint8_t selection, int port);
 	required_ioport_array<7> m_keyboard;
-// 	optional_ioport m_joystick_type_control;
 	optional_ioport m_joystick_type_right;
 	optional_ioport m_joystick_type_left;
-
-// 	optional_ioport m_joystick_hires_control;
-// 	analog_input_t m_joystick{};
-// 	analog_input_t m_rat_mouse{};
-// 	analog_input_t m_diecom_lightgun{};
 
 	// DAC output
 	uint8_t m_dac_output;
 
-	// remember the last audio sample level from the analog sources (DAC, cart, cassette) so that we don't
-	// introduce step changes when the audio output is enabled/disabled via PIA1 CB2
-// 	uint8_t m_analog_audio_level = 0U;
-
-	emu_timer *m_joy_timer;
-
-	// hires interface
-// 	emu_timer *m_hiresjoy_transition_timer[2]{};
-// 	bool m_hiresjoy_ca = false;
-
-	// diecom lightgun
-// 	emu_timer *m_diecom_lightgun_timer = nullptr;
-// 	bool m_dclg_previous_bit = false;
-// 	uint8_t m_dclg_output_h = 0U;
-// 	uint8_t m_dclg_output_v = 0U;
-// 	uint32_t m_dclg_state = 0U;
-// 	uint32_t m_dclg_timer = 0U;
-
 	// VHD selection
 	uint8_t m_vhd_select = 0U;
 
-	// address space for "floating access"
-	//address_space m_floating_space;
-
 	// safety to prevent stack overflow when reading floating bus
 	bool m_in_floating_bus_read = false;
-	virtual void update_input_port(int port, uint8_t selection);
-
-	virtual std::unique_ptr<coco_joy_handler> make_joy_handler(uint8_t selection, int port);
 };
 
 
 //**************************************************************************
-//  coco_joy_handler - Classes for things that plug into the joystick port
+//  coco_joy_handler - classes for things that plug into the joystick port
+//                     and sometimes casette / serial
 //**************************************************************************
 
 class coco_joy_handler
@@ -336,15 +205,19 @@ class coco_joy_handler
 protected:
     coco_state &m_host;
     int m_base_slot;
+	ioport_port *m_buttons;
 
 public:
-    coco_joy_handler(coco_state& host, int base_slot)
-        : m_host(host), m_base_slot(base_slot) {}
+    coco_joy_handler(coco_state& host, int base_slot, ioport_port *buttons)
+        : m_host(host)
+        , m_base_slot(base_slot)
+        , m_buttons(buttons) {}
 
     virtual ~coco_joy_handler() = default;
+	virtual uint8_t device_type() {return 0;}
     virtual void joy_changed(int axis, int joy_val) {}
     virtual bool evaluate_comparator(int dac, int joy_val) {return false;}
-    virtual uint8_t button_status() {return 0;}
+    virtual uint8_t button_status();
 	virtual bool is_hires() {return false;}
     virtual void opamp_discharge() {}
 	virtual void opamp_charge(int target_slot, int joy_val) {}
@@ -356,29 +229,30 @@ class coco_joy_disconnected : public coco_joy_handler
 {
 public:
     using coco_joy_handler::coco_joy_handler;
+	uint8_t device_type() override {return coco_state::JOY_DEVICE_UNCONNECTED;};
 };
 
 class coco_joy_standard : public coco_joy_handler
 {
 public:
     using coco_joy_handler::coco_joy_handler;
+	virtual uint8_t device_type() override {return coco_state::JOY_DEVICE_STANDARD;};
 	virtual void joy_changed(int axis, int joy_val) override;
 	virtual bool evaluate_comparator(int dac, int joy_val) override;
-	virtual uint8_t button_status() override;
 };
 
 class coco_tandy_hires_joy : public coco_joy_handler
 {
 public:
-	coco_tandy_hires_joy(coco_state& host, int base_slot)
-		: coco_joy_handler(host, base_slot)
+	coco_tandy_hires_joy(coco_state& host, int base_slot, ioport_port *buttons)
+		: coco_joy_handler(host, base_slot, buttons)
 		, m_charging(false)
 		, m_fired(false)
 		, m_multiplier(5850.0)
 		, m_offset(535.0) {}
 
+	virtual uint8_t device_type() override {return coco_state::JOY_DEVICE_TANDY_HIRES;};
 	virtual bool evaluate_comparator(int dac, int joy_val) override;
-	virtual uint8_t button_status() override;
 	virtual bool is_hires() override;
     virtual void opamp_discharge() override;
 	virtual void opamp_charge(int target_slot, int joy_val) override;
@@ -394,38 +268,40 @@ protected:
 class coco_cm3_hires_joy : public coco_tandy_hires_joy
 {
 public:
-	coco_cm3_hires_joy(coco_state& host, int base_slot)
-		: coco_tandy_hires_joy(host, base_slot)
+	coco_cm3_hires_joy(coco_state& host, int base_slot, ioport_port *buttons)
+		: coco_tandy_hires_joy(host, base_slot, buttons)
 	{
 		// chosen by fair dice roll
 		m_multiplier = 2885.0;
 		m_offset = 380.0;
 	}
+
+	virtual uint8_t device_type() override {return coco_state::JOY_DEVICE_CM3_HIRES;};
 };
 
 class coco_rat_mouse : public coco_joy_handler
 {
 public:
     using coco_joy_handler::coco_joy_handler;
-    virtual void joy_changed(int axis, int joy_val) override;
+	virtual uint8_t device_type() override {return coco_state::JOY_DEVICE_RAT_MOUSE;};
+	virtual void joy_changed(int axis, int joy_val) override;
 	virtual bool evaluate_comparator(int dac, int joy_val) override;
-	virtual uint8_t button_status() override;
 };
 
 class coco_diecom_light_gun : public coco_joy_handler
 {
 public:
-	coco_diecom_light_gun(coco_state& host, int base_slot, ioport_port *h_port, ioport_port *v_port, ioport_port *buttons)
-		: coco_joy_handler(host, base_slot)
+	coco_diecom_light_gun(coco_state& host, int base_slot, ioport_port *buttons, ioport_port *h_port, ioport_port *v_port)
+		: coco_joy_handler(host, base_slot, buttons)
 		, m_h_port(h_port)
 		, m_v_port(v_port)
-		, m_buttons(buttons)
 		, m_dclg_output_h(0)
 		, m_dclg_output_v(0)
 		, m_dclg_previous_bit(0)
 		, m_dclg_state(0)
 		, m_dclg_timer(0) {}
 
+	virtual uint8_t device_type() override {return coco_state::JOY_DEVICE_DIECOM_LG;};
 	virtual void lightgun_clock(int clock) override;
     virtual void opamp_switchover(s32 target_slot) override;
 protected:
@@ -433,13 +309,11 @@ protected:
 
 	ioport_port *m_h_port;
 	ioport_port *m_v_port;
-	ioport_port *m_buttons;
 	uint8_t m_dclg_output_h;
 	uint8_t m_dclg_output_v;
 	int m_dclg_previous_bit;
 	uint32_t m_dclg_state;
 	uint32_t m_dclg_timer;
-
 };
 
 #endif // MAME_TRS_COCO_H

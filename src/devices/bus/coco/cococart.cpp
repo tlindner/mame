@@ -141,7 +141,7 @@ cococart_slot_device::cococart_slot_device(const machine_config &mconfig, const 
 
 void cococart_slot_device::device_start()
 {
-	for(int i=0; i < TIMER_POOL; i++ )
+	for (int i=0; i < TIMER_POOL; i++)
 	{
 		m_cart_line.timer[i]    = timer_alloc(FUNC(cococart_slot_device::cart_line_timer_tick), this);
 		m_nmi_line.timer[i]     = timer_alloc(FUNC(cococart_slot_device::nmi_line_timer_tick), this);

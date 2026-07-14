@@ -20,7 +20,7 @@
        |
        |
        |
-       |
+       | FIRQ
        |-<----------- PIA1
   -----
 
@@ -41,6 +41,23 @@
   enabled, this actually does not prevent PIA interrupts.  Apparently JeffV's
   CoCo 3 emulator did not handle this properly.
 
+  It is worth noting that the CoCo 3 had two sets of VSync interrupts.
+  To quote John Kowalski:
+
+  One other thing to mention is that the old vertical interrupt and the new
+  vertical interrupt are not the same..  The old one is triggered by the
+  video's vertical sync pulse, but the new one is triggered on the next scan
+  line *after* the last scan line of the active video display.  That is : new
+  vertical interrupt triggers somewheres around scan line 230 of the 262 line
+  screen (if a 200 line graphics mode is used, a bit earlier if a 192 line
+  mode is used and a bit later if a 225 line mode is used).  The old vsync
+  interrupt triggers on scanline zero.
+
+  230 is just an estimate [(262-200)/2+200].  I don't think the active part
+  of the screen is exactly centered within the 262 line total.  I can
+  research that for you if you want an exact number for scanlines before the
+  screen starts and the scanline that the v-interrupt triggers..etc.
+
 ***************************************************************************/
 
 #include "emu.h"
@@ -58,8 +75,10 @@ void coco3_state::machine_start()
 	save_item(NAME(m_prev_keyboard_pressed));
 	save_item(NAME(m_pia1b_control_register));
 
-	m_joy_handlers[0] = std::make_unique<coco_joy_standard>(*this, 0); // Left
-    m_joy_handlers[1] = std::make_unique<coco_joy_standard>(*this, 2); // Right
+	// right joystick
+	m_joy_handlers[0] = std::make_unique<coco_joy_standard>(*this, 0, ioport(JOYSTICK_BUTTONS_TAG));
+	// left joystick
+    m_joy_handlers[1] = std::make_unique<coco_joy_standard>(*this, 2, ioport(JOYSTICK_BUTTONS_TAG));
 }
 
 
@@ -106,17 +125,12 @@ void coco3_state::ff40_write(offs_t offset, uint8_t data)
 
 void coco3_state::pia0_pa_w(uint8_t value)
 {
-    // 1. Gather joystick buttons
-//     uint8_t raw_buttons = ioport(JOYSTICK_BUTTONS_TAG)->read();
-//     uint8_t gated_buttons = 0;
-//     if (m_right_joy_device != 0) gated_buttons |= (raw_buttons & 0x05);
-//     if (m_left_joy_device != 0)  gated_buttons |= (raw_buttons & 0x0a);
 	uint8_t gated_buttons = m_joy_handlers[0]->button_status() | m_joy_handlers[1]->button_status();
 
     // Compute active-low driven rows (including joystick interference)
     uint8_t effective_value = value & ~gated_buttons;
 
-    uint8_t pia0_pb = 0xFF;
+    uint8_t pia0_pb = 0xff;
     uint8_t any_pressed = 0;
 
     // 2. Single-pass keyboard matrix scan
@@ -139,7 +153,6 @@ void coco3_state::pia0_pa_w(uint8_t value)
 
     // 3. Update Peripheral Interface Adapter (PIA)
 	pia_0().portb_w(pia0_pb);
-//     pia_0().set_b_input(pia0_pb);
 
     // 4. CoCo 3 GIME Interrupt logic
     bool pressed = (any_pressed != 0);
@@ -149,25 +162,13 @@ void coco3_state::pia0_pa_w(uint8_t value)
         m_gime->set_il1(false);
     }
     m_prev_keyboard_pressed = pressed;
-
-// 	// Color Max 3 Trigger
-// 	if ((m_right_joy_device == JOY_DEVICE_CM3_HIRES) && (value & 0x04))
-// 		m_joy_handlers[0]->opamp_charge(m_mux->current_address(), int joy_val);
-//
-// 	if ((m_left_joy_device == JOY_DEVICE_CM3_HIRES) && (value & 0x08))
-// 		m_joy_handlers[1].opamp_charge(m_mux->current_address(), int joy_val);
 }
 
 void coco3_state::pia0_pb_w(uint8_t value)
 {
-    // 1. Gather joystick buttons
-//     uint8_t raw_buttons = ioport(JOYSTICK_BUTTONS_TAG)->read();
-//     uint8_t gated_buttons = 0;
-//     if (m_right_joy_device != 0) gated_buttons |= (raw_buttons & 0x05);
-//     if (m_left_joy_device != 0)  gated_buttons |= (raw_buttons & 0x0a);
 	uint8_t gated_buttons = m_joy_handlers[0]->button_status() | m_joy_handlers[1]->button_status();
 
-    uint8_t pia0_pa = 0x7F;
+    uint8_t pia0_pa = 0x7f;
     uint8_t any_pressed = 0;
 
     // 2. Single-pass keyboard matrix scan
@@ -179,7 +180,7 @@ void coco3_state::pia0_pb_w(uint8_t value)
         any_pressed |= ~key_column;
 
         // Base CoCo behavior: check if any columns driven low align with low bits in 'value'
-        if ((key_column | value) != 0xFF)
+        if ((key_column | value) != 0xff)
         {
             pia0_pa &= ~(0x01 << i);
         }
@@ -195,8 +196,6 @@ void coco3_state::pia0_pb_w(uint8_t value)
 	m_pia0_pa_buffer = (m_pia0_pa_buffer & ~0x7f) | (pia0_pa & 0x7f);
 	pia_0().set_a_input(m_pia0_pa_buffer);
 
-//     pia_0().set_a_input(pia0_pa, 0x7f);
-
     // 4. CoCo 3 GIME Interrupt logic
     bool pressed = (any_pressed != 0);
     if (pressed != m_prev_keyboard_pressed)
@@ -207,30 +206,7 @@ void coco3_state::pia0_pb_w(uint8_t value)
     m_prev_keyboard_pressed = pressed;
 }
 
-//-------------------------------------------------
-//  keyboard_changed
-//-------------------------------------------------
 
-// INPUT_CHANGED_MEMBER(coco3_state::keyboard_changed)
-// {
-// // 	coco_state::keyboard_changed(field, param, oldval, newval);
-//
-// 	/* Support for CoCo 3 keyboard GIME interrupt */
-// 	uint8_t any_pressed = 0;
-// 	for (unsigned i = 0; i < m_keyboard.size(); i++)
-// 	{
-// 		any_pressed |= (~(m_keyboard[i]->read()) | poll_joystick_buttons()) & 0xff;
-// 	}
-//
-// 	bool pressed = any_pressed != 0;
-// 	if (pressed != m_prev_keyboard_pressed)
-// 	{
-// 		m_gime->set_il1(true);
-// 		m_gime->set_il1(false);
-// 	}
-//
-// 	m_prev_keyboard_pressed = pressed;
-// }
 
 //-------------------------------------------------
 //  cart_w

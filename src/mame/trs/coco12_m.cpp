@@ -20,8 +20,10 @@ void coco12_state::machine_start()
 	coco_state::machine_start();
 	configure_sam();
 
-	m_joy_handlers[0] = std::make_unique<coco_joy_standard>(*this, 0); // Left
-    m_joy_handlers[1] = std::make_unique<coco_joy_standard>(*this, 2); // Right
+	// right joystick
+	m_joy_handlers[0] = std::make_unique<coco_joy_standard>(*this, 0, ioport(JOYSTICK_BUTTONS_TAG));
+	// left joystick
+    m_joy_handlers[1] = std::make_unique<coco_joy_standard>(*this, 2, ioport(JOYSTICK_BUTTONS_TAG));
 }
 
 
@@ -61,6 +63,7 @@ void coco12_state::configure_sam()
 }
 
 
+
 //-------------------------------------------------
 //  sam_read
 //-------------------------------------------------
@@ -79,22 +82,6 @@ uint8_t coco12_state::sam_read(offs_t offset)
 //  pia1_pb_changed
 //-------------------------------------------------
 
-// void coco12_state::pia1_pb_changed(uint8_t data)
-// {
-// 	/* call inherited function */
-// 	coco_state::pia1_pb_changed(data);
-//
-// 	m_vdg->css_w(data & 0x08);
-// 	m_vdg->intext_w(data & 0x10);
-// 	m_vdg->gm0_w(data & 0x10);
-// 	m_vdg->gm1_w(data & 0x20);
-// 	m_vdg->gm2_w(data & 0x40);
-// 	m_vdg->ag_w(data & 0x80);
-// }
-//-------------------------------------------------
-//  pia1_pb_changed
-//-------------------------------------------------
-
 void coco12_state::pia1_pb_w(uint8_t data)
 {
 	/* call inherited function */
@@ -109,20 +96,6 @@ void coco12_state::pia1_pb_w(uint8_t data)
 }
 
 
-// void coco12_state::update_input_ports(uint8_t left_selection, uint8_t right_selection)
-// {
-//     if (left_selection != m_left_joy_device)
-//     {
-//         m_joy_handlers[0] = make_joy_handler(left_selection, 0);
-//         m_left_joy_device = left_selection;
-//     }
-//
-//     if (right_selection != m_right_joy_device)
-//     {
-//         m_joy_handlers[1] = make_joy_handler(right_selection, 1);
-//         m_right_joy_device = right_selection;
-//     }
-// }
 
 //-------------------------------------------------
 //  deluxecoco_state::machine_start

@@ -321,10 +321,10 @@ dragon_multipak_device::dragon_multipak_device(const machine_config &mconfig, co
 void coco_multipak_device::device_start()
 {
 	// install $FF7F handler
-	install_readwrite_handler(0xFF7F, 0xFF7F, read8smo_delegate(*this, FUNC(coco_multipak_device::ff7f_read)), write8smo_delegate(*this, FUNC(coco_multipak_device::ff7f_write)));
+	install_readwrite_handler(0xff7f, 0xff7f, read8smo_delegate(*this, FUNC(coco_multipak_device::ff7f_read)), write8smo_delegate(*this, FUNC(coco_multipak_device::ff7f_write)));
 
 	// initial state
-	m_select = 0xFF;
+	m_select = 0xff;
 	m_block = 0;
 
 	m_mixer_stream = stream_alloc(1, 1, machine().sample_rate());

@@ -35,27 +35,27 @@
 
 void coco3_state::coco3_mem(address_map &map)
 {
-	map(0x0000, 0x1FFF).bankr("rbank0").bankw("wbank0");
-	map(0x2000, 0x3FFF).bankr("rbank1").bankw("wbank1");
-	map(0x4000, 0x5FFF).bankr("rbank2").bankw("wbank2");
-	map(0x6000, 0x7FFF).bankr("rbank3").bankw("wbank3");
-	map(0x8000, 0x9FFF).bankr("rbank4").bankw("wbank4");
-	map(0xA000, 0xBFFF).bankr("rbank5").bankw("wbank5");
-	map(0xC000, 0xDFFF).bankr("rbank6").bankw("wbank6");
-	map(0xE000, 0xFDFF).bankr("rbank7").bankw("wbank7");
-	map(0xFE00, 0xFEFF).bankr("rbank8").bankw("wbank8");
-	map(0xFF00, 0xFF0F).rw(m_pia_0, FUNC(pia6821_device::read), FUNC(pia6821_device::write));
-	map(0xFF20, 0xFF2F).r(m_pia_1, FUNC(pia6821_device::read)).w(FUNC(coco3_state::ff20_write));
-	map(0xFF40, 0xFF5F).rw(FUNC(coco3_state::ff40_read), FUNC(coco3_state::ff40_write));
-	map(0xFF60, 0xFF8F).rw(FUNC(coco3_state::ff60_read), FUNC(coco3_state::ff60_write));
-	map(0xFF90, 0xFFDF).rw(m_gime, FUNC(gime_device::read), FUNC(gime_device::write));
+	map(0x0000, 0x1fff).bankr("rbank0").bankw("wbank0");
+	map(0x2000, 0x3fff).bankr("rbank1").bankw("wbank1");
+	map(0x4000, 0x5fff).bankr("rbank2").bankw("wbank2");
+	map(0x6000, 0x7fff).bankr("rbank3").bankw("wbank3");
+	map(0x8000, 0x9fff).bankr("rbank4").bankw("wbank4");
+	map(0xa000, 0xbfff).bankr("rbank5").bankw("wbank5");
+	map(0xc000, 0xdfff).bankr("rbank6").bankw("wbank6");
+	map(0xe000, 0xfdff).bankr("rbank7").bankw("wbank7");
+	map(0xfe00, 0xfeff).bankr("rbank8").bankw("wbank8");
+	map(0xff00, 0xff0f).rw(m_pia_0, FUNC(pia6821_device::read), FUNC(pia6821_device::write));
+	map(0xff20, 0xff2f).r(m_pia_1, FUNC(pia6821_device::read)).w(FUNC(coco3_state::ff20_write));
+	map(0xff40, 0xff5f).rw(FUNC(coco3_state::ff40_read), FUNC(coco3_state::ff40_write));
+	map(0xff60, 0xff8f).rw(FUNC(coco3_state::ff60_read), FUNC(coco3_state::ff60_write));
+	map(0xff90, 0xffdf).rw(m_gime, FUNC(gime_device::read), FUNC(gime_device::write));
 
 	// While Tepolt and other sources say that the interrupt vectors are mapped to
 	// the same memory accessed at $BFFx, William Astle offered evidence that this
 	// memory on a CoCo 3 is not the same.
 	//
 	// http://lost.l-w.ca/0x05/coco3-and-interrupt-vectors/
-	map(0xFFE0, 0xFFFF).rom().region(MAINCPU_TAG, 0x7FE0);
+	map(0xffe0, 0xffff).rom().region(MAINCPU_TAG, 0x7fe0);
 }
 
 
@@ -181,21 +181,6 @@ INPUT_PORTS_END
 //  INPUT_PORTS( coco3_joystick )
 //-------------------------------------------------
 
-// static INPUT_PORTS_START( coco3_joystick )
-// 	PORT_START(JOYSTICK_RX_TAG)
-// 	PORT_BIT( 0x3ff, 0x200,  IPT_AD_STICK_X) PORT_SENSITIVITY(JOYSTICK_SENSITIVITY) PORT_KEYDELTA(JOYSTICK_DELTA) PORT_MINMAX(0, 1023) PORT_CODE_DEC(KEYCODE_4_PAD) PORT_CODE_INC(KEYCODE_6_PAD) PORT_CODE_DEC(JOYCODE_X_LEFT_SWITCH) PORT_CODE_INC(JOYCODE_X_RIGHT_SWITCH) PORT_PLAYER(1) PORT_CONDITION(CTRL_SEL_RIGHT, 0x0f, EQUALS, 0x01)
-// 	PORT_START(JOYSTICK_RY_TAG)
-// 	PORT_BIT( 0x3ff, 0x200,  IPT_AD_STICK_Y) PORT_SENSITIVITY(JOYSTICK_SENSITIVITY) PORT_KEYDELTA(JOYSTICK_DELTA) PORT_MINMAX(0, 1023) PORT_CODE_DEC(KEYCODE_8_PAD) PORT_CODE_INC(KEYCODE_2_PAD) PORT_CODE_DEC(JOYCODE_Y_UP_SWITCH)   PORT_CODE_INC(JOYCODE_Y_DOWN_SWITCH)  PORT_PLAYER(1) PORT_CONDITION(CTRL_SEL_RIGHT, 0x0f, EQUALS, 0x01)
-// 	PORT_START(JOYSTICK_LX_TAG)
-// 	PORT_BIT( 0x3ff, 0x200,  IPT_AD_STICK_X) PORT_SENSITIVITY(JOYSTICK_SENSITIVITY) PORT_KEYDELTA(JOYSTICK_DELTA) PORT_MINMAX(0, 1023) PORT_CODE_DEC(KEYCODE_4_PAD) PORT_CODE_INC(KEYCODE_6_PAD) PORT_CODE_DEC(JOYCODE_X_LEFT_SWITCH) PORT_CODE_INC(JOYCODE_X_RIGHT_SWITCH) PORT_PLAYER(2) PORT_CONDITION(CTRL_SEL_RIGHT, 0xf0, EQUALS, 0x10)
-// 	PORT_START(JOYSTICK_LY_TAG)
-// 	PORT_BIT( 0x3ff, 0x200,  IPT_AD_STICK_Y) PORT_SENSITIVITY(JOYSTICK_SENSITIVITY) PORT_KEYDELTA(JOYSTICK_DELTA) PORT_MINMAX(0, 1023) PORT_CODE_DEC(KEYCODE_8_PAD) PORT_CODE_INC(KEYCODE_2_PAD) PORT_CODE_DEC(JOYCODE_Y_UP_SWITCH)   PORT_CODE_INC(JOYCODE_Y_DOWN_SWITCH)  PORT_PLAYER(2) PORT_CONDITION(CTRL_SEL_RIGHT, 0xf0, EQUALS, 0x10)
-// 	PORT_START(JOYSTICK_BUTTONS_TAG)
-// 	PORT_BIT( 0x01, IP_ACTIVE_HIGH, IPT_BUTTON1) PORT_NAME("Right Button 1") PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco3_state::keyboard_changed), 0) PORT_CODE(KEYCODE_0_PAD) PORT_CODE(JOYCODE_BUTTON1) PORT_CODE(MOUSECODE_BUTTON1) PORT_PLAYER(1) PORT_CONDITION(CTRL_SEL_RIGHT, 0x0f, EQUALS, 0x01)
-// 	PORT_BIT( 0x04, IP_ACTIVE_HIGH, IPT_BUTTON2) PORT_NAME("Right Button 2") PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco3_state::keyboard_changed), 0) PORT_CODE(KEYCODE_DEL_PAD) PORT_CODE(JOYCODE_BUTTON2) PORT_CODE(MOUSECODE_BUTTON2) PORT_PLAYER(1) PORT_CONDITION(CTRL_SEL_RIGHT, 0x0f, EQUALS, 0x01)
-// 	PORT_BIT( 0x02, IP_ACTIVE_HIGH, IPT_BUTTON1) PORT_NAME("Left Button 1")  PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco3_state::keyboard_changed), 0) PORT_CODE(KEYCODE_0_PAD) PORT_CODE(JOYCODE_BUTTON1) PORT_CODE(MOUSECODE_BUTTON1) PORT_PLAYER(2) PORT_CONDITION(CTRL_SEL_RIGHT, 0xf0, EQUALS, 0x10)
-// 	PORT_BIT( 0x08, IP_ACTIVE_HIGH, IPT_BUTTON2) PORT_NAME("Left Button 2")  PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco3_state::keyboard_changed), 0) PORT_CODE(KEYCODE_DEL_PAD) PORT_CODE(JOYCODE_BUTTON2) PORT_CODE(MOUSECODE_BUTTON2) PORT_PLAYER(2) PORT_CONDITION(CTRL_SEL_RIGHT, 0xf0, EQUALS, 0x10)
-// INPUT_PORTS_END
 INPUT_PORTS_START( coco3_joystick )
 	PORT_START(JOYSTICK_RX_TAG)
 		PORT_BIT(0x3ff, 0x200,  IPT_AD_STICK_X)
@@ -251,7 +236,6 @@ INPUT_PORTS_START( coco3_joystick )
 	PORT_START(JOYSTICK_BUTTONS_TAG)
 		PORT_BIT(0x01, IP_ACTIVE_HIGH, IPT_BUTTON1)
 		PORT_NAME("Right Button 1")
-// 			PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco3_state::keyboard_changed), 0)
 			PORT_CODE(KEYCODE_0_PAD)
 			PORT_CODE(JOYCODE_BUTTON1)
 			PORT_CODE(MOUSECODE_BUTTON1)
@@ -259,7 +243,6 @@ INPUT_PORTS_START( coco3_joystick )
 			PORT_CONDITION(CTRL_SEL_RIGHT, 0x0f, LESSTHAN, coco_state::JOY_DEVICE_RAT_MOUSE)
 		PORT_BIT(0x04, IP_ACTIVE_HIGH, IPT_BUTTON2)
 			PORT_NAME("Right Button 2")
-// 			PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco3_state::keyboard_changed), 0)
 			PORT_CODE(KEYCODE_DEL_PAD)
 			PORT_CODE(JOYCODE_BUTTON2)
 			PORT_CODE(MOUSECODE_BUTTON2)
@@ -267,7 +250,6 @@ INPUT_PORTS_START( coco3_joystick )
 			PORT_CONDITION(CTRL_SEL_RIGHT, 0x0f, LESSTHAN, coco_state::JOY_DEVICE_RAT_MOUSE)
 		PORT_BIT(0x02, IP_ACTIVE_HIGH, IPT_BUTTON1)
 			PORT_NAME("Left Button 1")
-// 			PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco3_state::keyboard_changed), 0)
 			PORT_CODE(KEYCODE_0_PAD)
 			PORT_CODE(JOYCODE_BUTTON1)
 			PORT_CODE(MOUSECODE_BUTTON1)
@@ -275,7 +257,6 @@ INPUT_PORTS_START( coco3_joystick )
 			PORT_CONDITION(CTRL_SEL_LEFT, 0x0f, LESSTHAN, coco_state::JOY_DEVICE_RAT_MOUSE)
 		PORT_BIT(0x08, IP_ACTIVE_HIGH, IPT_BUTTON2)
 			PORT_NAME("Left Button 2")
-// 			PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco3_state::keyboard_changed), 0)
 			PORT_CODE(KEYCODE_DEL_PAD)
 			PORT_CODE(JOYCODE_BUTTON2)
 			PORT_CODE(MOUSECODE_BUTTON2)
@@ -341,7 +322,6 @@ static INPUT_PORTS_START( coco_rat_mouse )
 	PORT_START(RAT_MOUSE_BUTTONS_TAG)
 		PORT_BIT( 0x01, IP_ACTIVE_HIGH, IPT_BUTTON1)
 			PORT_NAME("Rat Mouse Button 1 (Right Port)")
-//	 		PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco3_state::keyboard_changed), 0)
 			PORT_CODE(KEYCODE_0_PAD)
 			PORT_CODE(JOYCODE_BUTTON1)
 			PORT_CODE(MOUSECODE_BUTTON1)
@@ -349,7 +329,6 @@ static INPUT_PORTS_START( coco_rat_mouse )
 			PORT_CONDITION(CTRL_SEL_RIGHT, 0x0f, EQUALS, coco_state::JOY_DEVICE_RAT_MOUSE)
 		PORT_BIT( 0x04, IP_ACTIVE_HIGH, IPT_BUTTON2)
 			PORT_NAME("Rat Mouse Button 2 (Right Port)")
-//	 		PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco3_state::keyboard_changed), 0)
 			PORT_CODE(KEYCODE_DEL_PAD)
 			PORT_CODE(JOYCODE_BUTTON2)
 			PORT_CODE(MOUSECODE_BUTTON2)
@@ -364,13 +343,14 @@ static INPUT_PORTS_START( coco_rat_mouse )
 			PORT_CONDITION(CTRL_SEL_LEFT, 0x0f, EQUALS, coco_state::JOY_DEVICE_RAT_MOUSE)
 		PORT_BIT( 0x08, IP_ACTIVE_HIGH, IPT_BUTTON2)
 			PORT_NAME("Rat Mouse Button 2 (Left Port)")
-	// 		PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco3_state::keyboard_changed), 0)
 			PORT_CODE(KEYCODE_DEL_PAD)
 			PORT_CODE(JOYCODE_BUTTON2)
 			PORT_CODE(MOUSECODE_BUTTON2)
 			PORT_PLAYER(2)
 			PORT_CONDITION(CTRL_SEL_LEFT, 0x0f, EQUALS, coco_state::JOY_DEVICE_RAT_MOUSE)
 INPUT_PORTS_END
+
+
 
 //-------------------------------------------------
 //  INPUT_PORTS( coco_lightgun )
@@ -408,7 +388,6 @@ INPUT_PORTS_END
 
 
 
-
 //-------------------------------------------------
 //  INPUT_PORTS( coco3 )
 //-------------------------------------------------
@@ -423,7 +402,6 @@ INPUT_PORTS_END
 static INPUT_PORTS_START( coco3 )
 	PORT_INCLUDE( coco3_keyboard )
 	PORT_INCLUDE( coco3_joystick )
-// 	PORT_INCLUDE( coco_analog_control )
 	PORT_INCLUDE( coco3_analog_control )
 	PORT_INCLUDE( coco_rat_mouse )
 	PORT_INCLUDE( coco_lightgun )

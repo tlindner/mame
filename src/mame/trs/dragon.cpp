@@ -45,14 +45,10 @@ easier to manage.
 #include "cpu/m6809/hd6309.h"
 #include "cpu/m6809/m6809.h"
 #include "imagedev/cassette.h"
-#include "imagedev/floppy.h"
 
 #include "softlist_dev.h"
 
 #include "formats/coco_cas.h"
-#include "formats/dmk_dsk.h"
-#include "formats/sdf_dsk.h"
-#include "formats/vdk_dsk.h"
 
 
 /***************************************************************************
@@ -60,28 +56,9 @@ easier to manage.
 ***************************************************************************/
 
 //-------------------------------------------------
-//  pia1_pa_changed - called when PIA1 PA changes
-//-------------------------------------------------
-
-
-// void dragon_state::pia1_pa_changed(uint8_t data)
-// {
-// 	/* call inherited function */
-// 	coco12_state::pia1_pa_changed(data);
-//
-// 	/* if strobe bit is high send data from pia0 port b to dragon parallel printer */
-// 	if (data & 0x02)
-// 	{
-// 		uint8_t output = pia_0().b_output();
-// 		m_printer->output(output);
-// 	}
-// }
-
-//-------------------------------------------------
 //  pia1_pa_w - called when PIA1 PA changes
 //-------------------------------------------------
 
-// void dragon_state::pia1_pa_changed(uint8_t data)
 void dragon_state::pia1_pa_w(uint8_t data)
 {
 	/* call inherited function */
@@ -94,6 +71,7 @@ void dragon_state::pia1_pa_w(uint8_t data)
 		m_printer->output(output);
 	}
 }
+
 
 /***************************************************************************
   DRAGON64
@@ -124,27 +102,6 @@ void dragon64_state::machine_reset()
 	m_rombank[0]->set_entry(0);
 	m_rombank[1]->set_entry(0);
 }
-
-
-//-------------------------------------------------
-//  pia1_pb_changed
-//-------------------------------------------------
-
-// void dragon64_state::pia1_pb_changed(uint8_t data)
-// {
-// 	dragon_state::pia1_pb_changed(data);
-//
-// 	uint8_t ddr = ~pia_1().port_b_z_mask();
-//
-// 	/* If bit 2 of the pia1 ddrb is 1 then this pin is an output so use it */
-// 	/* to control the paging of the 32k and 64k basic roms */
-// 	/* Otherwise it set as an input, with an EXTERNAL pull-up so it should */
-// 	/* always be high (enabling 32k basic rom) */
-// 	if (ddr & 0x04)
-// 	{
-// 		page_rom(data & 0x04 ? true : false);
-// 	}
-// }
 
 
 //-------------------------------------------------
@@ -184,8 +141,8 @@ void dragon64_state::page_rom(bool romswitch)
 	int bank = romswitch
 		? 0    // This is the 32k mode basic(64)/boot rom(alpha)
 		: 1;   // This is the 64k mode basic(64)/basic rom(alpha)
-	m_rombank[0]->set_entry(bank);      // 0x8000-0x9FFF
-	m_rombank[1]->set_entry(bank);      // 0xA000-0xBFFF
+	m_rombank[0]->set_entry(bank);      // 0x8000-0x9fff
+	m_rombank[1]->set_entry(bank);      // 0xa000-0xbfff
 }
 
 
@@ -439,23 +396,23 @@ static INPUT_PORTS_START( dragon200e_keyboard )
 	PORT_INCLUDE(dragon_keyboard)
 
 	PORT_MODIFY("row0")
-	PORT_BIT(0x01, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"0 \u00c7") PORT_CODE(KEYCODE_0) PORT_CHAR('0') PORT_CHAR(0xC7)
+	PORT_BIT(0x01, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"0 \u00c7") PORT_CODE(KEYCODE_0) PORT_CHAR('0') PORT_CHAR(0xc7)
 
 	PORT_MODIFY("row1")
-	PORT_BIT(0x08, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"\u00d1") PORT_CODE(KEYCODE_COLON) PORT_CHAR(0xD1)
+	PORT_BIT(0x08, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"\u00d1") PORT_CODE(KEYCODE_COLON) PORT_CHAR(0xd1)
 
 	PORT_MODIFY("row2")
 	PORT_BIT(0x01, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_OPENBRACE) PORT_CHAR(';') PORT_CHAR('+')
 
 	PORT_MODIFY("row5")
 	PORT_BIT(0x08, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"\u2191") PORT_CODE(KEYCODE_UP) PORT_CHAR(UCHAR_MAMEKEY(UP), '^') PORT_CHAR('_')
-	PORT_BIT(0x10, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"\u2193 \u00a1") PORT_CODE(KEYCODE_DOWN) PORT_CHAR(10) PORT_CHAR(0xA1)
-	PORT_BIT(0x40, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"\u2192 \u00bf") PORT_CODE(KEYCODE_RIGHT) PORT_CHAR(9) PORT_CHAR(0xBF)
-	PORT_BIT(0x80, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("SPACE") PORT_CODE(KEYCODE_SPACE) PORT_CHAR(' ') PORT_CHAR(0xA7)
+	PORT_BIT(0x10, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"\u2193 \u00a1") PORT_CODE(KEYCODE_DOWN) PORT_CHAR(10) PORT_CHAR(0xa1)
+	PORT_BIT(0x40, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"\u2192 \u00bf") PORT_CODE(KEYCODE_RIGHT) PORT_CHAR(9) PORT_CHAR(0xbf)
+	PORT_BIT(0x80, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("SPACE") PORT_CODE(KEYCODE_SPACE) PORT_CHAR(' ') PORT_CHAR(0xa7)
 
 	PORT_MODIFY("row6")
 	PORT_BIT(0x02, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("CLEAR @") PORT_CODE(KEYCODE_HOME) PORT_CHAR(12) PORT_CHAR('@')
-	PORT_BIT(0x04, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"BREAK \u00fc") PORT_CODE(KEYCODE_END) PORT_CODE(KEYCODE_ESC) PORT_CHAR(27) PORT_CHAR(0xFC)
+	PORT_BIT(0x04, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"BREAK \u00fc") PORT_CODE(KEYCODE_END) PORT_CODE(KEYCODE_ESC) PORT_CHAR(27) PORT_CHAR(0xfc)
 INPUT_PORTS_END
 
 INPUT_PORTS_START( dragon )
@@ -518,8 +475,6 @@ void dragon_state::dragon_base(machine_config &config)
 	m_pia_0->writepa_handler().set(FUNC(coco_state::pia0_pa_w));
 	m_pia_0->writepb_handler().set(FUNC(coco_state::pia0_pb_w));
 	m_pia_0->tspb_handler().set_constant(0xff);
-// 	m_pia_0->ca2_handler().set(FUNC(coco_state::pia0_ca2_w));
-// 	m_pia_0->cb2_handler().set(FUNC(coco_state::pia0_cb2_w));
 	m_pia_0->ca2_handler().set(m_mux, FUNC(mc14529_device::a0_w));
 	m_pia_0->cb2_handler().set(m_mux, FUNC(mc14529_device::a1_w));
 	m_pia_0->irqa_handler().set(m_irqs, FUNC(input_merger_device::in_w<0>));
@@ -530,8 +485,6 @@ void dragon_state::dragon_base(machine_config &config)
 	m_pia_1->readpb_handler().set(FUNC(coco_state::pia1_pb_r));
 	m_pia_1->writepa_handler().set(FUNC(coco_state::pia1_pa_w));
 	m_pia_1->writepb_handler().set(FUNC(coco_state::pia1_pb_w));
-// 	m_pia_1->ca2_handler().set(FUNC(coco_state::pia1_ca2_w));
-// 	m_pia_1->cb2_handler().set(FUNC(coco_state::pia1_cb2_w));
 	m_pia_1->ca2_handler().set([this] (int state) { m_cassette->set_motor(state ? true : false);});
 	m_pia_1->cb2_handler().set(m_mux, FUNC(mc14529_device::inhibit_y_w)).invert();;
 	m_pia_1->irqa_handler().set(m_firqs, FUNC(input_merger_device::in_w<0>));

@@ -31,24 +31,6 @@
 
 #include "formats/coco_cas.h"
 
-std::unique_ptr<coco_joy_handler> coco12_state::make_handler_for_port(int selection, int port)
-{
-    int base_slot = (port == 0) ? 0 : 2;
-
-    switch(selection) {
-        case 0: // "None" / Disconnected in the menu
-            return std::make_unique<coco_joy_disconnected>(*this, base_slot);
-
-        case 1:
-            return std::make_unique<coco_joy_standard>(*this, base_slot);
-
-        // ... other modes ...
-
-        default:
-            return std::make_unique<coco_joy_disconnected>(*this, base_slot);
-    }
-}
-
 //**************************************************************************
 //  ADDRESS MAPS
 //**************************************************************************
@@ -143,31 +125,6 @@ void deluxecoco_state::deluxecoco_io1(address_map &map)
 //  compatibility, in case anyone wants to use them in homebrew software
 //--------------------------------------------------------------------------
 
-// INPUT_PORTS_START( coco_analog_control )
-// 	PORT_START(CTRL_SEL_RIGHT)  /* Select Controller Type */
-// 	PORT_CONFNAME( 0x0f, 0x01, "Right Controller Port (P1)")            PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_state::joystick_mode_changed), 0)
-// 	PORT_CONFSETTING(  0x00, "Unconnected" )
-// 	PORT_CONFSETTING(  0x01, "Joystick" )
-// // 	PORT_CONFSETTING(  0x02, "The Rat Graphics Mouse" )                 PORT_CONDITION(CTRL_SEL_RIGHT, 0xf0, NOTEQUALS, 0x20)
-// // 	PORT_CONFSETTING(  0x03, "Diecom Light Gun Adaptor" )               PORT_CONDITION(CTRL_SEL_RIGHT, 0xf0, NOTEQUALS, 0x30)
-// // 	PORT_CONFSETTING(  0x04, "Tandy Hi-Res Interface" )                 PORT_CONDITION(CTRL_SEL_RIGHT, 0xf0, NOTEQUALS, 0x30)
-// // 	PORT_CONFSETTING(  0x05, "CM3 Hi-Res Interface" )                   PORT_CONDITION(CTRL_SEL_RIGHT, 0xf0, NOTEQUALS, 0x30)
-// 	PORT_CONFNAME( 0xf0, 0x10, "Left Controller Port (P2)")             PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_state::joystick_mode_changed), 0)
-// 	PORT_CONFSETTING(  0x00, "Unconnected" )
-// 	PORT_CONFSETTING(  0x10, "Joystick" )
-// // 	PORT_CONFSETTING(  0x20, "The Rat Graphics Mouse" )                 PORT_CONDITION(CTRL_SEL_RIGHT, 0x0f, NOTEQUALS, 0x02)
-// // 	PORT_CONFSETTING(  0x30, "Diecom Light Gun Adaptor" )               PORT_CONDITION(CTRL_SEL_RIGHT, 0x0f, NOTEQUALS, 0x03)
-// // 	PORT_CONFSETTING(  0x40, "Tandy Hi-Res Interface" )                 PORT_CONDITION(CTRL_SEL_RIGHT, 0xf0, NOTEQUALS, 0x30)
-// // 	PORT_CONFSETTING(  0x50, "CM3 Hi-Res Interface" )                   PORT_CONDITION(CTRL_SEL_RIGHT, 0xf0, NOTEQUALS, 0x30)
-//
-// // 	PORT_START(HIRES_INTF_TAG)
-// // 	PORT_CONFNAME( 0x07, 0x00, "Hi-Res Joystick Interfaces" )           PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_state::joystick_mode_changed), 0)
-// // 	PORT_CONFSETTING(    0x00, "None" )
-// // 	PORT_CONFSETTING(    0x01, "Hi-Res in Right Port" )                 PORT_CONDITION(CTRL_SEL_RIGHT, 0x0f, EQUALS, 0x01)
-// // 	PORT_CONFSETTING(    0x02, "Hi-Res CoCoMax 3 Style in Right Port" ) PORT_CONDITION(CTRL_SEL_RIGHT, 0x0f, EQUALS, 0x01)
-// // 	PORT_CONFSETTING(    0x03, "Hi-Res in Left Port" )                  PORT_CONDITION(CTRL_SEL_RIGHT, 0xf0, EQUALS, 0x10)
-// // 	PORT_CONFSETTING(    0x04, "Hi-Res CoCoMax 3 Style in Left Port" )  PORT_CONDITION(CTRL_SEL_RIGHT, 0xf0, EQUALS, 0x10)
-// INPUT_PORTS_END
 INPUT_PORTS_START( coco_analog_control )
 	PORT_START(CTRL_SEL_RIGHT)
 	PORT_CONFNAME(0x0f, 0x01, "Right Controller Port (P1)") PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_state::joystick_mode_changed), 0)
@@ -240,7 +197,6 @@ INPUT_PORTS_START( coco_joystick )
 	PORT_START(JOYSTICK_BUTTONS_TAG)
 		PORT_BIT(0x01, IP_ACTIVE_HIGH, IPT_BUTTON1)
 			PORT_NAME("Right Button")
-// 			PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco12_state::coco_state::keyboard_changed), 0)
 			PORT_CODE(KEYCODE_0_PAD)
 			PORT_CODE(JOYCODE_BUTTON1)
 			PORT_CODE(MOUSECODE_BUTTON1)
@@ -248,7 +204,6 @@ INPUT_PORTS_START( coco_joystick )
  			PORT_CONDITION(CTRL_SEL_RIGHT, 0x0f, LESSTHAN, coco_state::JOY_DEVICE_RAT_MOUSE)
 		PORT_BIT(0x02, IP_ACTIVE_HIGH, IPT_BUTTON2)
 			PORT_NAME("Left Button")
-// 			PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco12_state::coco_state::keyboard_changed), 0)
 			PORT_CODE(KEYCODE_0_PAD)
 			PORT_CODE(JOYCODE_BUTTON1)
 			PORT_CODE(MOUSECODE_BUTTON1)
@@ -368,6 +323,7 @@ static INPUT_PORTS_START( coco )
 	PORT_INCLUDE( coco_analog_control )
 	PORT_INCLUDE( coco_beckerport )
 INPUT_PORTS_END
+
 
 
 //-------------------------------------------------
@@ -520,7 +476,6 @@ void coco_state::coco_sound(machine_config &config)
 	SPEAKER(config, "speaker").front_center();
 
 	// 6-bit D/A: R10-15 = 10K, 20K, 40.2K, 80.6K, 162K, 324K (according to parts list); output also controls joysticks
-// 	DAC_6BIT_BINARY_WEIGHTED(config, m_dac, 0).add_route(ALL_OUTPUTS, "speaker", 0.125);
 	DAC_6BIT_BINARY_WEIGHTED(config, m_dac, 0).add_route(ALL_OUTPUTS, m_mux, 0.125, mc14529_device::y_sound_input(0));
 
 	// Single-bit sound: R22 = 10K
@@ -534,8 +489,8 @@ void coco_state::coco_sound(machine_config &config)
 
 void coco_state::coco_floating_map(address_map &map)
 {
-	map(0x0000, 0xFFFF).r(FUNC(coco_state::floating_bus_r));
-	map(0x0000, 0xFFFF).nopw(); /* suppress log warnings */
+	map(0x0000, 0xffff).r(FUNC(coco_state::floating_bus_r));
+	map(0x0000, 0xffff).nopw(); /* suppress log warnings */
 }
 
 
@@ -591,8 +546,6 @@ void coco12_state::coco(machine_config &config)
 	m_pia_0->writepa_handler().set(FUNC(coco_state::pia0_pa_w));
 	m_pia_0->writepb_handler().set(FUNC(coco_state::pia0_pb_w));
 	m_pia_0->tspb_handler().set_constant(0xff);
-//  	m_pia_0->ca2_handler().set(FUNC(coco_state::pia0_ca2_w));
-//  	m_pia_0->cb2_handler().set(FUNC(coco_state::pia0_cb2_w));
 	m_pia_0->ca2_handler().set(m_mux, FUNC(mc14529_device::a0_w));
 	m_pia_0->cb2_handler().set(m_mux, FUNC(mc14529_device::a1_w));
 	m_pia_0->irqa_handler().set(m_irqs, FUNC(input_merger_device::in_w<0>));
@@ -603,8 +556,6 @@ void coco12_state::coco(machine_config &config)
 	m_pia_1->readpb_handler().set(FUNC(coco_state::pia1_pb_r));
 	m_pia_1->writepa_handler().set(FUNC(coco_state::pia1_pa_w));
 	m_pia_1->writepb_handler().set(FUNC(coco_state::pia1_pb_w));
-// 	m_pia_1->ca2_handler().set(FUNC(coco_state::pia1_ca2_w));
-// 	m_pia_1->cb2_handler().set(FUNC(coco_state::pia1_cb2_w));
 	m_pia_1->ca2_handler().set([this] (int state) { m_cassette->set_motor(state ? true : false);});
 	m_pia_1->cb2_handler().set(m_mux, FUNC(mc14529_device::inhibit_y_w)).invert();;
 

@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include "coco12.h"
+#include "coco.h"
 #include "gime.h"
 
 
@@ -36,7 +36,6 @@ public:
 	virtual void ff40_write(offs_t offset, uint8_t data) override;
 
 	uint32_t screen_update(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
-// 	DECLARE_INPUT_CHANGED_MEMBER(keyboard_changed);
 
 	void coco3p(machine_config &config);
 	void coco3h(machine_config &config);
