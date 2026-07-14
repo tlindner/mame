@@ -4,80 +4,43 @@
 
     mc14529.cpp
 
-    See mc14529.h for details.
+    See mc14529.h for device details.
 
-    MODE_DIGITAL / MODE_ANALOG timing model: the delay this part exhibits
-    is a switch-slew delay, not a signal-propagation delay. Propagation
-    through an already-closed switch is fast enough to be modeled as
-    zero. The delay only applies at the moment a selector's output
-    switches to a different channel -- i.e. an address_w() or
-    inhibit_x_w()/inhibit_y_w() call that changes what is connected to
-    the output -- because that's when the output node has to slew from
-    its old level to the newly selected channel's level. A data write to
-    the channel that is already selected (x_w()/y_w(),
-    x_analog_w()/y_analog_w()) changes the output immediately, with no
-    delay, since no switching event occurred.
+    MODE_DIGITAL / MODE_ANALOG timing model:
+    The MC14529's specified delay is switch slew time, not propagation
+    delay. Once a channel is connected, changes on that input appear at
+    the output immediately. The delay only occurs when the selector
+    switches to a different channel (address_w() or inhibit_x_w() /
+    inhibit_y_w()).
 
-    Channel-switch events are handled by switch_selector(). Each of the
-    two independent selectors (X and Y) owns a small fixed-size pool of
-    timers (MAX_PENDING slots) for this. Every switch that changes what
-    that selector's output will eventually settle to allocates the next
-    slot (round-robin) and starts a timer:
+    switch_selector() models these switch events. Each selector (X and Y)
+    has a small pool of timers so overlapping switch transitions are
+    delivered in chronological order instead of replacing one another.
+    Digital mode schedules tPLH/tPHL from the new logic level; analog
+    mode uses the direction of the voltage change to choose tPLH or tPHL
+    and delivers the full analog value when the timer expires.
 
-      MODE_DIGITAL -- tPLH if the new bit is 1, tPHL if it is 0.
+    Writes to the currently selected channel bypass the timing model and
+    update the output immediately, cancelling any pending transition,
+    since the output already tracks that channel directly.
 
-      MODE_ANALOG  -- tPLH if the new quantized value is numerically
-        greater than the previously scheduled one (rising swing on the
-        real analog node), tPHL if it is lower (falling swing). The full
-        multi-bit value is carried as the pending payload and delivered
-        as one unit when its timer fires.
+    m_last_scheduled[] records the latest scheduled output value so
+    redundant writes can be ignored. If the timer pool is exhausted
+    (which should never occur in normal emulation), the oldest pending
+    transition is committed immediately to free a slot.
 
-    Because MAME fires timers in absolute time order regardless of
-    allocation order, multiple overlapping in-flight switch transitions
-    still reach the output in the correct chronological sequence in
-    either mode -- an earlier-triggered transition is not clobbered or
-    dropped by a later one the way a single-timer "restart on change"
-    model would do.
-
-    Data writes to the already-selected channel are handled by
-    update_active_value(), which applies the new value to the output at
-    once and cancels/supersedes any switch transition still settling for
-    that selector -- physically, once the switch is closed on a channel,
-    the output tracks that channel's voltage immediately, so a value
-    change there can't still be "mid-slew" from the old channel.
-
-    m_last_scheduled[] tracks the target value of the most recently
-    queued switch transition (or, if none pending, the most recently
-    committed/immediate value), so a redundant write that doesn't
-    actually change the outcome is a no-op.
-
-    Pool exhaustion: if more than MAX_PENDING switch transitions for a
-    selector are in flight at once, the oldest still-pending transition
-    in that selector's pool is committed immediately (with a logerror
-    warning) to free its slot. This should never happen in practice at
-    emulated 6809-bus speeds against a ~200 ns worst-case delay, but is
-    handled rather than left as undefined behavior.
-
-    MODE_SOUND model: no timer pool is used. Each selector's audio output
-    is just whichever input channel (0-3) is currently addressed for it,
-    copied sample-for-sample, or silence if that selector is inhibited.
-    address_w()/inhibit_x_w()/inhibit_y_w() call m_stream->update() before
-    changing any state that a MODE_SOUND selector depends on, so the
-    switch-over happens at the correct sample boundary rather than being
-    deferred to the end of the current audio update -- this is what makes
-    the mode delay-free while still being sample-accurate.
+    MODE_SOUND does not model switching delay. The output is simply the
+    currently selected input (or silence if inhibited). Selector changes
+    call m_stream->update() first so switching occurs at the correct
+    audio sample boundary.
 
 ***************************************************************************/
 
 #include "emu.h"
 #include "mc14529.h"
 
-#define LOG_GENERAL (1U << 0)
-#define LOG_READS   (1U << 1)
 //#define VERBOSE (LOG_GENERAL)
 #include "logmacro.h"
-
-#define LOGREADS(...)   LOGMASKED(LOG_READS,    __VA_ARGS__)
 
 DEFINE_DEVICE_TYPE(MC14529, mc14529_device, "mc14529", "MC14529 Dual 4-Channel Analog Data Selector")
 
@@ -132,8 +95,6 @@ mc14529_device &mc14529_device::set_analog_width(unsigned selector, unsigned bit
 
 void mc14529_device::device_start()
 {
-	// devcb callbacks self-resolve; no explicit resolve_safe() call needed.
-
 	// Always allocate the sound stream (4 inputs per selector, 1 output
 	// per selector). Harmless if neither selector uses MODE_SOUND -- the
 	// outputs are simply filled with silence and never routed anywhere.
@@ -155,14 +116,6 @@ void mc14529_device::device_start()
 	// m_mode / m_width_mask are configuration set once at machine-config time,
 	// not runtime state, so they are not saved.
 
-}
-
-void mc14529_device::device_resolve_objects()
-{
-    // Callbacks are fully resolved by the time this method runs
-    LOG("mc14529_device::device_resolve_objects\n");
-    if (m_write_z_analog[0].isunset()) LOG("m_write_z_analog[0] unset\n");
-    if (m_write_z_analog[1].isunset()) LOG("m_write_z_analog[1] unset\n");
 }
 
 void mc14529_device::device_reset()
@@ -217,9 +170,6 @@ void mc14529_device::commit(unsigned selector, unsigned slot)
 	m_pending_active[selector][slot] = false;
 	m_current_output[selector] = m_pending_value[selector][slot];
 
-	LOG("Timed analog update: selector: %d, data: %d (mt: %s)\n", selector, m_current_output[selector],
-	machine().time().to_string().c_str());
-
 	if (m_mode[selector] == MODE_ANALOG)
 	{
 		m_write_z_analog[selector](m_current_output[selector]);
@@ -255,11 +205,8 @@ void mc14529_device::switch_selector(unsigned selector)
 
 	if (m_pending_active[selector][slot])
 	{
-		// pool exhausted: transitions are arriving faster than MAX_PENDING
-		// outstanding edges can track at this part's propagation delay.
-		// Force the oldest pending transition in this selector's pool to
-		// complete now so its slot can be reused.
-		logerror("mc14529: selector %u transition pool exhausted, forcing early commit of slot %u\n", selector, slot);
+		// pool exhausted
+		osd_printf_error("mc14529: selector %u transition pool exhausted, forcing early commit of slot %u\n", selector, slot);
 		m_pending_timer[selector][slot]->adjust(attotime::never);
 		commit(selector, slot);
 	}
@@ -320,8 +267,6 @@ void mc14529_device::update_active_value(unsigned selector)
 	m_last_scheduled[selector] = new_output;
 	m_current_output[selector] = new_output;
 
-	LOG("Immediate analog update: selector: %d, data: %d (mt: %s)\n", selector, new_output,
-	machine().time().to_string().c_str());
 	if (m_mode[selector] == MODE_ANALOG)
 		m_write_z_analog[selector](new_output);
 	else
@@ -337,13 +282,11 @@ TIMER_CALLBACK_MEMBER(mc14529_device::delay_expired)
 
 u8 mc14529_device::zx_value()
 {
-	LOGREADS("read x value: %d\n", m_current_output[SEL_X]);
 	return m_current_output[SEL_X];
 }
 
 u8 mc14529_device::zy_value()
 {
-	LOGREADS("read y value: %d\n", m_current_output[SEL_Y]);
 	return m_current_output[SEL_Y];
 }
 
@@ -352,8 +295,6 @@ void mc14529_device::address_w(int bit, int state)
 	state = state ? 1 : 0;
 	u8 const mask = u8(1) << bit;
 	u8 const new_address = state ? (m_address | mask) : (m_address & ~mask);
-
-	LOG("address_w: bit: %d, state: %d, new address: %d\n", bit, state, new_address);
 
 	if (new_address == m_address)
 		return;
@@ -414,8 +355,6 @@ void mc14529_device::y_w(int channel, int state)
 
 void mc14529_device::x_analog_w(int channel, u8 value)
 {
-	LOG("Mux set analog: channel %d, value: %d\n", channel, value);
-
 	value &= m_width_mask[SEL_X];
 	if (m_channel_value[SEL_X][channel] == value)
 		return;

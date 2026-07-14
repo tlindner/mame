@@ -2,99 +2,59 @@
 // copyright-holders:tim lindner
 /***************************************************************************
 
-    mc14529.h
+    MC14529 Dual 4-Channel Analog Data Selector
 
-    MC14529 Dual 4-Channel Analog Data Selector, with support for asymmetric
-    propagation delay. By default it will use a symmetrical 150ns delay marked
-    as typical by the data sheet.
+    Supports the MC14529's asymmetric switch delay. The default timing is
+    the datasheet's typical 150 ns, but measured values from a Color
+    Computer part are also available:
 
-    But I characterized a part from a Color Computer using an oscilloscope to
-    have real measurements.
+        tPLH (rising)  ~94 ns
+        tPHL (falling) ~200 ns
 
-    Measured select-to-output propagation delay (n=4 transitions each):
-        tPLH (rising, L->H)  avg ~93.75 ns
-        tPHL (falling, H->L) avg ~200.00 ns
+    The delay is switch slew time, not signal propagation time. It occurs
+    only when the selected channel changes (address or inhibit change).
+    Once a channel is selected, changes on that input appear immediately
+    at the output.
 
-    Real hardware is switching a single analog node between two levels;
-    "L->H" and "H->L" are really "rising swing" and "falling swing" on
-    that node. Signal propagation through an already-closed switch is
-    fast enough to treat as zero delay. The measured delay only shows up
-    at the moment the switch changes which channel is connected to the
-    output -- i.e. an address (A0/A1) or inhibit change -- because that is
-    when the output node has to slew from its old level to the newly
-    selected channel's level. A data value changing on the channel that
-    is *already* selected reaches the output immediately, with no delay,
-    because no switching event occurred. This device supports three
-    independent per-selector modes:
+    Each selector (X and Y) operates independently in one of three modes:
 
-      MODE_DIGITAL (default) -- each channel is a single bit (0/1).
-        A channel switch (address_w()/inhibit_x_w()/inhibit_y_w()) that
-        changes the selected/output bit incurs tPLH or tPHL, chosen from
-        the new bit value. A data write to the already-selected channel
-        (x_w()/y_w()) is applied immediately. Delivered via
-        zx_callback()/zy_callback() (write_line).
+      MODE_DIGITAL
+        Four 1-bit inputs. Channel changes incur tPLH/tPHL; writes to the
+        selected channel update immediately. Output via write_line callback.
 
-      MODE_ANALOG -- each channel carries a quantized multi-bit value
-        (e.g. a 6-bit joystick comparator level, 0-63). A channel switch
-        that changes the output level incurs tPLH or tPHL, chosen by
-        comparing the newly selected channel's value against the
-        previously committed one (higher = rising = tPLH, lower =
-        falling = tPHL). A data write to the already-selected channel
-        (x_analog_w()/y_analog_w()) is applied immediately, with no
-        delay. Delivered via zx_analog_callback()/zy_analog_callback()
-        (write8).
+      MODE_ANALOG
+        Four quantized analog inputs (write8). Channel changes incur
+        tPLH/tPHL based on the direction of the output change; writes to
+        the selected channel update immediately. Output via write8 callback.
 
-      MODE_SOUND -- each channel is a live audio signal, routed in via
-        MAME's device_sound_interface, e.g. from another sound-generating
-        device with add_route(output, mux, gain, mux.x_sound_input(ch)).
-        The selected channel's audio is passed straight through to this
-        device's own sound output (x_sound_output()/y_sound_output()
-        route index), which can in turn be routed to a SPEAKER device.
-        No propagation delay is modeled in this mode. The switch is
-        treated as instantaneous, cutting over exactly at the sample
-        boundary corresponding to the address/inhibit change.
+      MODE_SOUND
+        Four live audio inputs routed through device_sound_interface.
+        Audio is switched sample-accurately with no modeled propagation
+        delay.
 
-    Bridging MODE_ANALOG and MODE_SOUND: a MODE_ANALOG selector's
-    quantized output does NOT appear on this device's sound stream --
-    the two modes are independent per selector and do not feed each
-    other internally. To turn a delay-correct quantized analog value
-    into audio, route it through an external DAC device instead: wire
-    the MODE_ANALOG selector's zx_analog_callback()/zy_analog_callback()
-    to a MAME DAC device (e.g. a dac_byte_interface implementation), then
-    add_route() that DAC's sound output.
-
-    MODE_DIGITAL and MODE_ANALOG share a fixed-size per-selector timer
-    pool (see mc14529.cpp) used only for channel-switch events (address
-    or inhibit changes), so multiple in-flight switch transitions are
-    preserved in chronological order. Data writes to the already-selected
-    channel bypass the pool entirely and are applied immediately.
-    MODE_SOUND does not use the pool at all; it is handled, without
-    delays, entirely inside sound_stream_update().
+    MODE_ANALOG and MODE_SOUND are independent. To convert a MODE_ANALOG
+    output into audio, connect its callback to a DAC device.
 
     Pinout:
-        A0, A1        -> address_w(bit, state)   (shared by both selectors)
-        INH-X         -> inhibit_x_w(state)       (active high; forces Z-X to 0/silence)
-        INH-Y         -> inhibit_y_w(state)       (active high; forces Z-Y to 0/silence)
-        X0-X3         -> x_w(channel, state)          [MODE_DIGITAL]
-                         x_analog_w(channel, value)    [MODE_ANALOG]
-                         (external device routed to x_sound_input(channel)) [MODE_SOUND]
-        Y0-Y3         -> y_w(channel, state)          [MODE_DIGITAL]
-                         y_analog_w(channel, value)    [MODE_ANALOG]
-                         (external device routed to y_sound_input(channel)) [MODE_SOUND]
-        Z-X           -> zx_callback()        (write_line) [MODE_DIGITAL]
-                         zx_analog_callback()  (write8)     [MODE_ANALOG]
-                         route from x_sound_output() index  [MODE_SOUND]
-        Z-Y           -> zy_callback()        (write_line) [MODE_DIGITAL]
-                         zy_analog_callback()  (write8)     [MODE_ANALOG]
-                         route from y_sound_output() index  [MODE_SOUND]
+        A0, A1        -> address_w()
+        INH-X         -> inhibit_x_w()
+        INH-Y         -> inhibit_y_w()
 
-	TODO:
-    This device treats the part as a 2-level digital selector, a
-    quantized-analog-level selector, or an audio-stream selector,
-    depending on mode. Not a true continuous bidirectional analog
-    switch.
+        X0-X3         -> x_w() / x_analog_w() / x_sound_input()
+        Y0-Y3         -> y_w() / y_analog_w() / y_sound_input()
 
-    This device does not implement the combined 8-channel mode.
+        Z-X           -> zx_callback() /
+                         zx_analog_callback() /
+                         x_sound_output()
+
+        Z-Y           -> zy_callback() /
+                         zy_analog_callback() /
+                         y_sound_output()
+
+    TODO:
+        * Continuous analog switch behavior is not modeled; inputs are
+          treated as digital, quantized analog, or audio streams.
+        * Combined 8-channel mode is not implemented.
 
 ***************************************************************************/
 
@@ -191,7 +151,6 @@ public:
 protected:
 	virtual void device_start() override;
 	virtual void device_reset() override;
-	virtual void device_resolve_objects() override;
 
 	// device_sound_interface
 	virtual void sound_stream_update(sound_stream &stream) override;
@@ -220,7 +179,7 @@ private:
 	attotime m_tphl; // falling-swing propagation delay
 
 	mode_t m_mode[NUM_SELECTORS];
-	u8 m_width_mask[NUM_SELECTORS]; // e.g. 0x3F for a 6-bit quantized level
+	u8 m_width_mask[NUM_SELECTORS]; // e.g. 0x3f for a 6-bit quantized level
 
 	u8 m_channel[NUM_SELECTORS][NUM_CHANNELS];       // MODE_DIGITAL: X0-X3/Y0-Y3 bit values
 	u8 m_channel_value[NUM_SELECTORS][NUM_CHANNELS]; // MODE_ANALOG: X0-X3/Y0-Y3 quantized values
