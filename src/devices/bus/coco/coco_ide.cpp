@@ -174,16 +174,6 @@ void coco_ide_device::ide_write(offs_t offset, u8 data)
 
 
 //-------------------------------------------------
-//  set_sound_enable
-//-------------------------------------------------
-
-void coco_ide_device::set_sound_enable(bool sound_enable)
-{
-	m_slot->set_line_value(line::SOUND_ENABLE, sound_enable ? line_value::ASSERT : line_value::CLEAR);
-}
-
-
-//-------------------------------------------------
 //  get_cart_base
 //-------------------------------------------------
 

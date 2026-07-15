@@ -37,7 +37,6 @@ protected:
 	virtual void cts_write(offs_t offset, u8 data) override;
 	virtual u8 scs_read(offs_t offset) override;
 	virtual void scs_write(offs_t offset, u8 data) override;
-	virtual void set_sound_enable(bool sound_enable) override;
 
 	virtual u8 *get_cart_base() override;
 	virtual u32 get_cart_size() override;
