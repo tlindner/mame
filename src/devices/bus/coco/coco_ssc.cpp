@@ -104,7 +104,6 @@ namespace
 		virtual void device_start() override ATTR_COLD;
 		u8 ff7d_read(offs_t offset);
 		void ff7d_write(offs_t offset, u8 data);
-		virtual void set_sound_enable(bool sound_enable) override;
 		virtual void sound_stream_update(sound_stream &stream) override;
 
 	private:
@@ -280,24 +279,6 @@ const tiny_rom_entry *coco_ssc_device::device_rom_region() const
 	return ROM_NAME( coco_ssc );
 }
 
-
-//-------------------------------------------------
-//  set_sound_enable
-//-------------------------------------------------
-
-void coco_ssc_device::set_sound_enable(bool sound_enable)
-{
-	if (sound_enable)
-	{
-		m_sac->set_output_gain(0, 1.0);
-		m_spo->set_output_gain(0, 1.0);
-	}
-	else
-	{
-		m_sac->set_output_gain(0, 0.0);
-		m_spo->set_output_gain(0, 0.0);
-	}
-}
 
 //-------------------------------------------------
 //  ff7d_read

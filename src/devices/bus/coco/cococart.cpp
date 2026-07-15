@@ -319,8 +319,6 @@ void cococart_slot_device::set_line(line ln, coco_cartridge_line &line, cococart
 		case line::HALT:
 			LOGHALT( "set_line: HALT, value: %s\n", line_value_string(value));
 			break;
-		case line::SOUND_ENABLE:
-			break;
 		}
 
 		// engage in a bit of gymnastics for this odious 'Q' value
@@ -410,11 +408,6 @@ void cococart_slot_device::set_line_value(cococart_slot_device::line which, coco
 
 	case cococart_slot_device::line::HALT:
 		set_line_timer(m_halt_line, value);
-		break;
-
-	case cococart_slot_device::line::SOUND_ENABLE:
-		if (m_cart)
-			m_cart->set_sound_enable(value != cococart_slot_device::line_value::CLEAR);
 		break;
 	}
 }
@@ -732,15 +725,6 @@ u8 device_cococart_interface::scs_read(offs_t offset)
 //-------------------------------------------------
 
 void device_cococart_interface::scs_write(offs_t offset, u8 data)
-{
-}
-
-
-//-------------------------------------------------
-//  set_sound_enable
-//-------------------------------------------------
-
-void device_cococart_interface::set_sound_enable(bool sound_enable)
 {
 }
 

@@ -113,7 +113,6 @@ namespace
 		virtual void cts_write(offs_t offset, u8 data) override;
 		virtual u8 scs_read(offs_t offset) override;
 		virtual void scs_write(offs_t offset, u8 data) override;
-		virtual void set_sound_enable(bool sound_enable) override;
 
 		// optional information overrides
 		virtual void device_add_mconfig(machine_config &config) override ATTR_COLD;
@@ -492,18 +491,6 @@ void coco_multipak_device::update_line(int slot_number, line ln)
 
 	if (propagate)
 		owning_slot().set_line_value(ln, slot(slot_number).get_line_value(ln));
-}
-
-
-//-------------------------------------------------
-//  set_sound_enable
-//-------------------------------------------------
-
-void coco_multipak_device::set_sound_enable(bool sound_enable)
-{
-	// the SOUND_ENABLE (SNDEN) line is different; it is controlled by the CPU
-	for (cococart_slot_device *slot : m_slots)
-		slot->set_line_value(line::SOUND_ENABLE, sound_enable ? line_value::ASSERT : line_value::CLEAR);
 }
 
 

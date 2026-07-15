@@ -175,7 +175,7 @@ void mc14529_device::commit(unsigned selector, unsigned slot)
 		m_write_z_analog[selector](m_current_output[selector]);
 	}
 	else if (m_mode[selector] == MODE_DIGITAL)
-		m_write_z[selector](m_current_output[selector] ? 1 : 0);
+		m_write_z[selector](!!m_current_output[selector]);
 	// MODE_SOUND does not use commit()/the timer pool at all.
 }
 
@@ -196,7 +196,7 @@ void mc14529_device::switch_selector(unsigned selector)
 	else if (m_mode[selector] == MODE_ANALOG)
 		new_output = m_channel_value[selector][m_address] & m_width_mask[selector];
 	else
-		new_output = m_channel[selector][m_address] ? 1 : 0;
+		new_output = !!m_channel[selector][m_address];
 
 	if (new_output == m_last_scheduled[selector])
 		return; // outcome unchanged; nothing new to queue
@@ -246,7 +246,7 @@ void mc14529_device::update_active_value(unsigned selector)
 	else if (m_mode[selector] == MODE_ANALOG)
 		new_output = m_channel_value[selector][m_address] & m_width_mask[selector];
 	else
-		new_output = m_channel[selector][m_address] ? 1 : 0;
+		new_output = !!m_channel[selector][m_address];
 
 	if (new_output == m_last_scheduled[selector])
 		return; // outcome unchanged
@@ -270,7 +270,7 @@ void mc14529_device::update_active_value(unsigned selector)
 	if (m_mode[selector] == MODE_ANALOG)
 		m_write_z_analog[selector](new_output);
 	else
-		m_write_z[selector](new_output ? 1 : 0);
+		m_write_z[selector](!!new_output);
 }
 
 TIMER_CALLBACK_MEMBER(mc14529_device::delay_expired)
@@ -292,7 +292,7 @@ u8 mc14529_device::zy_value()
 
 void mc14529_device::address_w(int bit, int state)
 {
-	state = state ? 1 : 0;
+	state = !!state;
 	u8 const mask = u8(1) << bit;
 	u8 const new_address = state ? (m_address | mask) : (m_address & ~mask);
 
@@ -309,7 +309,7 @@ void mc14529_device::address_w(int bit, int state)
 
 void mc14529_device::inhibit_x_w(int state)
 {
-	state = state ? 1 : 0;
+	state = !!state;
 	if (m_inhibit[SEL_X] == state)
 		return;
 
@@ -322,7 +322,7 @@ void mc14529_device::inhibit_x_w(int state)
 
 void mc14529_device::inhibit_y_w(int state)
 {
-	state = state ? 1 : 0;
+	state = !!state;
 	if (m_inhibit[SEL_Y] == state)
 		return;
 
@@ -335,7 +335,7 @@ void mc14529_device::inhibit_y_w(int state)
 
 void mc14529_device::x_w(int channel, int state)
 {
-	state = state ? 1 : 0;
+	state = !!state;
 	if (m_channel[SEL_X][channel] == state)
 		return;
 	m_channel[SEL_X][channel] = state;
@@ -345,7 +345,7 @@ void mc14529_device::x_w(int channel, int state)
 
 void mc14529_device::y_w(int channel, int state)
 {
-	state = state ? 1 : 0;
+	state = !!state;
 	if (m_channel[SEL_Y][channel] == state)
 		return;
 	m_channel[SEL_Y][channel] = state;

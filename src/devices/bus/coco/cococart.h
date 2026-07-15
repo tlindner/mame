@@ -39,8 +39,7 @@ public:
 	{
 		CART,             // connects to PIA1 CB1
 		NMI,              // connects to NMI line on CPU
-		HALT,             // connects to HALT line on CPU
-		SOUND_ENABLE      // sound enable
+		HALT              // connects to HALT line on CPU
 	};
 
 	// since we have a special value "Q" - we have to use a special enum here
@@ -167,7 +166,6 @@ public:
 	virtual void cts_write(offs_t offset, u8 data);
 	virtual u8 scs_read(offs_t offset);
 	virtual void scs_write(offs_t offset, u8 data);
-	virtual void set_sound_enable(bool sound_enable);
 
 	virtual u8 *get_cart_base();
 	virtual u32 get_cart_size();

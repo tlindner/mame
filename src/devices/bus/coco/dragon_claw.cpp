@@ -147,16 +147,6 @@ void dragon_claw_device::irq_w(int state)
 
 
 //-------------------------------------------------
-//  set_sound_enable
-//-------------------------------------------------
-
-void dragon_claw_device::set_sound_enable(bool sound_enable)
-{
-	m_slot->set_line_value(line::SOUND_ENABLE, sound_enable ? line_value::ASSERT : line_value::CLEAR);
-}
-
-
-//-------------------------------------------------
 //  get_cart_base
 //-------------------------------------------------
 
