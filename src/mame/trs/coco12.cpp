@@ -579,7 +579,8 @@ void coco12_state::coco(machine_config &config)
 	m_mux->zx_analog_callback().set(FUNC(coco_state::pia0_pa7_w));
 	m_mux->set_mode(mc14529_device::SEL_Y, mc14529_device::MODE_SOUND);
 	m_mux->add_route(mc14529_device::y_sound_output(), "speaker", 1.0);
-
+// 	m_mux->set_sound_crossfade(mc14529_device::SEL_Y, attotime::from_nsec(150));
+	m_mux->set_sound_crossfade(mc14529_device::SEL_Y, attotime::from_usec(2000));
 	// Becker Port device
 	COCO_DWSOCK(config, m_beckerport);
 

@@ -473,6 +473,7 @@ void coco3_state::coco3(machine_config &config)
 	m_mux->set_analog_width(mc14529_device::SEL_X, 6 /* bits */);
 	m_mux->set_mode(mc14529_device::SEL_Y, mc14529_device::MODE_SOUND);
 	m_mux->add_route(mc14529_device::y_sound_output(), "speaker", 1.0);
+	m_mux->set_sound_crossfade(mc14529_device::SEL_Y, attotime::from_nsec(150));
 
 	// Becker Port device
 	COCO_DWSOCK(config, m_beckerport);
