@@ -442,7 +442,9 @@ void coco_state::ff20_write(offs_t offset, uint8_t data)
 void coco_state::pia1_pa_w(uint8_t data)
 {
 	m_dac_output = data >> 2;
+
 	m_dac->write(m_dac_output);
+
 	m_cassette->output((m_dac_output - 0x20) / 32.0);
 
 	// update joystick comparator

@@ -82,6 +82,21 @@ public:
 
 	mc14529_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock = 0);
 
+	// Sound crossfade (MODE_SOUND only). Zero = instant switch (original,
+	// zero-cost behavior). Non-zero = linear ramp over that duration on
+	// channel switch or inhibit change, to suppress the switching click.
+	attotime m_sound_crossfade[NUM_SELECTORS];
+
+	static constexpr u8 SOUND_SOURCE_SILENCE = 0xff;
+
+	u8   m_sound_current_source[NUM_SELECTORS];   // settled source (channel index or SOUND_SOURCE_SILENCE)
+	bool m_sound_fade_active[NUM_SELECTORS];
+	sound_stream::sample_t m_sound_fade_from_sample[NUM_SELECTORS]; // snapshot at fade start
+	u8   m_sound_fade_target[NUM_SELECTORS];       // channel index or SOUND_SOURCE_SILENCE
+	u32  m_sound_fade_samples_total[NUM_SELECTORS];
+	u32  m_sound_fade_samples_done[NUM_SELECTORS];
+	mc14529_device &set_sound_crossfade(unsigned selector, const attotime &time);
+
 	// configuration
 	mc14529_device &set_propagation_delay(const attotime &tplh, const attotime &tphl);
 	mc14529_device &set_mode(unsigned selector, mode_t mode);
@@ -119,6 +134,10 @@ public:
 	// per-selector active-high inhibit
 	void inhibit_x_w(int state);
 	void inhibit_y_w(int state);
+
+	// per-selector active-high inhibit
+	bool inhibited_x() const { return m_inhibit[SEL_X]; }
+	bool inhibited_y() const { return m_inhibit[SEL_Y]; }
 
 	// digital-mode data inputs, by channel number (0-3); ignored unless
 	// that selector is in MODE_DIGITAL
