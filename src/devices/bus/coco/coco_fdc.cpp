@@ -173,10 +173,10 @@ void coco_fdc_device_base::device_add_mconfig(machine_config &config)
 	m_wd17xx->set_disable_motor_control(true);
 	m_wd17xx->set_force_ready(true);
 
-	FLOPPY_CONNECTOR(config, m_floppies[0], coco_fdc_floppies, "525dd", coco_fdc_device_base::floppy_formats).enable_sound(true);
-	FLOPPY_CONNECTOR(config, m_floppies[1], coco_fdc_floppies, "525dd", coco_fdc_device_base::floppy_formats).enable_sound(true);
-	FLOPPY_CONNECTOR(config, m_floppies[2], coco_fdc_floppies, nullptr, coco_fdc_device_base::floppy_formats).enable_sound(true);
-	FLOPPY_CONNECTOR(config, m_floppies[3], coco_fdc_floppies, nullptr, coco_fdc_device_base::floppy_formats).enable_sound(true);
+	FLOPPY_CONNECTOR(config, m_floppies[0], coco_fdc_floppies, "525dd", coco_fdc_device_base::floppy_formats).enable_sound(false);
+	FLOPPY_CONNECTOR(config, m_floppies[1], coco_fdc_floppies, "525dd", coco_fdc_device_base::floppy_formats).enable_sound(false);
+	FLOPPY_CONNECTOR(config, m_floppies[2], coco_fdc_floppies, nullptr, coco_fdc_device_base::floppy_formats).enable_sound(false);
+	FLOPPY_CONNECTOR(config, m_floppies[3], coco_fdc_floppies, nullptr, coco_fdc_device_base::floppy_formats).enable_sound(false);
 }
 
 

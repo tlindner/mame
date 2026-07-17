@@ -179,6 +179,7 @@ protected:
 
 	// input ports
 	void update_input_port(int port, uint8_t selection);
+	const std::type_info& get_type_info_for_selection(uint8_t selection);
 	std::unique_ptr<coco_joy_handler> make_joy_handler(uint8_t selection, int port);
 	required_ioport_array<7> m_keyboard;
 	optional_ioport m_joystick_type_right;
@@ -214,11 +215,9 @@ public:
         , m_buttons(buttons) {}
 
     virtual ~coco_joy_handler() = default;
-	virtual uint8_t device_type() {return 0;}
     virtual void joy_changed(int axis, int joy_val) {}
     virtual bool evaluate_comparator(int dac, int joy_val);
     virtual uint8_t button_status();
-	virtual bool is_hires() {return false;}
     virtual void opamp_discharge() {}
 	virtual void opamp_charge(int target_slot, int joy_val) {}
     virtual void opamp_switchover(s32 target_slot) {}
@@ -229,14 +228,14 @@ class coco_joy_disconnected : public coco_joy_handler
 {
 public:
     using coco_joy_handler::coco_joy_handler;
-	uint8_t device_type() override {return coco_state::JOY_DEVICE_UNCONNECTED;};
+// 	uint8_t device_type() override {return coco_state::JOY_DEVICE_UNCONNECTED;};
 };
 
 class coco_joy_standard : public coco_joy_handler
 {
 public:
     using coco_joy_handler::coco_joy_handler;
-	virtual uint8_t device_type() override {return coco_state::JOY_DEVICE_STANDARD;};
+// 	virtual uint8_t device_type() override {return coco_state::JOY_DEVICE_STANDARD;};
 	virtual void joy_changed(int axis, int joy_val) override;
 };
 
@@ -250,9 +249,7 @@ public:
 		, m_multiplier(5850.0)
 		, m_offset(535.0) {}
 
-	virtual uint8_t device_type() override {return coco_state::JOY_DEVICE_TANDY_HIRES;};
 	virtual bool evaluate_comparator(int dac, int joy_val) override;
-	virtual bool is_hires() override;
     virtual void opamp_discharge() override;
 	virtual void opamp_charge(int target_slot, int joy_val) override;
 	virtual void opamp_switchover(s32 target_slot) override;
@@ -274,15 +271,12 @@ public:
 		m_multiplier = 2885.0;
 		m_offset = 380.0;
 	}
-
-	virtual uint8_t device_type() override {return coco_state::JOY_DEVICE_CM3_HIRES;};
 };
 
 class coco_rat_mouse : public coco_joy_handler
 {
 public:
     using coco_joy_handler::coco_joy_handler;
-	virtual uint8_t device_type() override {return coco_state::JOY_DEVICE_RAT_MOUSE;};
 	virtual void joy_changed(int axis, int joy_val) override;
 };
 
@@ -299,7 +293,6 @@ public:
 		, m_adaptor_state(0)
 		, m_horizontal_clock_count(0) {}
 
-	virtual uint8_t device_type() override {return coco_state::JOY_DEVICE_DIECOM_LG;};
 	virtual void lightgun_clock(int clock) override;
     virtual void opamp_switchover(s32 target_slot) override;
 

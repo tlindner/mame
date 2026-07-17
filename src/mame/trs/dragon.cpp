@@ -507,7 +507,7 @@ void dragon_state::dragon_base(machine_config &config)
 	m_mux->zx_analog_callback().set(FUNC(coco_state::pia0_pa7_w));
 	m_mux->set_mode(mc14529_device::SEL_Y, mc14529_device::MODE_SOUND);
 	m_mux->add_route(mc14529_device::y_sound_output(), "speaker", 1.0);
-	m_mux->set_sound_crossfade(mc14529_device::SEL_Y, attotime::from_nsec(150));
+// 	m_mux->set_sound_crossfade(mc14529_device::SEL_Y, attotime::from_nsec(150));
 
 	CASSETTE(config, m_cassette);
 	m_cassette->set_formats(coco_cassette_formats);
