@@ -77,7 +77,7 @@
 #include "emu.h"
 #include "coco.h"
 
-//#define VERBOSE (LOG_GENERAL)
+#define VERBOSE (LOG_GENERAL)
 #include "logmacro.h"
 
 
@@ -445,16 +445,18 @@ void coco_state::pia1_pa_w(uint8_t data)
 
 	m_dac->write(m_dac_output);
 
+	LOG("coco_state::pia1_pa_w: dac: %d\n", m_dac_output);
+
 	m_cassette->output((m_dac_output - 0x20) / 32.0);
 
 	// update joystick comparator
  	pia0_pa7_w(m_mux->zx_value());
 
 	int serial_bit = BIT(data, 1);
-	if (m_joy_handlers[0]->device_type() == JOY_DEVICE_DIECOM_LG)
+
+	if (auto* lightgun = dynamic_cast<coco_diecom_light_gun*>(m_joy_handlers[0].get()))
 	{
-		// serial can have an optional joystick device
-		m_joy_handlers[0]->lightgun_clock(serial_bit);
+		lightgun->lightgun_clock(serial_bit);
 	}
 	else
 	{
@@ -468,7 +470,8 @@ void coco_state::pia1_pa_w(uint8_t data)
 	// handle high resolution joystick opamp
 	uint8_t mux_addr = m_mux->current_address();
 	int joy_port = BIT(mux_addr, 1);
-	if (m_joy_handlers[joy_port]->is_hires())
+// 	if (m_joy_handlers[joy_port]->is_hires())
+	if (dynamic_cast<coco_tandy_hires_joy*>(m_joy_handlers[joy_port].get()))
 	{
 		if (m_dac_output == 0)
 		{
@@ -507,6 +510,7 @@ void coco_state::pia1_pb_w(uint8_t data)
 	*
 	* Source:  Page 31 of the Tandy Color Computer Serice Manual
 	*/
+	LOG("coco_state::pia1_pb_w\n");
 	m_sbs->write(BIT(data, 1));
 }
 
@@ -874,26 +878,25 @@ void coco_state::joystick_mode_changed(ioport_field &field, u32 param, ioport_va
 
 void coco_state::update_input_port(int port, uint8_t selection)
 {
-    if (port == 0) // Right Port
-    {
-        // Force creation if the handler is missing (e.g., after a state restore or reset)
-        if (selection != m_joy_handlers[0]->device_type())
-        {
-            // Right port uses mux base_slot 0
-            m_joy_handlers[0] = make_joy_handler(selection, 0);
-        }
-    }
-    else if (port == 1) // Left Port
-    {
-        // Force creation if the handler is missing
-        if (selection != m_joy_handlers[1]->device_type())
-        {
-            // Left port MUST use mux base_slot 2!
-            m_joy_handlers[1] = make_joy_handler(selection, 2);
-        }
-    }
+	if (m_joy_handlers[port] == nullptr ||
+				get_type_info_for_selection(selection) != typeid(*m_joy_handlers[port]))
+	{
+		m_joy_handlers[port] = make_joy_handler(selection, port ? 2 : 0);
+	}
 }
 
+const std::type_info& coco_state::get_type_info_for_selection(uint8_t selection)
+{
+    switch (selection)
+    {
+        case JOY_DEVICE_STANDARD:    return typeid(coco_joy_standard);
+        case JOY_DEVICE_TANDY_HIRES: return typeid(coco_tandy_hires_joy);
+        case JOY_DEVICE_CM3_HIRES:   return typeid(coco_cm3_hires_joy);
+        case JOY_DEVICE_RAT_MOUSE:   return typeid(coco_rat_mouse);
+        case JOY_DEVICE_DIECOM_LG:   return typeid(coco_diecom_light_gun);
+        default:                     return typeid(coco_joy_disconnected);
+    }
+}
 
 //-------------------------------------------------
 //  make_joy_handler
@@ -1034,17 +1037,6 @@ void coco_joy_standard::joy_changed(int axis, int joy_val)
 {
     int target_slot = m_base_slot + axis;
     m_host.write_joystick_mux(target_slot, joy_val>>4);
-}
-
-
-
-//-------------------------------------------------
-//  coco_tandy_hires_joy::is_hires
-//-------------------------------------------------
-
-bool coco_tandy_hires_joy::is_hires()
-{
-	return true;
 }
 
 

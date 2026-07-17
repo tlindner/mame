@@ -184,7 +184,7 @@ private:
 	// this)
 	static constexpr unsigned MAX_PENDING = 8;
 
-	void switch_selector(unsigned selector);     // channel/inhibit change: may incur tPLH/tPHL
+	void switch_selector(unsigned selector, bool inhibit); // channel/inhibit change: may incur tPLH/tPHL
 	void update_active_value(unsigned selector); // data write to already-selected channel: immediate, no delay
 	void commit(unsigned selector, unsigned slot);
 	TIMER_CALLBACK_MEMBER(delay_expired);
@@ -208,6 +208,9 @@ private:
 
 	u8 m_current_output[NUM_SELECTORS]; // last output actually driven (MODE_DIGITAL/MODE_ANALOG)
 	u8 m_last_scheduled[NUM_SELECTORS]; // target value of most recently queued (or committed) transition
+
+	bool m_capture_last_sample[NUM_SELECTORS];
+	sound_stream::sample_t m_last_stream_sampe[NUM_SELECTORS];
 
 	// fixed pool of pending transitions per selector
 	emu_timer *m_pending_timer[NUM_SELECTORS][MAX_PENDING];

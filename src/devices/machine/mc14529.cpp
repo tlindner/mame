@@ -58,8 +58,10 @@
 #include "emu.h"
 #include "mc14529.h"
 
-//#define VERBOSE (LOG_GENERAL)
+#define LOG_SWITCH   (1U << 1) // Shows register setup
+#define VERBOSE (LOG_SWITCH)
 #include "logmacro.h"
+#define LOGSWITCH(...)   LOGMASKED(LOG_SWITCH,    __VA_ARGS__)
 
 DEFINE_DEVICE_TYPE(MC14529, mc14529_device, "mc14529", "MC14529 Dual 4-Channel Analog Data Selector")
 
@@ -98,6 +100,9 @@ mc14529_device::mc14529_device(const machine_config &mconfig, const char *tag, d
 		std::fill(std::begin(m_pending_timer[s]), std::end(m_pending_timer[s]), nullptr);
 		std::fill(std::begin(m_pending_value[s]), std::end(m_pending_value[s]), 0);
 		std::fill(std::begin(m_pending_active[s]), std::end(m_pending_active[s]), false);
+
+		m_capture_last_sample[s] = false;
+		m_last_stream_sampe[s] = 0.0;
 	}
 }
 
@@ -198,32 +203,41 @@ void mc14529_device::sound_stream_update(sound_stream &stream)
 {
 	for (unsigned selector = 0; selector < NUM_SELECTORS; selector++)
 	{
+		sound_stream::sample_t last_sample;
+		s32 const n = stream.samples();
+		s32 i = 0;
+		// Mid-fade: blend sample-by-sample, linear ramp.
+		u8 const target = m_sound_fade_target[selector];
+		unsigned const target_input = selector * NUM_CHANNELS + target;
+
 		if (m_mode[selector] != MODE_SOUND)
 		{
 			stream.fill(selector, 0);
-			continue;
+			last_sample = stream.get_output(selector, n - 1);
+			goto clean_up;
+// 			continue;
 		}
 
 		if (!m_sound_fade_active[selector])
 		{
 			u8 const src = m_sound_current_source[selector];
 			if (src == SOUND_SOURCE_SILENCE)
-				stream.fill(selector, 0);
+			{
+// 				stream.fill(selector, 0);
+				stream.fill(selector, m_last_stream_sampe[selector]);
+			}
 			else
 				stream.copy(selector, selector * NUM_CHANNELS + src);
-			continue;
-		}
 
-		// Mid-fade: blend sample-by-sample, linear ramp.
-		u8 const target = m_sound_fade_target[selector];
-		unsigned const target_input = selector * NUM_CHANNELS + target;
-		s32 const n = stream.samples();
-		s32 i = 0;
+			last_sample = stream.get_output(selector, n - 1);
+			goto clean_up;
+// 			continue;
+		}
 
 		for (; i < n; i++)
 		{
 			sound_stream::sample_t const to = (target == SOUND_SOURCE_SILENCE)
-				? sound_stream::sample_t(0.0) : stream.get(target_input, i);
+				? m_last_stream_sampe[selector] : stream.get(target_input, i);
 			sound_stream::sample_t const frac = sound_stream::sample_t(m_sound_fade_samples_done[selector])
 				/ sound_stream::sample_t(m_sound_fade_samples_total[selector]);
 
@@ -242,10 +256,29 @@ void mc14529_device::sound_stream_update(sound_stream &stream)
 		if (!m_sound_fade_active[selector] && i < n)
 		{
 			if (target == SOUND_SOURCE_SILENCE)
-				stream.fill(selector, 0, i);
+			{
+// 				stream.fill(selector, 0, i);
+				stream.fill(selector, m_last_stream_sampe[selector], i);
+
+			}
 			else
 				stream.copy(selector, target_input, i);
 		}
+
+		last_sample = stream.get_output(selector, n - 1);
+
+clean_up:
+
+		LOGSWITCH("selector: %d, first sample: %f\n", selector, stream.get_output(selector, 0));
+		LOGSWITCH("selector: %d, last sample: %f ", selector, last_sample);
+		if (m_capture_last_sample[selector])
+		{
+			m_capture_last_sample[selector] = false;
+			m_last_stream_sampe[selector] = last_sample;
+			LOGSWITCH("capture\n");
+		}
+		else
+			LOGSWITCH("\n");
 	}
 }
 
@@ -263,16 +296,23 @@ void mc14529_device::commit(unsigned selector, unsigned slot)
 	// MODE_SOUND does not use commit()/the timer pool at all.
 }
 
-void mc14529_device::switch_selector(unsigned selector)
+void mc14529_device::switch_selector(unsigned selector, bool inhibit)
 {
 	// Called when the channel connected to this selector's output changes
 	// (address_w() picked a different channel, or inhibit_x_w()/
 	// inhibit_y_w() connected/disconnected the output). This is the only
 	// event that incurs the part's slew delay.
 
-if (m_mode[selector] == MODE_SOUND)
+	if (m_mode[selector] == MODE_SOUND)
 	{
 		u8 const target = m_inhibit[selector] ? SOUND_SOURCE_SILENCE : m_address;
+
+		if( inhibit)
+		{
+			m_sound_current_source[selector] = target;
+			m_sound_fade_active[selector] = false;
+			return;
+		}
 
 		if (target == m_sound_current_source[selector] && !m_sound_fade_active[selector])
 			return; // already settled here, nothing to do
@@ -304,6 +344,7 @@ if (m_mode[selector] == MODE_SOUND)
 			u32(m_sound_crossfade[selector].as_double() * m_stream->sample_rate()));
 		m_sound_fade_samples_done[selector] = 0;
 		m_sound_fade_active[selector] = true;
+
 		return;
 	}
 
@@ -416,6 +457,8 @@ void mc14529_device::address_w(int bit, int state)
 	u8 const mask = u8(1) << bit;
 	u8 const new_address = state ? (m_address | mask) : (m_address & ~mask);
 
+	LOGSWITCH("address_w: bit: %d, state: %d, new_address: %d\n", bit, state, new_address);
+
 	if (new_address == m_address)
 		return;
 
@@ -423,34 +466,44 @@ void mc14529_device::address_w(int bit, int state)
 		m_stream->update(); // flush MODE_SOUND output(s) at the old address before switching
 
 	m_address = new_address;
-	switch_selector(SEL_X);
-	switch_selector(SEL_Y);
+	switch_selector(SEL_X, false);
+	switch_selector(SEL_Y, false);
 }
 
 void mc14529_device::inhibit_x_w(int state)
 {
 	state = !!state;
+
+	LOGSWITCH("inhibit_x_w: state: %d\n", state);
+
 	if (m_inhibit[SEL_X] == state)
 		return;
+
+	m_capture_last_sample[SEL_X] = state;
 
 	if (m_stream)
 		m_stream->update();
 
 	m_inhibit[SEL_X] = state;
-	switch_selector(SEL_X);
+	switch_selector(SEL_X, true /* inhibit fade */);
 }
 
 void mc14529_device::inhibit_y_w(int state)
 {
 	state = !!state;
+
+	LOGSWITCH("inhibit_y_w: state: %d\n", state);
+
 	if (m_inhibit[SEL_Y] == state)
 		return;
+
+	m_capture_last_sample[SEL_Y] = state;
 
 	if (m_stream)
 		m_stream->update();
 
 	m_inhibit[SEL_Y] = state;
-	switch_selector(SEL_Y);
+	switch_selector(SEL_Y, true /* inhibit fade */);
 }
 
 void mc14529_device::x_w(int channel, int state)
