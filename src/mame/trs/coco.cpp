@@ -320,6 +320,8 @@ void coco_state::pia0_pa_w(uint8_t value)
 
 void coco_state::pia0_pb_w(uint8_t value)
 {
+	m_pia0_pb_buffer = value;
+
 	uint8_t pia0_pa = 0x7F;
 	for (unsigned i = 0; i < m_keyboard.size(); i++)
 	{
@@ -350,6 +352,7 @@ void coco_state::pia0_pa7_w(uint8_t value)
 	int joy_port = BIT(mux_addr, 1);
 	bool result = m_joy_handlers[joy_port]->evaluate_comparator(m_dac_output, value);
 
+	LOG("pia0_pa7_w, setting comparator: %d (%11.6f)\n", result, machine().time().as_double());
 	m_pia0_pa_buffer = (m_pia0_pa_buffer & ~0x80) | (result ? 0x80 : 0);
 	pia_0().set_a_input(m_pia0_pa_buffer);
 }
@@ -445,7 +448,7 @@ void coco_state::pia1_pa_w(uint8_t data)
 
 	m_dac->write(m_dac_output);
 
-	LOG("coco_state::pia1_pa_w: dac: %d\n", m_dac_output);
+	LOG("pia1_pa_w: dac: %d (%11.6f)\n", m_dac_output, machine().time().as_double());
 
 	m_cassette->output((m_dac_output - 0x20) / 32.0);
 
@@ -470,7 +473,6 @@ void coco_state::pia1_pa_w(uint8_t data)
 	// handle high resolution joystick opamp
 	uint8_t mux_addr = m_mux->current_address();
 	int joy_port = BIT(mux_addr, 1);
-// 	if (m_joy_handlers[joy_port]->is_hires())
 	if (dynamic_cast<coco_tandy_hires_joy*>(m_joy_handlers[joy_port].get()))
 	{
 		if (m_dac_output == 0)
@@ -510,7 +512,7 @@ void coco_state::pia1_pb_w(uint8_t data)
 	*
 	* Source:  Page 31 of the Tandy Color Computer Serice Manual
 	*/
-	LOG("coco_state::pia1_pb_w\n");
+
 	m_sbs->write(BIT(data, 1));
 }
 
@@ -957,6 +959,25 @@ void coco_state::joystick_changed(ioport_field &field, u32 param, ioport_value o
     int axis = BIT(param, 0);
     int port = BIT(param, 1);
 	m_joy_handlers[port]->joy_changed(axis, newval);
+}
+
+
+
+//-------------------------------------------------
+//  joystick_changed
+//-------------------------------------------------
+
+void coco_state::joystick_button_changed(ioport_field &field, u32 param, ioport_value oldval, ioport_value newval)
+{
+	// simulate a write to port b
+	pia0_pb_w(m_pia0_pb_buffer);
+
+
+// 	uint8_t pia0_pa = 0x7F;
+// 	uint8_t gated_buttons = m_joy_handlers[0]->button_status() | m_joy_handlers[1]->button_status();
+//     pia0_pa &= ~gated_buttons;
+// 	m_pia0_pa_buffer = (m_pia0_pa_buffer & ~0x7f) | (pia0_pa & 0x7f);
+// 	pia_0().set_a_input(m_pia0_pa_buffer);
 }
 
 

@@ -240,6 +240,7 @@ INPUT_PORTS_START( coco3_joystick )
 			PORT_CODE(JOYCODE_BUTTON1)
 			PORT_CODE(MOUSECODE_BUTTON1)
 			PORT_PLAYER(1)
+			PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_state::joystick_button_changed), 1)
 			PORT_CONDITION(CTRL_SEL_RIGHT, 0x0f, LESSTHAN, coco_state::JOY_DEVICE_RAT_MOUSE)
 		PORT_BIT(0x04, IP_ACTIVE_HIGH, IPT_BUTTON2)
 			PORT_NAME("Right Button 2")
@@ -247,6 +248,7 @@ INPUT_PORTS_START( coco3_joystick )
 			PORT_CODE(JOYCODE_BUTTON2)
 			PORT_CODE(MOUSECODE_BUTTON2)
 			PORT_PLAYER(1)
+			PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_state::joystick_button_changed), 4)
 			PORT_CONDITION(CTRL_SEL_RIGHT, 0x0f, LESSTHAN, coco_state::JOY_DEVICE_RAT_MOUSE)
 		PORT_BIT(0x02, IP_ACTIVE_HIGH, IPT_BUTTON1)
 			PORT_NAME("Left Button 1")
@@ -254,6 +256,7 @@ INPUT_PORTS_START( coco3_joystick )
 			PORT_CODE(JOYCODE_BUTTON1)
 			PORT_CODE(MOUSECODE_BUTTON1)
 			PORT_PLAYER(2)
+			PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_state::joystick_button_changed), 2)
 			PORT_CONDITION(CTRL_SEL_LEFT, 0x0f, LESSTHAN, coco_state::JOY_DEVICE_RAT_MOUSE)
 		PORT_BIT(0x08, IP_ACTIVE_HIGH, IPT_BUTTON2)
 			PORT_NAME("Left Button 2")
@@ -261,6 +264,7 @@ INPUT_PORTS_START( coco3_joystick )
 			PORT_CODE(JOYCODE_BUTTON2)
 			PORT_CODE(MOUSECODE_BUTTON2)
 			PORT_PLAYER(2)
+			PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_state::joystick_button_changed), 8)
 			PORT_CONDITION(CTRL_SEL_LEFT, 0x0f, LESSTHAN, coco_state::JOY_DEVICE_RAT_MOUSE)
 INPUT_PORTS_END
 
@@ -326,6 +330,7 @@ static INPUT_PORTS_START( coco_rat_mouse )
 			PORT_CODE(JOYCODE_BUTTON1)
 			PORT_CODE(MOUSECODE_BUTTON1)
 			PORT_PLAYER(1)
+			PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_state::joystick_button_changed), 1)
 			PORT_CONDITION(CTRL_SEL_RIGHT, 0x0f, EQUALS, coco_state::JOY_DEVICE_RAT_MOUSE)
 		PORT_BIT( 0x04, IP_ACTIVE_HIGH, IPT_BUTTON2)
 			PORT_NAME("Rat Mouse Button 2 (Right Port)")
@@ -333,6 +338,7 @@ static INPUT_PORTS_START( coco_rat_mouse )
 			PORT_CODE(JOYCODE_BUTTON2)
 			PORT_CODE(MOUSECODE_BUTTON2)
 			PORT_PLAYER(1)
+			PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_state::joystick_button_changed), 4)
 			PORT_CONDITION(CTRL_SEL_LEFT, 0x0f, EQUALS, coco_state::JOY_DEVICE_RAT_MOUSE)
 		PORT_BIT( 0x02, IP_ACTIVE_HIGH, IPT_BUTTON1)
 			PORT_NAME("Rat Mouse Button 1 (Left Port)")
@@ -340,6 +346,7 @@ static INPUT_PORTS_START( coco_rat_mouse )
 			PORT_CODE(JOYCODE_BUTTON1)
 			PORT_CODE(MOUSECODE_BUTTON1)
 			PORT_PLAYER(2)
+			PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_state::joystick_button_changed), 2)
 			PORT_CONDITION(CTRL_SEL_LEFT, 0x0f, EQUALS, coco_state::JOY_DEVICE_RAT_MOUSE)
 		PORT_BIT( 0x08, IP_ACTIVE_HIGH, IPT_BUTTON2)
 			PORT_NAME("Rat Mouse Button 2 (Left Port)")
@@ -347,6 +354,7 @@ static INPUT_PORTS_START( coco_rat_mouse )
 			PORT_CODE(JOYCODE_BUTTON2)
 			PORT_CODE(MOUSECODE_BUTTON2)
 			PORT_PLAYER(2)
+			PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_state::joystick_button_changed), 8)
 			PORT_CONDITION(CTRL_SEL_LEFT, 0x0f, EQUALS, coco_state::JOY_DEVICE_RAT_MOUSE)
 INPUT_PORTS_END
 
@@ -383,6 +391,7 @@ static INPUT_PORTS_START( coco_lightgun )
 			PORT_CODE(JOYCODE_BUTTON1)
 			PORT_CODE(MOUSECODE_BUTTON1)
 			PORT_PLAYER(1)
+			PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_state::joystick_button_changed), 1)
 			PORT_CONDITION(CTRL_SEL_RIGHT, 0x0f, EQUALS, coco_state::JOY_DEVICE_DIECOM_LG)
 INPUT_PORTS_END
 
@@ -463,15 +472,14 @@ void coco3_state::coco3(machine_config &config)
 	m_pia_1->irqb_handler().set(m_firqs, FUNC(input_merger_device::in_w<1>));
 
 	MC14529(config, m_mux);
-	m_mux->set_propagation_delay(attotime::from_nsec(94), attotime::from_nsec(200));
-// 	m_mux->set_propagation_delay(attotime::from_nsec(0), attotime::from_nsec(0));
+// 	m_mux->set_propagation_delay(attotime::from_nsec(94), attotime::from_nsec(200));
+	m_mux->set_propagation_delay(attotime::from_nsec(20), attotime::from_nsec(50));
 	m_mux->set_mode(mc14529_device::SEL_X, mc14529_device::MODE_ANALOG);
 	m_mux->zx_analog_callback().set(FUNC(coco_state::pia0_pa7_w));
 	m_mux->set_analog_width(mc14529_device::SEL_X, 6 /* bits */);
 	m_mux->set_mode(mc14529_device::SEL_Y, mc14529_device::MODE_SOUND);
 	m_mux->add_route(mc14529_device::y_sound_output(), "speaker", 1.0);
 	m_mux->set_sound_crossfade(mc14529_device::SEL_Y, attotime::from_usec(2000));
-// 	m_mux->set_sound_crossfade(mc14529_device::SEL_Y, attotime::from_usec(0));
 
 	// Becker Port device
 	COCO_DWSOCK(config, m_beckerport);
