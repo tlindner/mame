@@ -73,7 +73,7 @@ public:
 		MODE_SOUND = 2    // channel is a live audio stream (no propagation delay)
 	};
 
-	enum
+	enum : u8
 	{
 		SEL_X = 0,
 		SEL_Y = 1,
@@ -182,11 +182,11 @@ private:
 	// host timing (transitions would have to arrive faster than one every
 	// ~tPHL, i.e. faster than every ~200 ns of emulated time, to exhaust
 	// this)
-	static constexpr unsigned MAX_PENDING = 8;
+	static constexpr unsigned MAX_PENDING = 32;
 
-	void switch_selector(unsigned selector, bool inhibit); // channel/inhibit change: may incur tPLH/tPHL
-	void update_active_value(unsigned selector); // data write to already-selected channel: immediate, no delay
-	void commit(unsigned selector, unsigned slot);
+ 	void switch_selector(unsigned selector);
+	void queue_switch_update(unsigned new_address); // channel/inhibit change: may incur tPLH/tPHL
+	void queue_value_update(unsigned selector, unsigned channel, u8 value);
 	TIMER_CALLBACK_MEMBER(delay_expired);
 
 	devcb_write_line m_write_z[NUM_SELECTORS];        // MODE_DIGITAL output
@@ -207,16 +207,44 @@ private:
 	u8 m_inhibit[NUM_SELECTORS]; // active high
 
 	u8 m_current_output[NUM_SELECTORS]; // last output actually driven (MODE_DIGITAL/MODE_ANALOG)
-	u8 m_last_scheduled[NUM_SELECTORS]; // target value of most recently queued (or committed) transition
+	u8 m_last_scheduled[NUM_SELECTORS][NUM_CHANNELS]; // target value of most recently queued (or committed) transition
 
+	// used when SOUND channel is inhibited
 	bool m_capture_last_sample[NUM_SELECTORS];
 	sound_stream::sample_t m_last_stream_sampe[NUM_SELECTORS];
 
 	// fixed pool of pending transitions per selector
-	emu_timer *m_pending_timer[NUM_SELECTORS][MAX_PENDING];
-	u8         m_pending_value[NUM_SELECTORS][MAX_PENDING];
-	bool       m_pending_active[NUM_SELECTORS][MAX_PENDING];
-	unsigned   m_pending_next[NUM_SELECTORS]; // round-robin allocation index
+	emu_timer *m_pending_timer_new[MAX_PENDING];
+	u8         m_pending_value[NUM_SELECTORS][NUM_CHANNELS];
+	bool       m_pending_active[MAX_PENDING];
+	unsigned   m_pending_next; // round-robin allocation index
+	unsigned   m_last_queued_address;
+
+	static constexpr unsigned VALUE_WIDTH   = 8;
+	static constexpr unsigned SWITCH_WIDTH  = 1;
+	static constexpr unsigned SLOT_BITS     = std::bit_width(MAX_PENDING - 1U);
+
+	static constexpr unsigned CHANNEL_BITS  = std::bit_width(NUM_CHANNELS - 1U);
+	static constexpr unsigned SELECTOR_BITS = std::bit_width(NUM_SELECTORS - 1U);
+
+	static constexpr unsigned VALUE_SHIFT    = 0;
+	static constexpr unsigned CHANNEL_SHIFT  = VALUE_SHIFT + VALUE_WIDTH;
+	static constexpr unsigned SWITCH_SHIFT   = CHANNEL_SHIFT + CHANNEL_BITS;
+	static constexpr unsigned SELECTOR_SHIFT = SWITCH_SHIFT + SWITCH_WIDTH;
+	static constexpr unsigned SLOT_SHIFT     = SELECTOR_SHIFT + SELECTOR_BITS;
+
+	static constexpr uint32_t VALUE_MASK    = make_bitmask<uint32_t>(VALUE_WIDTH);
+	static constexpr uint32_t CHANNEL_MASK  = make_bitmask<uint32_t>(CHANNEL_BITS);
+	static constexpr uint32_t SWITCH_MASK   = make_bitmask<uint32_t>(SWITCH_WIDTH);
+	static constexpr uint32_t SELECTOR_MASK = make_bitmask<uint32_t>(SELECTOR_BITS);
+	static constexpr uint32_t SLOT_MASK     = make_bitmask<uint32_t>(SLOT_BITS);
+
+	int32_t pack(unsigned slot, unsigned selector, unsigned channel, bool sw, uint8_t value);
+	unsigned unpack_selector(int32_t packed);
+	unsigned unpack_switch(int32_t packed);
+	unsigned unpack_channel(int32_t packed);
+	uint8_t unpack_value(int32_t packed);
+	unsigned unpack_slot(int32_t packed);
 };
 
 DECLARE_DEVICE_TYPE(MC14529, mc14529_device)

@@ -106,6 +106,7 @@ public:
 
 	// joystick handling
 	DECLARE_INPUT_CHANGED_MEMBER(joystick_changed);
+	DECLARE_INPUT_CHANGED_MEMBER(joystick_button_changed);
 	DECLARE_INPUT_CHANGED_MEMBER(joystick_mode_changed);
 	std::unique_ptr<coco_joy_handler> m_joy_handlers[2];
 	void write_joystick_mux(int slot, uint8_t val);
@@ -150,6 +151,7 @@ protected:
 
 	// PIA0 PA input mirror
 	uint8_t m_pia0_pa_buffer;
+	uint8_t m_pia0_pb_buffer;
 
 	// VHD selection
 	coco_vhd_image_device *current_vhd();

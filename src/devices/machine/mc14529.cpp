@@ -59,9 +59,11 @@
 #include "mc14529.h"
 
 #define LOG_SWITCH   (1U << 1) // Shows register setup
-#define VERBOSE (LOG_SWITCH)
+#define LOG_TIMER   (1U << 1) // Shows register setup
+#define VERBOSE (LOG_SWITCH|LOG_TIMER)
 #include "logmacro.h"
 #define LOGSWITCH(...)   LOGMASKED(LOG_SWITCH,    __VA_ARGS__)
+#define LOGTIMER(...)   LOGMASKED(LOG_TIMER,    __VA_ARGS__)
 
 DEFINE_DEVICE_TYPE(MC14529, mc14529_device, "mc14529", "MC14529 Dual 4-Channel Analog Data Selector")
 
@@ -79,8 +81,7 @@ mc14529_device::mc14529_device(const machine_config &mconfig, const char *tag, d
 	std::fill(std::begin(m_width_mask), std::end(m_width_mask), 0xff);
 	std::fill(std::begin(m_inhibit), std::end(m_inhibit), 0);
 	std::fill(std::begin(m_current_output), std::end(m_current_output), 0);
-	std::fill(std::begin(m_last_scheduled), std::end(m_last_scheduled), 0);
-	std::fill(std::begin(m_pending_next), std::end(m_pending_next), 0);
+	m_pending_next = 0;
 
 	std::fill(std::begin(m_sound_crossfade), std::end(m_sound_crossfade), attotime::zero);
 	std::fill(std::begin(m_sound_current_source), std::end(m_sound_current_source), SOUND_SOURCE_SILENCE);
@@ -97,13 +98,15 @@ mc14529_device::mc14529_device(const machine_config &mconfig, const char *tag, d
 
 	for (unsigned s = 0; s < NUM_SELECTORS; s++)
 	{
-		std::fill(std::begin(m_pending_timer[s]), std::end(m_pending_timer[s]), nullptr);
 		std::fill(std::begin(m_pending_value[s]), std::end(m_pending_value[s]), 0);
-		std::fill(std::begin(m_pending_active[s]), std::end(m_pending_active[s]), false);
+		std::fill(std::begin(m_last_scheduled[s]), std::end(m_last_scheduled[s]), 0);
 
 		m_capture_last_sample[s] = false;
 		m_last_stream_sampe[s] = 0.0;
 	}
+
+	std::fill(std::begin(m_pending_active), std::end(m_pending_active), false);
+	std::fill(std::begin(m_pending_timer_new), std::end(m_pending_timer_new), nullptr);
 }
 
 mc14529_device &mc14529_device::set_propagation_delay(const attotime &tplh, const attotime &tphl)
@@ -122,6 +125,7 @@ mc14529_device &mc14529_device::set_sound_crossfade(unsigned selector, const att
 mc14529_device &mc14529_device::set_mode(unsigned selector, mode_t mode)
 {
 	m_mode[selector] = mode;
+
 	return *this;
 }
 
@@ -138,9 +142,8 @@ void mc14529_device::device_start()
 	// outputs are simply filled with silence and never routed anywhere.
 	m_stream = stream_alloc(NUM_SELECTORS * NUM_CHANNELS, NUM_SELECTORS, SAMPLE_RATE_INPUT_ADAPTIVE);
 
-	for (unsigned s = 0; s < NUM_SELECTORS; s++)
-		for (unsigned slot = 0; slot < MAX_PENDING; slot++)
-			m_pending_timer[s][slot] = timer_alloc(FUNC(mc14529_device::delay_expired), this);
+	for (unsigned slot = 0; slot < MAX_PENDING; slot++)
+		m_pending_timer_new[slot] = timer_alloc(FUNC(mc14529_device::delay_expired), this);
 
 	save_item(NAME(m_channel));
 	save_item(NAME(m_channel_value));
@@ -160,6 +163,8 @@ void mc14529_device::device_start()
 	save_item(NAME(m_sound_fade_target));
 	save_item(NAME(m_sound_fade_samples_total));
 	save_item(NAME(m_sound_fade_samples_done));
+	save_item(NAME(m_capture_last_sample));
+	save_item(NAME(m_last_stream_sampe));
 	// m_sound_crossfade is configuration set at machine-config time, not
 	// runtime state, so it is not saved (same rationale as m_mode/m_width_mask).
 }
@@ -176,16 +181,14 @@ void mc14529_device::device_reset()
 
 	for (unsigned s = 0; s < NUM_SELECTORS; s++)
 	{
-		for (unsigned slot = 0; slot < MAX_PENDING; slot++)
+		for (unsigned chan = 0; chan < NUM_CHANNELS; chan++)
 		{
-			m_pending_timer[s][slot]->adjust(attotime::never);
-			m_pending_active[s][slot] = false;
-			m_pending_value[s][slot] = 0;
+			m_pending_value[s][chan] = 0;
+			m_last_scheduled[s][chan] = 0;
+
 		}
 
-		m_pending_next[s] = 0;
 		m_current_output[s] = 0;
-		m_last_scheduled[s] = 0;
 
 		if (m_mode[s] == MODE_ANALOG)
 			m_write_z_analog[s](0);
@@ -197,6 +200,14 @@ void mc14529_device::device_reset()
 		m_sound_fade_samples_done[s] = 0;
 		m_sound_current_source[s] = m_inhibit[s] ? SOUND_SOURCE_SILENCE : m_address;
 	}
+
+	for (unsigned slot = 0; slot < MAX_PENDING; slot++)
+	{
+		m_pending_timer_new[slot]->adjust(attotime::never);
+		m_pending_active[slot] = false;
+	}
+
+	m_pending_next = 0;
 }
 
 void mc14529_device::sound_stream_update(sound_stream &stream)
@@ -206,6 +217,7 @@ void mc14529_device::sound_stream_update(sound_stream &stream)
 		sound_stream::sample_t last_sample;
 		s32 const n = stream.samples();
 		s32 i = 0;
+
 		// Mid-fade: blend sample-by-sample, linear ramp.
 		u8 const target = m_sound_fade_target[selector];
 		unsigned const target_input = selector * NUM_CHANNELS + target;
@@ -213,25 +225,18 @@ void mc14529_device::sound_stream_update(sound_stream &stream)
 		if (m_mode[selector] != MODE_SOUND)
 		{
 			stream.fill(selector, 0);
-			last_sample = stream.get_output(selector, n - 1);
 			goto clean_up;
-// 			continue;
 		}
 
 		if (!m_sound_fade_active[selector])
 		{
 			u8 const src = m_sound_current_source[selector];
 			if (src == SOUND_SOURCE_SILENCE)
-			{
-// 				stream.fill(selector, 0);
 				stream.fill(selector, m_last_stream_sampe[selector]);
-			}
 			else
 				stream.copy(selector, selector * NUM_CHANNELS + src);
 
-			last_sample = stream.get_output(selector, n - 1);
 			goto clean_up;
-// 			continue;
 		}
 
 		for (; i < n; i++)
@@ -256,189 +261,180 @@ void mc14529_device::sound_stream_update(sound_stream &stream)
 		if (!m_sound_fade_active[selector] && i < n)
 		{
 			if (target == SOUND_SOURCE_SILENCE)
-			{
-// 				stream.fill(selector, 0, i);
 				stream.fill(selector, m_last_stream_sampe[selector], i);
-
-			}
 			else
 				stream.copy(selector, target_input, i);
 		}
 
-		last_sample = stream.get_output(selector, n - 1);
 
 clean_up:
-
-		LOGSWITCH("selector: %d, first sample: %f\n", selector, stream.get_output(selector, 0));
-		LOGSWITCH("selector: %d, last sample: %f ", selector, last_sample);
+		last_sample = stream.get_output(selector, n - 1);
 		if (m_capture_last_sample[selector])
 		{
 			m_capture_last_sample[selector] = false;
 			m_last_stream_sampe[selector] = last_sample;
-			LOGSWITCH("capture\n");
 		}
-		else
-			LOGSWITCH("\n");
 	}
 }
 
-void mc14529_device::commit(unsigned selector, unsigned slot)
+void mc14529_device::switch_selector(unsigned address)
 {
-	m_pending_active[selector][slot] = false;
-	m_current_output[selector] = m_pending_value[selector][slot];
+	m_address == address;
 
-	if (m_mode[selector] == MODE_ANALOG)
+	if (m_stream)
+		m_stream->update(); // flush MODE_SOUND output(s) at the old address before switching
+
+	for (unsigned selector = 0; selector < NUM_SELECTORS; selector++)
 	{
-		m_write_z_analog[selector](m_current_output[selector]);
+		if (m_inhibit[selector])
+			continue; // frozen: output holds its last value until un-inhibited
+
+		if (m_mode[selector] == MODE_ANALOG)
+		{
+			u8 new_value;
+			m_current_output[selector] = m_channel_value[selector][m_address];
+			new_value = m_current_output[selector];
+			m_write_z_analog[selector](new_value);
+		}
+		else if (m_mode[selector] == MODE_DIGITAL)
+		{
+			int new_value;
+			m_current_output[selector] = m_channel[selector][m_address];
+			new_value = m_current_output[selector];
+			m_write_z[selector](new_value);
+		}
 	}
-	else if (m_mode[selector] == MODE_DIGITAL)
-		m_write_z[selector](!!m_current_output[selector]);
-	// MODE_SOUND does not use commit()/the timer pool at all.
 }
 
-void mc14529_device::switch_selector(unsigned selector, bool inhibit)
+void mc14529_device::queue_switch_update(unsigned new_address)
 {
-	// Called when the channel connected to this selector's output changes
-	// (address_w() picked a different channel, or inhibit_x_w()/
-	// inhibit_y_w() connected/disconnected the output). This is the only
-	// event that incurs the part's slew delay.
-
-	if (m_mode[selector] == MODE_SOUND)
-	{
-		u8 const target = m_inhibit[selector] ? SOUND_SOURCE_SILENCE : m_address;
-
-		if( inhibit)
-		{
-			m_sound_current_source[selector] = target;
-			m_sound_fade_active[selector] = false;
-			return;
-		}
-
-		if (target == m_sound_current_source[selector] && !m_sound_fade_active[selector])
-			return; // already settled here, nothing to do
-
-		if (target == m_sound_fade_target[selector] && m_sound_fade_active[selector])
-			return; // already fading to this target
-
-		if (m_stream)
-			m_stream->update(); // flush output up to now before (re)starting the fade
-
-		if (m_sound_crossfade[selector] == attotime::zero)
-		{
-			// Instant switch: original behavior, unchanged.
-			m_sound_current_source[selector] = target;
-			m_sound_fade_active[selector] = false;
-			return;
-		}
-
-		// Snapshot the actual last-written output sample -- if a fade was
-		// already in progress, get_output() returns the true blended value
-		// at this instant (not either endpoint), so an interrupted fade
-		// restarts cleanly from its own midpoint rather than jumping.
-		s32 const last = m_stream->samples() > 0 ? m_stream->samples() - 1 : 0;
-		m_sound_fade_from_sample[selector] = m_stream->samples() > 0
-			? m_stream->get_output(selector, last) : sound_stream::sample_t(0.0);
-
-		m_sound_fade_target[selector] = target;
-		m_sound_fade_samples_total[selector] = std::max<u32>(1,
-			u32(m_sound_crossfade[selector].as_double() * m_stream->sample_rate()));
-		m_sound_fade_samples_done[selector] = 0;
-		m_sound_fade_active[selector] = true;
-
+	if (m_last_queued_address == new_address)
 		return;
+
+	m_last_queued_address = new_address;
+
+	for(int selector=0; selector<NUM_SELECTORS; selector++)
+	{
+		if (m_mode[selector] == MODE_SOUND)
+		{
+			u8 const target = m_inhibit[selector] ? SOUND_SOURCE_SILENCE : m_address;
+
+			if (target == m_sound_current_source[selector] && !m_sound_fade_active[selector])
+				continue; // already settled here, nothing to do
+
+			if (target == m_sound_fade_target[selector] && m_sound_fade_active[selector])
+				continue; // already fading to this target
+
+			if (m_stream)
+				m_stream->update(); // flush output up to now before (re)starting the fade
+
+			if (m_sound_crossfade[selector] == attotime::zero)
+			{
+				// Instant switch: original behavior, unchanged.
+				m_sound_current_source[selector] = target;
+				m_sound_fade_active[selector] = false;
+				continue;
+			}
+
+			// Snapshot the actual last-written output sample -- if a fade was
+			// already in progress, get_output() returns the true blended value
+			// at this instant (not either endpoint), so an interrupted fade
+			// restarts cleanly from its own midpoint rather than jumping.
+			s32 const last = m_stream->samples() > 0 ? m_stream->samples() - 1 : 0;
+			m_sound_fade_from_sample[selector] = m_stream->samples() > 0
+				? m_stream->get_output(selector, last) : sound_stream::sample_t(0.0);
+
+			m_sound_fade_target[selector] = target;
+			m_sound_fade_samples_total[selector] = std::max<u32>(1,
+				u32(m_sound_crossfade[selector].as_double() * m_stream->sample_rate()));
+			m_sound_fade_samples_done[selector] = 0;
+			m_sound_fade_active[selector] = true;
+
+			continue;
+		}
 	}
 
-	if (m_inhibit[selector])
-		return; // frozen: output holds its last value until un-inhibited
+	unsigned slot = m_pending_next;
+	if (m_pending_active[slot])
+	{
+		// pool exhausted
+		osd_printf_error("mc14529: transition pool exhausted, forcing early commit of slot %u\n", slot);
+		m_pending_timer_new[slot]->adjust(attotime::never);
+		delay_expired(m_pending_timer_new[slot]->param());
+	}
 
-	u8 new_output;
+	s32 param = pack(slot, 0, 0, true /* switch */, new_address);
+	attotime const delay = (m_tplh + m_tphl) / 2.0;
+	m_pending_active[slot] = true;
+	m_pending_timer_new[slot]->adjust(delay, param);
+	LOGSWITCH("queued switch change: slot %d\n", slot);
+	m_pending_next = (slot + 1) % MAX_PENDING;
+}
 
-	if (m_mode[selector] == MODE_ANALOG)
-		new_output = m_channel_value[selector][m_address] & m_width_mask[selector];
-	else
-		new_output = !!m_channel[selector][m_address];
+void mc14529_device::queue_value_update(unsigned selector, unsigned channel, u8 value)
+{
+	if (m_mode[selector] == MODE_SOUND)
+		return;
 
-	if (new_output == m_last_scheduled[selector])
-		return; // outcome unchanged; nothing new to queue
+	if (m_last_scheduled[selector][channel] == value)
+		return;
 
-	unsigned const slot = m_pending_next[selector];
+	unsigned const slot = m_pending_next;
 
-	if (m_pending_active[selector][slot])
+	if (m_pending_active[slot])
 	{
 		// pool exhausted
 		osd_printf_error("mc14529: selector %u transition pool exhausted, forcing early commit of slot %u\n", selector, slot);
-		m_pending_timer[selector][slot]->adjust(attotime::never);
-		commit(selector, slot);
+		m_pending_timer_new[slot]->adjust(attotime::never);
+		delay_expired(m_pending_timer_new[slot]->param());
 	}
 
-	// Direction of the swing on the real analog node: for MODE_DIGITAL the
-	// bit value itself gives the direction; for MODE_ANALOG we compare
-	// against the previously scheduled quantized level.
-	bool const rising = (m_mode[selector] == MODE_ANALOG)
-		? (new_output > m_last_scheduled[selector])
-		: (new_output != 0);
-
+	bool const rising = (m_mode[selector] == MODE_ANALOG) ? (value > m_last_scheduled[selector][slot]) : (value != 0);
 	attotime const delay = rising ? m_tplh : m_tphl;
 
-	m_pending_value[selector][slot] = new_output;
-	m_pending_active[selector][slot] = true;
-	m_pending_timer[selector][slot]->adjust(delay, selector * MAX_PENDING + slot);
-
-	m_last_scheduled[selector] = new_output;
-	m_pending_next[selector] = (slot + 1) % MAX_PENDING;
-}
-
-void mc14529_device::update_active_value(unsigned selector)
-{
-	// Called when the data on the channel that is *already* selected
-	// changes value (x_w()/y_w()/x_analog_w()/y_analog_w() for the
-	// currently addressed channel). No switching event occurred, so real
-	// propagation to the output is fast enough to treat as zero delay:
-	// apply it immediately instead of going through the timer pool.
-
-	if (m_mode[selector] == MODE_SOUND)
-		return; // handled entirely in sound_stream_update()
-
-	if (m_inhibit[selector])
-		return; // frozen: ignore changes on the active channel while inhibited
-
-	u8 new_output;
-
-	if (m_mode[selector] == MODE_ANALOG)
-		new_output = m_channel_value[selector][m_address] & m_width_mask[selector];
-	else
-		new_output = !!m_channel[selector][m_address];
-
-	if (new_output == m_last_scheduled[selector])
-		return; // outcome unchanged
-
-	// The switch is already closed on this channel, so this value change
-	// cannot still be "mid-slew" from some other channel -- any switch
-	// transition still settling for this selector is now stale and is
-	// superseded by this immediate update.
-	for (unsigned slot = 0; slot < MAX_PENDING; slot++)
-	{
-		if (m_pending_active[selector][slot])
-		{
-			m_pending_timer[selector][slot]->adjust(attotime::never);
-			m_pending_active[selector][slot] = false;
-		}
-	}
-
-	m_last_scheduled[selector] = new_output;
-	m_current_output[selector] = new_output;
-
-	if (m_mode[selector] == MODE_ANALOG)
-		m_write_z_analog[selector](new_output);
-	else
-		m_write_z[selector](!!new_output);
+	m_pending_active[slot] = true;
+	m_pending_timer_new[slot]->adjust(delay, pack(slot, selector, channel, false /* not switch */, value));
+	m_last_scheduled[selector][channel] = value;
+	m_pending_next = (slot + 1) % MAX_PENDING;
 }
 
 TIMER_CALLBACK_MEMBER(mc14529_device::delay_expired)
 {
-	unsigned const selector = param / MAX_PENDING;
-	unsigned const slot = param % MAX_PENDING;
-	commit(selector, slot);
+	m_pending_active[unpack_slot(param)] = false;
+
+	LOGTIMER("delay_expired: slot: %d, switch: %d, selector: %d, channel: %d, value: %d (%11.6f)\n",
+		unpack_slot(param), unpack_switch(param), unpack_selector(param), unpack_channel(param),
+		unpack_value(param), machine().time().as_double());
+
+	if (unpack_switch(param))
+	{
+		// this is a switch event
+		switch_selector(unpack_value(param));
+	}
+	else
+	{
+		unsigned selector = unpack_selector(param);
+		if (m_mode[selector] == MODE_SOUND)
+			return;
+
+		unsigned channel = unpack_channel(param);
+		uint8_t value = unpack_value(param);
+
+		m_channel_value[selector][channel] = value;
+
+		if(m_inhibit[selector] == false)
+		{
+			if (m_address == channel)
+			{
+				m_current_output[selector] = value;
+
+				if (m_mode[selector] == MODE_ANALOG)
+					m_write_z_analog[selector](value);
+				else if (m_mode[selector] == MODE_DIGITAL)
+					m_write_z[selector](value);
+			}
+		}
+	}
 }
 
 u8 mc14529_device::zx_value()
@@ -455,26 +451,18 @@ void mc14529_device::address_w(int bit, int state)
 {
 	state = !!state;
 	u8 const mask = u8(1) << bit;
-	u8 const new_address = state ? (m_address | mask) : (m_address & ~mask);
+	u8 const new_address = state ? (m_last_queued_address | mask) : (m_last_queued_address & ~mask);
 
-	LOGSWITCH("address_w: bit: %d, state: %d, new_address: %d\n", bit, state, new_address);
+	LOGSWITCH("address_w: bit: %d, state: %d, new_address: %d (%11.6f)\n", bit, state, new_address, machine().time().as_double());
 
-	if (new_address == m_address)
-		return;
-
-	if (m_stream)
-		m_stream->update(); // flush MODE_SOUND output(s) at the old address before switching
-
-	m_address = new_address;
-	switch_selector(SEL_X, false);
-	switch_selector(SEL_Y, false);
+	queue_switch_update(new_address);
 }
 
 void mc14529_device::inhibit_x_w(int state)
 {
 	state = !!state;
 
-	LOGSWITCH("inhibit_x_w: state: %d\n", state);
+	LOGSWITCH("inhibit_x_w: state: %d (%11.6f)\n", state, machine().time().as_double());
 
 	if (m_inhibit[SEL_X] == state)
 		return;
@@ -485,14 +473,15 @@ void mc14529_device::inhibit_x_w(int state)
 		m_stream->update();
 
 	m_inhibit[SEL_X] = state;
-	switch_selector(SEL_X, true /* inhibit fade */);
+
+	switch_selector(m_address);
 }
 
 void mc14529_device::inhibit_y_w(int state)
 {
 	state = !!state;
 
-	LOGSWITCH("inhibit_y_w: state: %d\n", state);
+	LOGSWITCH("inhibit_y_w: state: %d (%11.6f)\n", state, machine().time().as_double());
 
 	if (m_inhibit[SEL_Y] == state)
 		return;
@@ -503,45 +492,70 @@ void mc14529_device::inhibit_y_w(int state)
 		m_stream->update();
 
 	m_inhibit[SEL_Y] = state;
-	switch_selector(SEL_Y, true /* inhibit fade */);
+	switch_selector(m_address);
 }
 
 void mc14529_device::x_w(int channel, int state)
 {
 	state = !!state;
-	if (m_channel[SEL_X][channel] == state)
-		return;
-	m_channel[SEL_X][channel] = state;
-	if (m_mode[SEL_X] == MODE_DIGITAL && m_address == channel)
-		update_active_value(SEL_X);
+	queue_value_update(SEL_X, channel, state);
 }
 
 void mc14529_device::y_w(int channel, int state)
 {
 	state = !!state;
-	if (m_channel[SEL_Y][channel] == state)
-		return;
-	m_channel[SEL_Y][channel] = state;
-	if (m_mode[SEL_Y] == MODE_DIGITAL && m_address == channel)
-		update_active_value(SEL_Y);
+	queue_value_update(SEL_Y, channel, state);
 }
 
 void mc14529_device::x_analog_w(int channel, u8 value)
 {
 	value &= m_width_mask[SEL_X];
-	if (m_channel_value[SEL_X][channel] == value)
-		return;
-	m_channel_value[SEL_X][channel] = value;
-	if (m_mode[SEL_X] == MODE_ANALOG && m_address == channel)
-		update_active_value(SEL_X);
+	LOGSWITCH("x_analog_w: channel: %d, value: %d (%11.6f)\n", channel, value, machine().time().as_double());
+	queue_value_update(SEL_X, channel, value);
 }
 
 void mc14529_device::y_analog_w(int channel, u8 value)
 {
-	value &= m_width_mask[SEL_Y];
-	if (m_channel_value[SEL_Y][channel] == value)
-		return;
-	m_channel_value[SEL_Y][channel] = value;
-	if (m_mode[SEL_Y] == MODE_ANALOG && m_address == channel)
-		update_active_value(SEL_Y);
+	value &= m_width_mask[SEL_X];
+	queue_value_update(SEL_Y, channel, value);
+}
+
+int32_t mc14529_device::pack(unsigned slot, unsigned selector, unsigned channel, bool sw, uint8_t value)
+{
+	if (slot >= MAX_PENDING ||
+		selector >= NUM_SELECTORS ||
+		channel >= NUM_CHANNELS)
+		return -1;
+
+	return
+		((slot     & SLOT_MASK)     << SLOT_SHIFT)     |
+		((selector & SELECTOR_MASK) << SELECTOR_SHIFT) |
+		((sw       & SWITCH_MASK)   << SWITCH_SHIFT)   |
+		((channel  & CHANNEL_MASK)  << CHANNEL_SHIFT)  |
+		((value    & VALUE_MASK)    << VALUE_SHIFT);
+}
+
+unsigned mc14529_device::unpack_selector(int32_t packed)
+{
+	return (packed >> SELECTOR_SHIFT) & SELECTOR_MASK;
+}
+
+unsigned mc14529_device::unpack_switch(int32_t packed)
+{
+	return (packed >> SWITCH_SHIFT) & SWITCH_MASK;
+}
+
+unsigned mc14529_device::unpack_channel(int32_t packed)
+{
+	return (packed >> CHANNEL_SHIFT) & CHANNEL_MASK;
+}
+
+uint8_t mc14529_device::unpack_value(int32_t packed)
+{
+	return (packed >> VALUE_SHIFT) & VALUE_MASK;
+}
+
+unsigned mc14529_device::unpack_slot(int32_t packed)
+{
+	return (packed >> SLOT_SHIFT) & SLOT_MASK;
 }
