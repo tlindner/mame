@@ -62,6 +62,7 @@ ioport_constructor dragon_claw_device::device_input_ports() const
 dragon_claw_device::dragon_claw_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock)
 	: device_t(mconfig, DRAGON_CLAW, tag, owner, clock)
 	, device_cococart_interface(mconfig, *this )
+	, device_sound_interface(mconfig, *this)
 	, m_via(*this, "via")
 	, m_slot(*this, "slot")
 	, m_links(*this, "LINKS")
@@ -132,6 +133,14 @@ void dragon_claw_device::add_sound_route(device_sound_interface &sound_device, i
 	device_cococart_interface::add_sound_route(sound_device, output_index, gain);
 }
 
+//-------------------------------------------------
+//  sound_stream_update
+//-------------------------------------------------
+
+void dragon_claw_device::sound_stream_update(sound_stream &stream)
+{
+	stream.copy(0, 0);
+}
 
 //-------------------------------------------------
 //  irq_w

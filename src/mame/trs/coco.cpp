@@ -971,13 +971,6 @@ void coco_state::joystick_button_changed(ioport_field &field, u32 param, ioport_
 {
 	// simulate a write to port b
 	pia0_pb_w(m_pia0_pb_buffer);
-
-
-// 	uint8_t pia0_pa = 0x7F;
-// 	uint8_t gated_buttons = m_joy_handlers[0]->button_status() | m_joy_handlers[1]->button_status();
-//     pia0_pa &= ~gated_buttons;
-// 	m_pia0_pa_buffer = (m_pia0_pa_buffer & ~0x7f) | (pia0_pa & 0x7f);
-// 	pia_0().set_a_input(m_pia0_pa_buffer);
 }
 
 

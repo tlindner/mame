@@ -50,6 +50,7 @@ ioport_constructor coco_ide_device::device_input_ports() const
 coco_ide_device::coco_ide_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock)
 	: device_t(mconfig, COCO_IDE, tag, owner, clock)
 	, device_cococart_interface(mconfig, *this )
+	, device_sound_interface(mconfig, *this)
 	, m_ata(*this, "ata")
 	, m_slot(*this, "slot")
 	, m_jumpers(*this, "JUMPERS")
@@ -108,6 +109,15 @@ void coco_ide_device::device_add_mconfig(machine_config &config)
 void coco_ide_device::add_sound_route(device_sound_interface &sound_device, int output_index, double gain)
 {
 	device_cococart_interface::add_sound_route(sound_device, output_index, gain);
+}
+
+//-------------------------------------------------
+//  sound_stream_update
+//-------------------------------------------------
+
+void coco_ide_device::sound_stream_update(sound_stream &stream)
+{
+	stream.copy(0, 0);
 }
 
 //-------------------------------------------------
