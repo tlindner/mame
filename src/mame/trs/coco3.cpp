@@ -472,14 +472,14 @@ void coco3_state::coco3(machine_config &config)
 	m_pia_1->irqb_handler().set(m_firqs, FUNC(input_merger_device::in_w<1>));
 
 	MC14529(config, m_mux);
-// 	m_mux->set_propagation_delay(attotime::from_nsec(94), attotime::from_nsec(200));
-	m_mux->set_propagation_delay(attotime::from_nsec(20), attotime::from_nsec(50));
+	m_mux->set_propagation_delay(attotime::from_nsec(94), attotime::from_nsec(200));
+	m_mux->set_switching_delay(attotime::from_nsec(2236));
 	m_mux->set_mode(mc14529_device::SEL_X, mc14529_device::MODE_ANALOG);
 	m_mux->zx_analog_callback().set(FUNC(coco_state::pia0_pa7_w));
 	m_mux->set_analog_width(mc14529_device::SEL_X, 6 /* bits */);
 	m_mux->set_mode(mc14529_device::SEL_Y, mc14529_device::MODE_SOUND);
 	m_mux->add_route(mc14529_device::y_sound_output(), "speaker", 1.0);
-	m_mux->set_sound_crossfade(mc14529_device::SEL_Y, attotime::from_usec(2000));
+ 	m_mux->set_sound_crossfade(mc14529_device::SEL_Y, attotime::from_usec(500));
 
 	// Becker Port device
 	COCO_DWSOCK(config, m_beckerport);

@@ -17,9 +17,8 @@
 #define LOG_CTL_READ (1U << 2)
 #define LOG_CA1      (1U << 3)
 #define LOG_CB1      (1U << 4)
-#define LOG_TIM      (1U << 5)
 
-//#define VERBOSE (LOG_TIM)
+//#define VERBOSE (LOG_SETUP | LOG_GENERAL | LOG_CA1)
 //#define LOG_OUTPUT_STREAM std::cout
 
 #define VERBOSE (0)
@@ -29,7 +28,6 @@
 #define LOGCTLR(...)  LOGMASKED(LOG_CTL_READ, __VA_ARGS__)
 #define LOGCA1(...)   LOGMASKED(LOG_CA1,      __VA_ARGS__)
 #define LOGCB1(...)   LOGMASKED(LOG_CB1,      __VA_ARGS__)
-#define LOGTIM(...)   LOGMASKED(LOG_TIM,      __VA_ARGS__)
 
 #define PIA_IRQ1                (0x80)
 #define PIA_IRQ2                (0x40)
@@ -413,7 +411,7 @@ uint8_t pia6821_device::port_a_r()
 				set_out_ca2(true);
 		}
 
-		LOGTIM("PIA port A read = %02X (%11.6f)\n", ret,  machine().time().as_double());
+		LOG("PIA port A read = %02X\n", ret);
 	}
 
 	return ret;

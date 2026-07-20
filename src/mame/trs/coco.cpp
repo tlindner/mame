@@ -77,7 +77,7 @@
 #include "emu.h"
 #include "coco.h"
 
-#define VERBOSE (LOG_GENERAL)
+// #define VERBOSE (LOG_GENERAL)
 #include "logmacro.h"
 
 

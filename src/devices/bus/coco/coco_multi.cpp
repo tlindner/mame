@@ -93,7 +93,6 @@ namespace
 		, public device_cococart_interface
 		, public device_cococart_host_interface
 		, public device_sound_interface
-
 	{
 	public:
 		// construction/destruction

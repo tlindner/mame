@@ -1,39 +1,28 @@
 // license:BSD-3-Clause
-// copyright-holders:tim lindner
+// copyright-holders:Tim Lindner
 /***************************************************************************
 
     MC14529 Dual 4-Channel Analog Data Selector
 
-    Supports the MC14529's asymmetric switch delay. The default timing is
-    the datasheet's typical 150 ns, but measured values from a Color
-    Computer part are also available:
-
-        tPLH (rising)  ~94 ns
-        tPHL (falling) ~200 ns
-
-    The delay is switch slew time, not signal propagation time. It occurs
-    only when the selected channel changes (address or inhibit change).
-    Once a channel is selected, changes on that input appear immediately
-    at the output.
-
-    Each selector (X and Y) operates independently in one of three modes:
+    Emulation of the MC14529 data selector supporting propagation delays
+    (tPLH/tPHL) and switching delays (tSW). Each selector (X and Y)
+    operates independently in one of three modes:
 
       MODE_DIGITAL
-        Four 1-bit inputs. Channel changes incur tPLH/tPHL; writes to the
-        selected channel update immediately. Output via write_line callback.
+        Four 1-bit inputs. Input changes apply after tPLH/tPHL propagation
+        delays; address updates apply after a tSW switching delay.
+        Output via write_line callback.
 
       MODE_ANALOG
-        Four quantized analog inputs (write8). Channel changes incur
-        tPLH/tPHL based on the direction of the output change; writes to
-        the selected channel update immediately. Output via write8 callback.
+        Four quantized multi-bit analog inputs. Input changes apply after
+        tPLH/tPHL propagation delays based on whether the value is rising
+        or falling; address updates apply after a tSW switching delay.
+        Output via write8 callback.
 
       MODE_SOUND
         Four live audio inputs routed through device_sound_interface.
-        Audio is switched sample-accurately with no modeled propagation
-        delay.
-
-    MODE_ANALOG and MODE_SOUND are independent. To convert a MODE_ANALOG
-    output into audio, connect its callback to a DAC device.
+        Audio is switched sample-accurately. Supports an optional linear
+        crossfade ramp duration to suppress switching clicks.
 
     Pinout:
         A0, A1        -> address_w()
@@ -43,18 +32,12 @@
         X0-X3         -> x_w() / x_analog_w() / x_sound_input()
         Y0-Y3         -> y_w() / y_analog_w() / y_sound_input()
 
-        Z-X           -> zx_callback() /
-                         zx_analog_callback() /
-                         x_sound_output()
+        Z-X           -> zx_callback() / zx_analog_callback() / x_sound_output()
+        Z-Y           -> zy_callback() / zy_analog_callback() / y_sound_output()
 
-        Z-Y           -> zy_callback() /
-                         zy_analog_callback() /
-                         y_sound_output()
-
-    TODO:
-        * Continuous analog switch behavior is not modeled; inputs are
-          treated as digital, quantized analog, or audio streams.
-        * Combined 8-channel mode is not implemented.
+    Todo / Unimplemented:
+        * Continuous ideal analog switch resistance/slew behavior.
+        * Combined 8-channel mode configuration.
 
 ***************************************************************************/
 
@@ -99,6 +82,7 @@ public:
 
 	// configuration
 	mc14529_device &set_propagation_delay(const attotime &tplh, const attotime &tphl);
+	mc14529_device &set_switching_delay(const attotime &tsw);
 	mc14529_device &set_mode(unsigned selector, mode_t mode);
 	mc14529_device &set_analog_width(unsigned selector, unsigned bits); // default 8 bits
 
@@ -182,20 +166,24 @@ private:
 	// host timing (transitions would have to arrive faster than one every
 	// ~tPHL, i.e. faster than every ~200 ns of emulated time, to exhaust
 	// this)
-	static constexpr unsigned MAX_PENDING = 32;
+	static constexpr unsigned MAX_PENDING = 4;
 
  	void switch_selector(unsigned selector);
 	void queue_switch_update(unsigned new_address); // channel/inhibit change: may incur tPLH/tPHL
+	void update_sound_target(unsigned address);
 	void queue_value_update(unsigned selector, unsigned channel, u8 value);
 	TIMER_CALLBACK_MEMBER(delay_expired);
+	inline void update_selector_stream(sound_stream &stream, unsigned selector);
+	inline void finalize_sample_capture(sound_stream &stream, unsigned selector);
 
 	devcb_write_line m_write_z[NUM_SELECTORS];        // MODE_DIGITAL output
 	devcb_write8 m_write_z_analog[NUM_SELECTORS];     // MODE_ANALOG output
 
 	sound_stream *m_stream; // MODE_SOUND input/output
 
-	attotime m_tplh; // rising-swing propagation delay
-	attotime m_tphl; // falling-swing propagation delay
+	attotime m_tplh;   // rising-swing propagation delay
+	attotime m_tphl;   // falling-swing propagation delay
+	attotime m_tsw;    // switching propagation delay
 
 	mode_t m_mode[NUM_SELECTORS];
 	u8 m_width_mask[NUM_SELECTORS]; // e.g. 0x3f for a 6-bit quantized level
@@ -210,11 +198,10 @@ private:
 	u8 m_last_scheduled[NUM_SELECTORS][NUM_CHANNELS]; // target value of most recently queued (or committed) transition
 
 	// used when SOUND channel is inhibited
-	bool m_capture_last_sample[NUM_SELECTORS];
-	sound_stream::sample_t m_last_stream_sampe[NUM_SELECTORS];
+	sound_stream::sample_t m_last_stream_sampel[NUM_SELECTORS];
 
 	// fixed pool of pending transitions per selector
-	emu_timer *m_pending_timer_new[MAX_PENDING];
+	emu_timer *m_pending_timer[MAX_PENDING];
 	u8         m_pending_value[NUM_SELECTORS][NUM_CHANNELS];
 	bool       m_pending_active[MAX_PENDING];
 	unsigned   m_pending_next; // round-robin allocation index
@@ -223,28 +210,22 @@ private:
 	static constexpr unsigned VALUE_WIDTH   = 8;
 	static constexpr unsigned SWITCH_WIDTH  = 1;
 	static constexpr unsigned SLOT_BITS     = std::bit_width(MAX_PENDING - 1U);
-
 	static constexpr unsigned CHANNEL_BITS  = std::bit_width(NUM_CHANNELS - 1U);
 	static constexpr unsigned SELECTOR_BITS = std::bit_width(NUM_SELECTORS - 1U);
 
-	static constexpr unsigned VALUE_SHIFT    = 0;
-	static constexpr unsigned CHANNEL_SHIFT  = VALUE_SHIFT + VALUE_WIDTH;
-	static constexpr unsigned SWITCH_SHIFT   = CHANNEL_SHIFT + CHANNEL_BITS;
-	static constexpr unsigned SELECTOR_SHIFT = SWITCH_SHIFT + SWITCH_WIDTH;
-	static constexpr unsigned SLOT_SHIFT     = SELECTOR_SHIFT + SELECTOR_BITS;
-
-	static constexpr uint32_t VALUE_MASK    = make_bitmask<uint32_t>(VALUE_WIDTH);
-	static constexpr uint32_t CHANNEL_MASK  = make_bitmask<uint32_t>(CHANNEL_BITS);
-	static constexpr uint32_t SWITCH_MASK   = make_bitmask<uint32_t>(SWITCH_WIDTH);
-	static constexpr uint32_t SELECTOR_MASK = make_bitmask<uint32_t>(SELECTOR_BITS);
-	static constexpr uint32_t SLOT_MASK     = make_bitmask<uint32_t>(SLOT_BITS);
+	union PackedData {
+		int32_t raw;
+		struct {
+			uint32_t value    : VALUE_WIDTH;
+			uint32_t channel  : CHANNEL_BITS;
+			uint32_t sw       : SWITCH_WIDTH;
+			uint32_t selector : SELECTOR_BITS;
+			uint32_t slot     : SLOT_BITS;
+			uint32_t padding  : (32 - (VALUE_WIDTH + CHANNEL_BITS + SWITCH_WIDTH + SELECTOR_BITS + SLOT_BITS));
+		} bits;
+	};
 
 	int32_t pack(unsigned slot, unsigned selector, unsigned channel, bool sw, uint8_t value);
-	unsigned unpack_selector(int32_t packed);
-	unsigned unpack_switch(int32_t packed);
-	unsigned unpack_channel(int32_t packed);
-	uint8_t unpack_value(int32_t packed);
-	unsigned unpack_slot(int32_t packed);
 };
 
 DECLARE_DEVICE_TYPE(MC14529, mc14529_device)
