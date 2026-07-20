@@ -230,14 +230,12 @@ class coco_joy_disconnected : public coco_joy_handler
 {
 public:
     using coco_joy_handler::coco_joy_handler;
-// 	uint8_t device_type() override {return coco_state::JOY_DEVICE_UNCONNECTED;};
 };
 
 class coco_joy_standard : public coco_joy_handler
 {
 public:
     using coco_joy_handler::coco_joy_handler;
-// 	virtual uint8_t device_type() override {return coco_state::JOY_DEVICE_STANDARD;};
 	virtual void joy_changed(int axis, int joy_val) override;
 };
 
@@ -248,8 +246,10 @@ public:
 		: coco_joy_handler(host, base_slot, buttons)
 		, m_charging(false)
 		, m_fired(false)
-		, m_multiplier(5850.0)
+		, m_multiplier(4835.0)
 		, m_offset(535.0) {}
+// 		, m_multiplier(5850.0)
+// 		, m_offset(535.0) {}
 
 	virtual bool evaluate_comparator(int dac, int joy_val) override;
     virtual void opamp_discharge() override;
