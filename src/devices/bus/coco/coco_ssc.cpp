@@ -279,7 +279,6 @@ const tiny_rom_entry *coco_ssc_device::device_rom_region() const
 	return ROM_NAME( coco_ssc );
 }
 
-
 //-------------------------------------------------
 //  ff7d_read
 //-------------------------------------------------

@@ -2392,7 +2392,7 @@ bool debugger_commands::execute_load_try_memory(const std::vector<std::string_vi
 
 void debugger_commands::execute_loadregion(const std::vector<std::string_view> &params)
 {
-	execute_load(-1, std::vector<std::string_view>{ params[0], std::string(params[1]) + ":" + std::string(params[3]) + ".m", params[2] });
+	execute_load(-1, std::vector<std::string_view>{ params[0], std::string(params[1]) + std::string(params[3]) + ".m", params[2] });
 }
 
 
