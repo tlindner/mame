@@ -289,12 +289,12 @@ u8 coco_ssc_device::ff7d_read(offs_t offset)
 
 	switch(offset)
 	{
-		case 0x00:
+		case 0x00: // 0xff7d
 			data = 0xff;
 			LOGINTERFACE( "[%s] ff7d read: %02x\n", machine().describe_context(), data );
 			break;
 
-		case 0x01:
+		case 0x01: // 0xff7e
 			data = 0x1f;
 
 			if (m_tms7000_busy == false)
@@ -338,7 +338,7 @@ void coco_ssc_device::ff7d_write(offs_t offset, u8 data)
 {
 	switch(offset)
 	{
-		case 0x00:
+		case 0x00: // 0xff7d
 			LOGINTERFACE( "[%s] ff7d write: %02x\n", machine().describe_context(), data );
 
 			if ((data & 1) == 1)
@@ -356,7 +356,7 @@ void coco_ssc_device::ff7d_write(offs_t offset, u8 data)
 			m_reset_line = data;
 			break;
 
-		case 0x01:
+		case 0x01: // 0xff7e
 			LOGINTERFACE( "[%s] ff7e write: %02x\n", machine().describe_context(), data );
 			m_tms7000_porta = data;
 			m_tms7000_busy = true;
