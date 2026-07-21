@@ -162,7 +162,7 @@ INPUT_PORTS_START( coco3_analog_control )
 	PORT_CONFSETTING(coco_state::JOY_DEVICE_UNCONNECTED, "Unconnected")
 	PORT_CONFSETTING(coco_state::JOY_DEVICE_STANDARD, "Joystick")
 	PORT_CONFSETTING(coco_state::JOY_DEVICE_TANDY_HIRES, "Tandy Hi-res Joystick")
-	PORT_CONFSETTING(coco_state::JOY_DEVICE_CM3_HIRES, "Color Max 3 Hi-res Joystick")
+	PORT_CONFSETTING(coco_state::JOY_DEVICE_CM3_HIRES, "CoCo Max 3 Hi-res Joystick")
 	PORT_CONFSETTING(coco_state::JOY_DEVICE_RAT_MOUSE, "The Rat Graphics Package Mouse")
 	PORT_CONFSETTING(coco_state::JOY_DEVICE_DIECOM_LG, "Diecom Light Gun Interface")
 
@@ -172,7 +172,7 @@ INPUT_PORTS_START( coco3_analog_control )
 	PORT_CONFSETTING(coco_state::JOY_DEVICE_UNCONNECTED, "Unconnected")
 	PORT_CONFSETTING(coco_state::JOY_DEVICE_STANDARD, "Joystick")
 	PORT_CONFSETTING(coco_state::JOY_DEVICE_TANDY_HIRES, "Tandy Hi-res Joystick")
-	PORT_CONFSETTING(coco_state::JOY_DEVICE_CM3_HIRES, "Color Max 3 Hi-res Joystick")
+	PORT_CONFSETTING(coco_state::JOY_DEVICE_CM3_HIRES, "CoCo Max 3 Hi-res Joystick")
 	PORT_CONFSETTING(coco_state::JOY_DEVICE_RAT_MOUSE, "The Rat Graphics Package Mouse")
 INPUT_PORTS_END
 
@@ -453,8 +453,8 @@ void coco3_state::coco3(machine_config &config)
 	m_gime->floating_bus_rd_callback().set(FUNC(coco3_state::floating_bus_r));
 
 	PIA6821(config, m_pia_0);
- 	m_pia_0->writepa_handler().set(FUNC(coco3_state::pia0_pa_w));
- 	m_pia_0->writepb_handler().set(FUNC(coco3_state::pia0_pb_w));
+ 	m_pia_0->writepa_handler().set(FUNC(coco_state::pia0_pa_w));
+ 	m_pia_0->writepb_handler().set(FUNC(coco_state::pia0_pb_w));
 	m_pia_0->tspb_handler().set_constant(0xff);
 	m_pia_0->ca2_handler().set(m_mux, FUNC(mc14529_device::a0_w));
 	m_pia_0->cb2_handler().set(m_mux, FUNC(mc14529_device::a1_w));
@@ -476,6 +476,7 @@ void coco3_state::coco3(machine_config &config)
 	m_mux->set_switching_delay(attotime::from_nsec(2236));
 	m_mux->set_mode(mc14529_device::SEL_X, mc14529_device::MODE_ANALOG);
 	m_mux->zx_analog_callback().set(FUNC(coco_state::pia0_pa7_w));
+	m_mux->address_changed_callback().set(FUNC(coco_state::mux_address_changed));
 	m_mux->set_analog_width(mc14529_device::SEL_X, 6 /* bits */);
 	m_mux->set_mode(mc14529_device::SEL_Y, mc14529_device::MODE_SOUND);
 	m_mux->add_route(mc14529_device::y_sound_output(), "speaker", 1.0);
@@ -570,7 +571,7 @@ ROM_END
 //**************************************************************************
 
 //    YEAR  NAME      PARENT COMPAT MACHINE   INPUT    CLASS        INIT        COMPANY              FULLNAME                            FLAGS
-COMP( 1986, coco3,    coco,  0,     coco3,    coco3,   coco3_state, empty_init, "Tandy Radio Shack", "Color Computer 3 (NTSC)",          0 )
-COMP( 1986, coco3p,   coco,  0,     coco3p,   coco3,   coco3_state, empty_init, "Tandy Radio Shack", "Color Computer 3 (PAL)",           0 )
-COMP( 19??, coco3h,   coco,  0,     coco3h,   coco3,   coco3_state, empty_init, "Tandy Radio Shack", "Color Computer 3 (NTSC; HD6309)",  MACHINE_UNOFFICIAL )
-COMP( 1987, msm3,     coco,  0,     coco3,    coco3,   coco3_state, empty_init, "ILCE / SEP",        "Micro-Sep Model 3",                0 )
+COMP( 1986, coco3,    coco,  0,     coco3,    coco3,   coco3_state, empty_init, "Tandy Radio Shack", "Color Computer 3 (NTSC)",          MACHINE_SUPPORTS_SAVE )
+COMP( 1986, coco3p,   coco,  0,     coco3p,   coco3,   coco3_state, empty_init, "Tandy Radio Shack", "Color Computer 3 (PAL)",           MACHINE_SUPPORTS_SAVE )
+COMP( 19??, coco3h,   coco,  0,     coco3h,   coco3,   coco3_state, empty_init, "Tandy Radio Shack", "Color Computer 3 (NTSC; HD6309)",  MACHINE_SUPPORTS_SAVE | MACHINE_UNOFFICIAL )
+COMP( 1987, msm3,     coco,  0,     coco3,    coco3,   coco3_state, empty_init, "ILCE / SEP",        "Micro-Sep Model 3",                MACHINE_SUPPORTS_SAVE )

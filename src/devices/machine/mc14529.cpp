@@ -60,6 +60,7 @@ mc14529_device::mc14529_device(const machine_config &mconfig, const char *tag, d
 	, device_sound_interface(mconfig, *this)
 	, m_write_z{ { *this }, { *this } }
 	, m_write_z_analog{ { *this }, { *this } }
+	, m_write_address_changed{ *this }
 	, m_stream(nullptr)
 	, m_tplh(attotime::from_nsec(150))
 	, m_tphl(attotime::from_nsec(150))
@@ -281,6 +282,7 @@ inline void mc14529_device::finalize_sample_capture(sound_stream &stream, unsign
 void mc14529_device::switch_selector(unsigned address)
 {
 	m_address = address;
+	m_write_address_changed(m_address);
 
 	if (m_stream)
 		m_stream->update(); // flush MODE_SOUND output(s) at the old address before switching

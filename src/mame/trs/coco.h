@@ -111,6 +111,7 @@ public:
 	std::unique_ptr<coco_joy_handler> m_joy_handlers[2];
 	void write_joystick_mux(int slot, uint8_t val);
 	void adjust_host_joy_timer(int target_slot, attotime duration);
+	void mux_address_changed(int new_address);
 	screen_device* get_screen() { return m_screen; }
 
 	// floating bus & "space"
@@ -187,6 +188,10 @@ protected:
 	optional_ioport m_joystick_type_right;
 	optional_ioport m_joystick_type_left;
 
+	// keyboard handling
+	void refresh_keyboard_matrix();
+	virtual void on_keyboard_state_changed(bool any_pressed) { } // Empty default for CoCo 1/2
+
 	// DAC output
 	uint8_t m_dac_output;
 
@@ -211,7 +216,7 @@ protected:
 	ioport_port *m_buttons;
 
 public:
-    coco_joy_handler(coco_state& host, int base_slot, ioport_port *buttons)
+    coco_joy_handler(coco_state &host, int base_slot, ioport_port *buttons)
         : m_host(host)
         , m_base_slot(base_slot)
         , m_buttons(buttons) {}
@@ -221,7 +226,8 @@ public:
     virtual bool evaluate_comparator(int dac, int joy_val);
     virtual uint8_t button_status();
     virtual void opamp_discharge() {}
-	virtual void opamp_charge(int target_slot, int joy_val) {}
+	virtual void arm_axis(int mux_axis, int joy_val, int pad_cycles) {}
+	virtual void begin_charge_cycle(int mux_addr, int joy_val) {}
     virtual void opamp_switchover(s32 target_slot) {}
 	virtual void lightgun_clock(int clock) {}
 };
@@ -242,18 +248,12 @@ public:
 class coco_tandy_hires_joy : public coco_joy_handler
 {
 public:
-	coco_tandy_hires_joy(coco_state& host, int base_slot, ioport_port *buttons)
-		: coco_joy_handler(host, base_slot, buttons)
-		, m_charging(false)
-		, m_fired(false)
-		, m_multiplier(4835.0)
-		, m_offset(535.0) {}
-// 		, m_multiplier(5850.0)
-// 		, m_offset(535.0) {}
+	coco_tandy_hires_joy(coco_state &host, int base_slot, ioport_port *buttons);
 
 	virtual bool evaluate_comparator(int dac, int joy_val) override;
+	virtual void begin_charge_cycle(int mux_addr, int joy_val) override;
     virtual void opamp_discharge() override;
-	virtual void opamp_charge(int target_slot, int joy_val) override;
+	virtual void arm_axis(int mux_axis, int joy_val, int pad_cycles) override;
 	virtual void opamp_switchover(s32 target_slot) override;
 
 protected:
@@ -266,13 +266,7 @@ protected:
 class coco_cm3_hires_joy : public coco_tandy_hires_joy
 {
 public:
-	coco_cm3_hires_joy(coco_state& host, int base_slot, ioport_port *buttons)
-		: coco_tandy_hires_joy(host, base_slot, buttons)
-	{
-		// chosen by fair dice roll
-		m_multiplier = 2885.0;
-		m_offset = 380.0;
-	}
+	coco_cm3_hires_joy(coco_state &host, int base_slot, ioport_port *buttons);
 };
 
 class coco_rat_mouse : public coco_joy_handler
@@ -285,21 +279,13 @@ public:
 class coco_diecom_light_gun : public coco_joy_handler
 {
 public:
-	coco_diecom_light_gun(coco_state& host, int base_slot, ioport_port *buttons, ioport_port *h_port, ioport_port *v_port)
-		: coco_joy_handler(host, base_slot, buttons)
-		, m_h_port(h_port)
-		, m_v_port(v_port)
-		, m_output_v(0)
-		, m_output_h(0)
-		, m_previous_bit(0)
-		, m_adaptor_state(0)
-		, m_horizontal_clock_count(0) {}
+	coco_diecom_light_gun(coco_state &host, int base_slot, ioport_port *buttons, ioport_port *h_port, ioport_port *v_port);
 
 	virtual void lightgun_clock(int clock) override;
     virtual void opamp_switchover(s32 target_slot) override;
 
 protected:
-	constexpr static const int dclg_table[] = {0, 14, 30, 49 };
+	static const int dclg_table[];
 
 	ioport_port *m_h_port;
 	ioport_port *m_v_port;

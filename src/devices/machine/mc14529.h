@@ -89,6 +89,7 @@ public:
 	// digital-mode outputs
 	auto zx_callback() { return m_write_z[SEL_X].bind(); }
 	auto zy_callback() { return m_write_z[SEL_Y].bind(); }
+	auto address_changed_callback() { return m_write_address_changed.bind(); }
 
 	// analog-mode outputs (quantized multi-bit value)
 	auto zx_analog_callback() { return m_write_z_analog[SEL_X].bind(); }
@@ -178,6 +179,7 @@ private:
 
 	devcb_write_line m_write_z[NUM_SELECTORS];        // MODE_DIGITAL output
 	devcb_write8 m_write_z_analog[NUM_SELECTORS];     // MODE_ANALOG output
+	devcb_write8 m_write_address_changed;             // All address changed events
 
 	sound_stream *m_stream; // MODE_SOUND input/output
 
