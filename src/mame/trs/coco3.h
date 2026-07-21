@@ -56,6 +56,8 @@ protected:
 	bool m_prev_keyboard_pressed = false;
 	uint8_t m_pia1b_control_register = 0U;
 
+	virtual void on_keyboard_state_changed(bool any_pressed) override;
+
 private:
 	required_device<gime_device> m_gime;
 	required_ioport m_screen_config;

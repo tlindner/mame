@@ -123,87 +123,18 @@ void coco3_state::ff40_write(offs_t offset, uint8_t data)
 
 
 
-void coco3_state::pia0_pa_w(uint8_t value)
+//-------------------------------------------------
+//  on_keyboard_state_changed
+//-------------------------------------------------
+
+void coco3_state::on_keyboard_state_changed(bool any_pressed)
 {
-	uint8_t gated_buttons = m_joy_handlers[0]->button_status() | m_joy_handlers[1]->button_status();
-
-    // Compute active-low driven rows (including joystick interference)
-    uint8_t effective_value = value & ~gated_buttons;
-
-    uint8_t pia0_pb = 0xff;
-    uint8_t any_pressed = 0;
-
-    // 2. Single-pass keyboard matrix scan
-    for (unsigned i = 0; i < m_keyboard.size(); i++)
-    {
-        uint8_t key_column = m_keyboard[i]->read();
-
-        // Accumulate inverse bits for CoCo 3 interrupt logic (0 = pressed, so ~key_column finds pressed keys)
-        any_pressed |= ~key_column;
-
-        // Base CoCo behavior: update column state if this row is driven low (0)
-        if (!(effective_value & (0x01 << i)))
-        {
-            pia0_pb &= key_column;
-        }
-    }
-
-    // Include gated joystick buttons in the CoCo 3 interrupt check
-    any_pressed |= gated_buttons;
-
-    // 3. Update Peripheral Interface Adapter (PIA)
-	pia_0().portb_w(pia0_pb);
-
-    // 4. CoCo 3 GIME Interrupt logic
-    bool pressed = (any_pressed != 0);
-    if (pressed != m_prev_keyboard_pressed)
+    if (any_pressed != m_prev_keyboard_pressed)
     {
         m_gime->set_il1(true);
         m_gime->set_il1(false);
+        m_prev_keyboard_pressed = any_pressed;
     }
-    m_prev_keyboard_pressed = pressed;
-}
-
-void coco3_state::pia0_pb_w(uint8_t value)
-{
-	uint8_t gated_buttons = m_joy_handlers[0]->button_status() | m_joy_handlers[1]->button_status();
-
-    uint8_t pia0_pa = 0x7f;
-    uint8_t any_pressed = 0;
-
-    // 2. Single-pass keyboard matrix scan
-    for (unsigned i = 0; i < m_keyboard.size(); i++)
-    {
-        uint8_t key_column = m_keyboard[i]->read();
-
-        // Accumulate inverse bits for CoCo 3 GIME interrupt logic (0 = pressed)
-        any_pressed |= ~key_column;
-
-        // Base CoCo behavior: check if any columns driven low align with low bits in 'value'
-        if ((key_column | value) != 0xff)
-        {
-            pia0_pa &= ~(0x01 << i);
-        }
-    }
-
-    // Apply base CoCo joystick interference
-    pia0_pa &= ~gated_buttons;
-
-    // Include gated joystick buttons in the CoCo 3 interrupt check
-    any_pressed |= gated_buttons;
-
-    // 3. Update Peripheral Interface Adapter (PIA)
-	m_pia0_pa_buffer = (m_pia0_pa_buffer & ~0x7f) | (pia0_pa & 0x7f);
-	pia_0().set_a_input(m_pia0_pa_buffer);
-
-    // 4. CoCo 3 GIME Interrupt logic
-    bool pressed = (any_pressed != 0);
-    if (pressed != m_prev_keyboard_pressed)
-    {
-        m_gime->set_il1(true);
-        m_gime->set_il1(false);
-    }
-    m_prev_keyboard_pressed = pressed;
 }
 
 

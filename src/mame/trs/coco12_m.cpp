@@ -103,7 +103,7 @@ void coco12_state::pia1_pb_w(uint8_t data)
 
 void deluxecoco_state::machine_start()
 {
-	coco12_state::device_start();
+	coco12_state::machine_start();
 	configure_sam();
 
 	m_ram_view.disable();
