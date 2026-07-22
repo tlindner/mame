@@ -44,7 +44,7 @@
 #define LOG_TIMER       (1U << 2)
 #define LOG_ANALOGWRITE (1U << 3)
 
-// #define VERBOSE (LOG_GENERAL|LOG_SWITCH|LOG_TIMER)
+#define VERBOSE (LOG_GENERAL|LOG_SWITCH|LOG_TIMER|LOG_ANALOGWRITE)
 
 #include "logmacro.h"
 #define LOGSWITCH(...)      LOGMASKED(LOG_SWITCH, __VA_ARGS__)
