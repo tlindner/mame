@@ -127,12 +127,12 @@ void deluxecoco_state::deluxecoco_io1(address_map &map)
 
 INPUT_PORTS_START( coco_analog_control )
 	PORT_START(CTRL_SEL_RIGHT)
-	PORT_CONFNAME(0x0f, 0x01, "Right Controller Port (P1)") PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_state::joystick_mode_changed), 0)
+	PORT_CONFNAME(0x0f, 0x00, "P1 Right Controller Port") PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_state::joystick_mode_changed), 0)
 	PORT_CONFSETTING(coco_state::JOY_DEVICE_UNCONNECTED, "Unconnected")
 	PORT_CONFSETTING(coco_state::JOY_DEVICE_STANDARD, "Joystick")
 
 	PORT_START(CTRL_SEL_LEFT)
-	PORT_CONFNAME(0x0f, 0x01, "Left Controller Port (P2)")  PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_state::joystick_mode_changed), 1)
+	PORT_CONFNAME(0x0f, 0x00, "P2 Left Controller Port")  PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_state::joystick_mode_changed), 1)
 	PORT_CONFSETTING(coco_state::JOY_DEVICE_UNCONNECTED, "Unconnected")
 	PORT_CONFSETTING(coco_state::JOY_DEVICE_STANDARD, "Joystick")
 INPUT_PORTS_END
@@ -580,7 +580,6 @@ void coco12_state::coco(machine_config &config)
 	m_mux->set_mode(mc14529_device::SEL_X, mc14529_device::MODE_ANALOG);
 	m_mux->set_analog_width(mc14529_device::SEL_X, 6 /* bits */);
 	m_mux->zx_analog_callback().set(FUNC(coco_state::pia0_pa7_w));
-// 	m_mux->address_changed_callback().set(FUNC(coco_state::mux_address_changed));
 	m_mux->set_mode(mc14529_device::SEL_Y, mc14529_device::MODE_SOUND);
 	m_mux->add_route(mc14529_device::y_sound_output(), "speaker", 1.0);
 	m_mux->set_sound_crossfade(mc14529_device::SEL_Y, attotime::from_usec(500));

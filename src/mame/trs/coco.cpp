@@ -77,7 +77,7 @@
 #include "emu.h"
 #include "coco.h"
 
-#define VERBOSE (LOG_GENERAL)
+//#define VERBOSE (LOG_GENERAL)
 #include "logmacro.h"
 
 
@@ -436,37 +436,7 @@ void coco_state::pia0_pa7_w(uint8_t value)
 	recurse = false;
 }
 
-// void coco_state::mux_address_cb(uint8_t new_address)
-// {
-//     int joy_port = BIT(new_address, 1);
-//     int axis = BIT(new_address, 0);
-//
-//     if (auto cur_joy = dynamic_cast<coco_tandy_hires_joy*>(m_joy_handlers[joy_port].get()))
-//     {
-//         uint8_t pa0_pa3 = m_pia_0->a_output() & 0x0f;
-//
-//         // If PA0-PA3 is low when switching to Axis 1, re-arm/start Axis 1's timer!
-//         if (pa0_pa3 == 0)
-//         {
-//             cur_joy->hires_trigger(pa0_pa3, machine().time(), axis, current_joystick_value(new_address));
-//         }
-//     }
-// }
 
-void coco_state::mux_address_cb(uint8_t new_address)
-{
-	LOG("%s mux_address_cb value: %02x (%11.6f)\n", machine().describe_context(), new_address, machine().time().as_double());
-    int joy_port = BIT(new_address, 1);
-    int axis = BIT(new_address, 0);
-
-    if (auto cur_joy = dynamic_cast<coco_tandy_hires_joy*>(m_joy_handlers[joy_port].get()))
-    {
-        uint8_t pa_trigger_state = m_pia_0->a_output() & 0x0f;
-
-        // Notify the joystick handler that the active MUX axis just changed!
-        cur_joy->hires_trigger(pa_trigger_state, machine().time(), axis, current_joystick_value(new_address));
-    }
-}
 
 /***************************************************************************
   PIA1 ($FF20-$FF3F) (Chip U4)
@@ -551,50 +521,6 @@ void coco_state::ff20_write(offs_t offset, uint8_t data)
 //  pia1_pa_w
 //-------------------------------------------------
 
-// void coco_state::pia1_pa_w(uint8_t data)
-// {
-// 	m_dac_output = data >> 2;
-//
-// 	m_dac->write(m_dac_output);
-//
-// 	LOG("%s pia1_pa_w: dac: %d (%11.6f)\n", machine().describe_context(), m_dac_output, machine().time().as_double());
-//
-// 	m_cassette->output((m_dac_output - 0x20) / 32.0);
-//
-// 	// update joystick comparator
-//  	pia0_pa7_w(m_mux->zx_value());
-//
-// 	int serial_bit = BIT(data, 1);
-//
-// 	if (auto* lightgun = dynamic_cast<coco_diecom_light_gun*>(m_joy_handlers[0].get()))
-// 	{
-// 		lightgun->lightgun_clock(serial_bit);
-// 	}
-// 	else
-// 	{
-// 		// output bitbanger if present (only on CoCos)
-// 		if (m_rs232 != nullptr)
-// 		{
-// 			m_rs232->write_txd(serial_bit);
-// 		}
-// 	}
-//
-// 	// handle high resolution joystick opamp
-// 	uint8_t mux_addr = m_mux->current_address();
-// 	int joy_port = BIT(mux_addr, 1);
-// 	if (auto cur_joy = dynamic_cast<coco_cm3_hires_joy*>(m_joy_handlers[joy_port].get()))
-// 	{
-// 		// required for rtti
-// 		LOG("%s pia1_pa_w (cm3) (%11.6f)\n", machine().describe_context(), machine().time().as_double());
-// 		cur_joy->hires_trigger(m_pia_0->a_output() & 0x0f, machine().time(), BIT(mux_addr, 0), current_joystick_value(mux_addr));
-// 	}
-// 	else if (auto cur_joy = dynamic_cast<coco_tandy_hires_joy*>(m_joy_handlers[joy_port].get()))
-// 	{
-// 		LOG("%s pia1_pa_w (tandy) (%11.6f)\n", machine().describe_context(), machine().time().as_double());
-//
-// 		cur_joy->hires_trigger(m_dac_output, machine().time(), BIT(mux_addr, 0), current_joystick_value(mux_addr));
-// 	}
-// }
 void coco_state::pia1_pa_w(uint8_t data)
 {
     m_dac_output = data >> 2;
@@ -607,18 +533,17 @@ void coco_state::pia1_pa_w(uint8_t data)
     // Update joystick comparator & trigger handlers
     pia0_pa7_w(m_mux->zx_value());
 
+	// special case joystick handling
 	uint8_t mux_addr = m_mux->current_address();
 	int joy_port = BIT(mux_addr, 1);
 	if (auto cur_joy = dynamic_cast<coco_cm3_hires_joy*>(m_joy_handlers[joy_port].get()))
 	{
-		// required for rtti
 		LOG("%s pia1_pa_w (cm3) (%11.6f)\n", machine().describe_context(), machine().time().as_double());
 		cur_joy->hires_trigger(m_pia_0->a_output() & 0x0f, machine().time(), BIT(mux_addr, 0), current_joystick_value(mux_addr));
 	}
 	else if (auto cur_joy = dynamic_cast<coco_tandy_hires_joy*>(m_joy_handlers[joy_port].get()))
 	{
 		LOG("%s pia1_pa_w (tandy) (%11.6f)\n", machine().describe_context(), machine().time().as_double());
-
 		cur_joy->hires_trigger(m_dac_output, machine().time(), BIT(mux_addr, 0), current_joystick_value(mux_addr));
 	}
 
@@ -1071,15 +996,15 @@ std::unique_ptr<coco_joy_handler> coco_state::make_joy_handler(uint8_t selection
 
     switch (selection)
     {
-        case JOY_DEVICE_UNCONNECTED: return std::make_unique<coco_joy_disconnected>(*this, port, ioport(JOYSTICK_BUTTONS_TAG));
         case JOY_DEVICE_STANDARD:    return std::make_unique<coco_joy_standard>(*this, port, ioport(JOYSTICK_BUTTONS_TAG));
         case JOY_DEVICE_TANDY_HIRES: return std::make_unique<coco_tandy_hires_joy>(*this, port, ioport(JOYSTICK_BUTTONS_TAG));
         case JOY_DEVICE_CM3_HIRES:   return std::make_unique<coco_cm3_hires_joy>(*this, port, ioport(JOYSTICK_BUTTONS_TAG));
         case JOY_DEVICE_RAT_MOUSE:   return std::make_unique<coco_rat_mouse>(*this, port, ioport(RAT_MOUSE_BUTTONS_TAG));
         case JOY_DEVICE_DIECOM_LG:   return std::make_unique<coco_diecom_light_gun>(*this, port,
         	ioport(DIECOM_LIGHTGUN_BUTTONS_TAG), ioport(DIECOM_LIGHTGUN_RX_TAG), ioport(DIECOM_LIGHTGUN_RY_TAG));
+        case JOY_DEVICE_UNCONNECTED: return std::make_unique<coco_joy_disconnected>(*this, port, ioport(JOYSTICK_BUTTONS_TAG));
         default:
-			osd_printf_warning("Unknown Color Computer joystick.\n");
+			fatalerror("Unknown Color Computer joystick.\n");
 			return nullptr;
     }
 }
@@ -1195,7 +1120,6 @@ coco_tandy_hires_joy::coco_tandy_hires_joy(coco_state &host, int base_slot, iopo
 	, m_multiplier(4856.0)
 	, m_offset(560.0)
 	, m_was_low(false)
-	, m_fired(false)
 	, m_charge_start_time{attotime::zero}
 {
 }
@@ -1207,23 +1131,17 @@ coco_tandy_hires_joy::coco_tandy_hires_joy(coco_state &host, int base_slot, iopo
 
 void coco_tandy_hires_joy::hires_trigger(uint8_t state, attotime current_time, int axis, int joy_val)
 {
-	static bool recurse;
-	if (recurse) fatalerror("hires_trigger recursion not allowed\n");
-	recurse = true;
-
     bool is_low = (state == 0); // PA0-PA3 cleared
 
     if (!m_was_low && is_low)
     {
-		m_host.logerror("CM3_TRIG: H->L | axis=%d | start=%.6f | val=%d\n", axis, current_time.as_double(), joy_val);
-
+// 		m_host.logerror("CM3_TRIG: H->L | axis=%d | start=%.6f | val=%d\n", axis, current_time.as_double(), joy_val);
         m_charge_start_time = current_time; // Cache the start timestamp
 
         double usec_val = (joy_val / 1023.0) * m_multiplier + m_offset;
         attotime total_duration = attotime::from_usec(s64(usec_val));
 
         m_host.adjust_host_joy_timer(m_base_slot + axis, total_duration);
-        m_fired = false;
     }
     else if (m_was_low && is_low)
     {
@@ -1238,31 +1156,27 @@ void coco_tandy_hires_joy::hires_trigger(uint8_t state, attotime current_time, i
         {
             // The previous start time is completely stale (> duration ago).
             // Re-arm as a fresh charge cycle starting RIGHT NOW!
-            m_host.logerror("CM3_TRIG: L->L RE-ARM | axis=%d | start=%.6f | val=%d\n", axis, current_time.as_double(), joy_val);
+//             m_host.logerror("CM3_TRIG: L->L RE-ARM | axis=%d | start=%.6f | val=%d\n", axis, current_time.as_double(), joy_val);
             m_charge_start_time = current_time;
             m_host.adjust_host_joy_timer(m_base_slot + axis, total_duration);
-            m_fired = false;
         }
         else
         {
             // Reschedule timer for remaining time of a active charge
-            double remaining_us = (m_charge_start_time - current_time).as_double() * 1e6;
-            m_host.logerror("CM3_TRIG: L->L | axis=%d | target_diff_us=%.2f | val=%d\n", axis, remaining_us, joy_val);
-
+//             double remaining_us = (m_charge_start_time - current_time).as_double() * 1e6;
+//             m_host.logerror("CM3_TRIG: L->L | axis=%d | target_diff_us=%.2f | val=%d\n", axis, remaining_us, joy_val);
             m_host.adjust_host_joy_timer(m_base_slot + axis, target_time - current_time);
-            m_fired = false;
         }
     }
     else if (!is_low)
     {
         m_host.adjust_host_joy_timer(m_base_slot + axis, attotime::never);
-		m_fired = false;
 		m_host.write_joystick_mux(m_base_slot + axis, 0x0);
     }
 
 	m_was_low = is_low;
-	recurse = false;
 }
+
 
 
 //-------------------------------------------------
@@ -1271,15 +1185,10 @@ void coco_tandy_hires_joy::hires_trigger(uint8_t state, attotime current_time, i
 
 bool coco_tandy_hires_joy::evaluate_comparator(int dac, int joy_val)
 {
-	m_host.logerror("%s coco_tandy_hires_joy::evaluate_comparator %d > %d (%11.6f)\n", m_host.machine().describe_context().c_str(), joy_val, dac, m_host.machine().time().as_double());
+// 	m_host.logerror("%s coco_tandy_hires_joy::evaluate_comparator %d > %d (%11.6f)\n", m_host.machine().describe_context().c_str(), joy_val, dac, m_host.machine().time().as_double());
 	return joy_val > dac;
 }
-// bool coco_tandy_hires_joy::evaluate_comparator(int dac, int joy_val)
-// {
-// 	uint8_t mux_addr = m_host.get_mux()->current_address();
-//     int axis = BIT(mux_addr, 0);
-// 	return m_fired;
-// }
+
 
 
 //-------------------------------------------------
@@ -1288,8 +1197,7 @@ bool coco_tandy_hires_joy::evaluate_comparator(int dac, int joy_val)
 
 void coco_tandy_hires_joy::saturated(s32 mux_address)
 {
-	m_host.logerror("%s saturated fired (%11.6f)\n", m_host.machine().describe_context().c_str(), m_host.machine().time().as_double());
-	m_fired = true;
+// 	m_host.logerror("%s saturated fired (%11.6f)\n", m_host.machine().describe_context().c_str(), m_host.machine().time().as_double());
     m_host.write_joystick_mux(mux_address, 0x3f);
 }
 
@@ -1305,8 +1213,20 @@ coco_cm3_hires_joy::coco_cm3_hires_joy(coco_state &host, int base_slot, ioport_p
 	// chosen by fair dice roll
 	m_multiplier = 2624.0;
 	m_offset = 500;
-	m_host.logerror("%s coco_cm3_hires_joy m_multiplier %f m_offset %f (%11.6f)\n", m_host.machine().describe_context().c_str(), m_multiplier, m_offset, m_host.machine().time().as_double());
 }
+
+
+
+bool coco_rat_mouse::evaluate_comparator(int dac, int joy_val)
+{
+	return  dac <= joy_val;
+}
+
+//-------------------------------------------------
+//  joy_rat_table
+//-------------------------------------------------
+
+const int coco_rat_mouse::joy_rat_table[] = {15, 24, 42, 33 };
 
 
 
@@ -1317,7 +1237,8 @@ coco_cm3_hires_joy::coco_cm3_hires_joy(coco_state &host, int base_slot, ioport_p
 void coco_rat_mouse::joy_changed(int axis, int joy_val)
 {
     int target_slot = m_base_slot + axis;
-    m_host.write_joystick_mux(target_slot, joy_val);
+    fprintf(stderr,"coco_rat_mouse::joy_changed target_slot: %d, joy_val: %d\n", target_slot,joy_val );
+    m_host.write_joystick_mux(target_slot, joy_rat_table[joy_val]);
 }
 
 

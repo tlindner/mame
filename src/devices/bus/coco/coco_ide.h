@@ -18,8 +18,7 @@
 class coco_ide_device :
 		public device_t,
 		public device_cococart_interface,
-		public device_cococart_host_interface,
-		public device_sound_interface
+		public device_cococart_host_interface
 {
 public:
 	// construction/destruction
@@ -33,7 +32,7 @@ protected:
 	// device-level overrides
 	virtual void device_start() override ATTR_COLD;
 	virtual void device_reset() override ATTR_COLD;
-	virtual void sound_stream_update(sound_stream &stream) override ATTR_COLD;
+// 	virtual void sound_stream_update(sound_stream &stream) override ATTR_COLD;
 
 	virtual u8 cts_read(offs_t offset) override;
 	virtual void cts_write(offs_t offset, u8 data) override;
