@@ -76,12 +76,12 @@ class coco_state : public driver_device, public device_cococart_host_interface
 {
 public:
 	enum {
-		JOY_DEVICE_UNCONNECTED = 0,
-		JOY_DEVICE_STANDARD    = 1,
-		JOY_DEVICE_TANDY_HIRES = 2,
-		JOY_DEVICE_CM3_HIRES   = 3,
-		JOY_DEVICE_RAT_MOUSE   = 4,
-		JOY_DEVICE_DIECOM_LG   = 5,
+		JOY_DEVICE_STANDARD    = 0,
+		JOY_DEVICE_TANDY_HIRES = 1,
+		JOY_DEVICE_CM3_HIRES   = 2,
+		JOY_DEVICE_RAT_MOUSE   = 3,
+		JOY_DEVICE_DIECOM_LG   = 4,
+		JOY_DEVICE_UNCONNECTED = 5,
 	};
 
 	coco_state(const machine_config &mconfig, device_type type, const char *tag);
@@ -111,7 +111,7 @@ public:
 	std::unique_ptr<coco_joy_handler> m_joy_handlers[2];
 	void write_joystick_mux(int slot, uint8_t val);
 	void adjust_host_joy_timer(int target_slot, attotime duration);
-	void mux_address_cb(uint8_t value);
+// 	void mux_address_cb(uint8_t value);
 	screen_device *get_screen() { return m_screen; }
 	mc14529_device *get_mux() {return m_mux; }
 
@@ -257,7 +257,6 @@ protected:
     double m_multiplier;
     double m_offset;
 	bool m_was_low;
-    bool m_fired;
     attotime m_charge_start_time;
 };
 
@@ -272,6 +271,8 @@ class coco_rat_mouse : public coco_joy_handler
 public:
     using coco_joy_handler::coco_joy_handler;
 	virtual void joy_changed(int axis, int joy_val) override;
+	static const int joy_rat_table[];
+	virtual bool evaluate_comparator(int dac, int joy_val) override;
 };
 
 class coco_diecom_light_gun : public coco_joy_handler
