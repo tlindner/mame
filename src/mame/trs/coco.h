@@ -270,9 +270,7 @@ class coco_rat_mouse : public coco_joy_handler
 {
 public:
     using coco_joy_handler::coco_joy_handler;
-	virtual void joy_changed(int axis, int joy_val) override;
 	static const int joy_rat_table[];
-	virtual bool evaluate_comparator(int dac, int joy_val) override;
 };
 
 class coco_diecom_light_gun : public coco_joy_handler
