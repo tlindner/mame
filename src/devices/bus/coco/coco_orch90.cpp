@@ -63,12 +63,21 @@ namespace
 			, m_eprom(*this, "eprom")
 			, m_ldac(*this, "ldac")
 			, m_rdac(*this, "rdac")
+			, m_speaker(*this, "speaker")
+			, m_stereo_config(*this, "CART_STEREO")
 		{
 		}
+
+		// device_t implementation
+		virtual void device_resolve_objects() override ATTR_COLD;
+
+		// UI Port changed callback
+		DECLARE_INPUT_CHANGED_MEMBER(stereo_changed);
 
 	protected:
 		// optional information overrides
 		virtual void device_add_mconfig(machine_config &config) override ATTR_COLD;
+		virtual ioport_constructor device_input_ports() const override ATTR_COLD;
 
 		// device-level overrides
 		virtual void device_start() override
@@ -79,6 +88,18 @@ namespace
 
 			// Orch-90 ties CART to Q
 			set_line_value(line::CART, line_value::Q);
+		}
+
+		virtual void device_reset() override
+		{
+			// Input ports are fully initialized by reset time!
+			update_stereo_state(m_stereo_config->read());
+		}
+
+		virtual void device_post_load() override
+		{
+			// Sync RCA stereo speaker gain after loading a save state
+			update_stereo_state(m_stereo_config->read());
 		}
 
 		virtual const tiny_rom_entry *device_rom_region() const override
@@ -103,23 +124,73 @@ namespace
 		void write_left(u8 data)   { m_ldac->write(data); }
 		void write_right(u8 data)  { m_rdac->write(data); }
 
+		void update_stereo_state(u8 state)
+		{
+			// Control INCOMING gain on the single stereo speaker!
+			// Input Index 0 = Left DAC route, Input Index 1 = Right DAC route
+			float gain = (state & 0x01) ? 1.0f : 0.0f;
+			m_speaker->set_input_gain(0, gain);
+			m_speaker->set_input_gain(1, gain);
+		}
+
 		// internal state
 		required_memory_region m_eprom;
-		required_device<dac_byte_interface> m_ldac;
-		required_device<dac_byte_interface> m_rdac;
+		required_device<dac_byte_device_base> m_ldac;
+		required_device<dac_byte_device_base> m_rdac;
+		required_device<speaker_device> m_speaker;
+		required_ioport m_stereo_config;
 	};
 
 
 	//**************************************************************************
-	//  MACHINE AND ROM DECLARATIONS
+	//  INPUT PORTS WITH CHANGED CALLBACK
 	//**************************************************************************
+
+	INPUT_PORTS_START(coco_orch90)
+		PORT_START("CART_STEREO")
+		PORT_CONFNAME(0x01, 0x01, "Orch-90 RCA Stereo Output")
+		PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_orch90_device::stereo_changed), 0)
+		PORT_CONFSETTING(0x00, "Disabled")
+		PORT_CONFSETTING(0x01, "Enabled")
+	INPUT_PORTS_END
+
+
+	//**************************************************************************
+	//  MACHINE IMPLEMENTATION
+	//**************************************************************************
+
+	INPUT_CHANGED_MEMBER(coco_orch90_device::stereo_changed)
+	{
+		update_stereo_state(newval);
+	}
+
+	ioport_constructor coco_orch90_device::device_input_ports() const
+	{
+		return INPUT_PORTS_NAME(coco_orch90);
+	}
 
 	void coco_orch90_device::device_add_mconfig(machine_config &config)
 	{
-		SPEAKER(config, "speaker", 2).front();
-		DAC_8BIT_R2R(config, m_ldac, 0).add_route(ALL_OUTPUTS, "speaker", 0.5, 0); // ls374.ic5 + r7 (8x20k) + r9 (8x10k)
-		DAC_8BIT_R2R(config, m_rdac, 0).add_route(ALL_OUTPUTS, "speaker", 0.5, 1); // ls374.ic4 + r6 (8x20k) + r8 (8x10k)
+		// Single Stereo Speaker (2 output channels)
+		SPEAKER(config, m_speaker, 2).front();
+
+		// Route Left DAC to Speaker Input 0 (Left channel, 0.5 gain)
+		// Route Right DAC to Speaker Input 1 (Right channel, 0.5 gain)
+		DAC_8BIT_R2R(config, m_ldac, 0).add_route(ALL_OUTPUTS, "speaker", 0.5, 0);
+		DAC_8BIT_R2R(config, m_rdac, 0).add_route(ALL_OUTPUTS, "speaker", 0.5, 1);
 	}
+
+	//-------------------------------------------------
+	//  device_resolve_objects
+	//-------------------------------------------------
+
+	void coco_orch90_device::device_resolve_objects()
+	{
+		// Mono downmix back to the CoCo system cartridge audio input line
+		add_sound_route(*m_ldac, ALL_OUTPUTS, 0.25);
+		add_sound_route(*m_rdac, ALL_OUTPUTS, 0.25);
+	}
+
 
 	//-------------------------------------------------
 	//  cts_read
@@ -130,7 +201,8 @@ namespace
 		return m_eprom->base()[offset & 0x1fff];
 	}
 
-}
+} // anonymous namespace
+
 //**************************************************************************
 //  DEVICE DECLARATION
 //**************************************************************************
