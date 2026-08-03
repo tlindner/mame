@@ -79,8 +79,7 @@ namespace
 
 	class coco_ssc_device :
 			public device_t,
-			public device_cococart_interface,
-			public device_sound_interface
+			public device_cococart_interface
 	{
 	public:
 		// construction/destruction
@@ -104,10 +103,8 @@ namespace
 		virtual void device_start() override ATTR_COLD;
 		u8 ff7d_read(offs_t offset);
 		void ff7d_write(offs_t offset, u8 data);
-		virtual void sound_stream_update(sound_stream &stream) override;
 
 	private:
-		sound_stream                           *m_mixer_stream;
 		u8                                      m_reset_line;
 		bool                                    m_tms7000_busy;
 		u8                                      m_tms7000_porta;
@@ -179,12 +176,11 @@ void coco_ssc_device::device_add_mconfig(machine_config &config)
 	RAM(config, "staticram").set_default_size("2K").set_default_value(0);
 
 	SP0256(config, m_spo, XTAL(3'120'000));
-	m_spo->add_route(ALL_OUTPUTS, *this, SP0256_GAIN);
 	m_spo->data_request_callback().set_inputline(m_tms7040, TMS7000_INT1_LINE);
 
 	COCOSSC_SAC(config, m_sac, DERIVED_CLOCK(2, 1));
-	m_sac->add_route(ALL_OUTPUTS, *this, 1.0);
 
+	// Internal AY route goes into the SAC filter
 	AY8913(config, m_ay, DERIVED_CLOCK(2, 1));
 	m_ay->set_flags(AY8910_SINGLE_OUTPUT);
 	m_ay->add_route(ALL_OUTPUTS, m_sac, AY8913_GAIN);
@@ -208,7 +204,6 @@ ROM_END
 coco_ssc_device::coco_ssc_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock)
 		: device_t(mconfig, COCO_SSC, tag, owner, clock),
 		device_cococart_interface(mconfig, *this ),
-		device_sound_interface(mconfig, *this),
 		m_tms7040(*this, PIC_TAG),
 		m_staticram(*this, "staticram"),
 		m_ay(*this, AY_TAG),
@@ -228,8 +223,6 @@ void coco_ssc_device::device_start()
 			read8sm_delegate(*this, FUNC(coco_ssc_device::ff7d_read)),
 			write8sm_delegate(*this, FUNC(coco_ssc_device::ff7d_write)));
 
-	m_mixer_stream = stream_alloc(1, 1, machine().sample_rate());
-
 	save_item(NAME(m_reset_line));
 	save_item(NAME(m_tms7000_busy));
 	save_item(NAME(m_tms7000_porta));
@@ -237,17 +230,6 @@ void coco_ssc_device::device_start()
 	save_item(NAME(m_tms7000_portc));
 	save_item(NAME(m_tms7000_portd));
 }
-
-
-//-------------------------------------------------
-//  sound_stream_update
-//-------------------------------------------------
-
-void coco_ssc_device::sound_stream_update(sound_stream &stream)
-{
-	stream.copy(0, 0);
-}
-
 
 //-------------------------------------------------
 //  device_reset - device-specific reset
@@ -266,7 +248,8 @@ void coco_ssc_device::device_reset()
 
 void coco_ssc_device::device_resolve_objects()
 {
-	add_sound_route(*this, 0, 1.0);
+	add_sound_route(*m_spo, ALL_OUTPUTS, SP0256_GAIN);
+	add_sound_route(*m_sac, ALL_OUTPUTS, 1.0);
 }
 
 

@@ -32,7 +32,6 @@ protected:
 	// device-level overrides
 	virtual void device_start() override ATTR_COLD;
 	virtual void device_reset() override ATTR_COLD;
-// 	virtual void sound_stream_update(sound_stream &stream) override ATTR_COLD;
 
 	virtual u8 cts_read(offs_t offset) override;
 	virtual void cts_write(offs_t offset, u8 data) override;
