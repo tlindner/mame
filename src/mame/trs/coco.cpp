@@ -410,10 +410,6 @@ void coco_state::refresh_keyboard_matrix()
 
 void coco_state::pia0_pa7_w(uint8_t value)
 {
-	static bool recurse;
-	if (recurse) fatalerror("pia0_pa7_w recursion not allowed\n");
-	recurse = true;
-
 	uint8_t mux_addr = m_mux->current_address();
 	int joy_port = BIT(mux_addr, 1);
 
@@ -428,12 +424,32 @@ void coco_state::pia0_pa7_w(uint8_t value)
 		cur_joy->hires_trigger(m_dac_output, machine().time(), BIT(mux_addr, 0), current_joystick_value(mux_addr));
 	}
 
-    bool result = m_joy_handlers[joy_port]->evaluate_comparator(m_dac_output, value);
+	bool result;
+	if (auto cur_rat = dynamic_cast<coco_rat_mouse*>(m_joy_handlers[joy_port].get()))
+	{
+		int raw_axis_val;
+		switch (mux_addr)
+		{
+			case 0: raw_axis_val= ioport(RAT_MOUSE_RX_TAG)->read(); break;
+			case 1: raw_axis_val= ioport(RAT_MOUSE_RY_TAG)->read(); break;
+			case 2: raw_axis_val= ioport(RAT_MOUSE_LX_TAG)->read(); break;
+			case 3: raw_axis_val= ioport(RAT_MOUSE_LY_TAG)->read(); break;
+			default:
+				osd_printf_warning("Unknown Color Computer joystick axis.\n");
+				raw_axis_val = 0;
+				break;
+		}
+
+		int translated = coco_rat_mouse::joy_rat_table[raw_axis_val];
+		result = cur_rat->evaluate_comparator(m_dac_output, translated);
+	}
+	else
+	{
+		result = m_joy_handlers[joy_port]->evaluate_comparator(m_dac_output, value);
+	}
     m_pia0_pa_buffer = (m_pia0_pa_buffer & ~0x80) | (result ? 0x80 : 0);
     m_pia_0->set_a_input(m_pia0_pa_buffer);
 	LOG("%s pia0_pa7_w, setting comparator: %d (%11.6f)\n", machine().describe_context(), result, machine().time().as_double());
-
-	recurse = false;
 }
 
 
@@ -1135,7 +1151,6 @@ void coco_tandy_hires_joy::hires_trigger(uint8_t state, attotime current_time, i
 
     if (!m_was_low && is_low)
     {
-// 		m_host.logerror("CM3_TRIG: H->L | axis=%d | start=%.6f | val=%d\n", axis, current_time.as_double(), joy_val);
         m_charge_start_time = current_time; // Cache the start timestamp
 
         double usec_val = (joy_val / 1023.0) * m_multiplier + m_offset;
@@ -1156,7 +1171,6 @@ void coco_tandy_hires_joy::hires_trigger(uint8_t state, attotime current_time, i
         {
             // The previous start time is completely stale (> duration ago).
             // Re-arm as a fresh charge cycle starting RIGHT NOW!
-//             m_host.logerror("CM3_TRIG: L->L RE-ARM | axis=%d | start=%.6f | val=%d\n", axis, current_time.as_double(), joy_val);
             m_charge_start_time = current_time;
             m_host.adjust_host_joy_timer(m_base_slot + axis, total_duration);
         }
@@ -1164,7 +1178,6 @@ void coco_tandy_hires_joy::hires_trigger(uint8_t state, attotime current_time, i
         {
             // Reschedule timer for remaining time of a active charge
 //             double remaining_us = (m_charge_start_time - current_time).as_double() * 1e6;
-//             m_host.logerror("CM3_TRIG: L->L | axis=%d | target_diff_us=%.2f | val=%d\n", axis, remaining_us, joy_val);
             m_host.adjust_host_joy_timer(m_base_slot + axis, target_time - current_time);
         }
     }
@@ -1185,7 +1198,6 @@ void coco_tandy_hires_joy::hires_trigger(uint8_t state, attotime current_time, i
 
 bool coco_tandy_hires_joy::evaluate_comparator(int dac, int joy_val)
 {
-// 	m_host.logerror("%s coco_tandy_hires_joy::evaluate_comparator %d > %d (%11.6f)\n", m_host.machine().describe_context().c_str(), joy_val, dac, m_host.machine().time().as_double());
 	return joy_val > dac;
 }
 
@@ -1197,7 +1209,6 @@ bool coco_tandy_hires_joy::evaluate_comparator(int dac, int joy_val)
 
 void coco_tandy_hires_joy::saturated(s32 mux_address)
 {
-// 	m_host.logerror("%s saturated fired (%11.6f)\n", m_host.machine().describe_context().c_str(), m_host.machine().time().as_double());
     m_host.write_joystick_mux(mux_address, 0x3f);
 }
 
@@ -1217,29 +1228,11 @@ coco_cm3_hires_joy::coco_cm3_hires_joy(coco_state &host, int base_slot, ioport_p
 
 
 
-bool coco_rat_mouse::evaluate_comparator(int dac, int joy_val)
-{
-	return  dac <= joy_val;
-}
-
 //-------------------------------------------------
 //  joy_rat_table
 //-------------------------------------------------
 
 const int coco_rat_mouse::joy_rat_table[] = {15, 24, 42, 33 };
-
-
-
-//-------------------------------------------------
-//  coco_rat_mouse::joy_changed
-//-------------------------------------------------
-
-void coco_rat_mouse::joy_changed(int axis, int joy_val)
-{
-    int target_slot = m_base_slot + axis;
-    fprintf(stderr,"coco_rat_mouse::joy_changed target_slot: %d, joy_val: %d\n", target_slot,joy_val );
-    m_host.write_joystick_mux(target_slot, joy_rat_table[joy_val]);
-}
 
 
 
