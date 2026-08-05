@@ -35,9 +35,7 @@ class coco_xsid_device : public device_t, public device_cococart_interface
 		// optional information overrides
 		virtual void device_add_mconfig(machine_config &config) override ATTR_COLD
 		{
-			SPEAKER(config, "speaker").front_center();
 			MOS8580(config, m_sid, 1'000'000); // not sure what it's derived from
-			m_sid->add_route(ALL_OUTPUTS, "speaker", 1.0);
 		}
 
 		virtual u8 scs_read(offs_t offset) override
@@ -48,6 +46,12 @@ class coco_xsid_device : public device_t, public device_cococart_interface
 		virtual void scs_write(offs_t offset, u8 data) override
 		{
 			m_sid->write(offset, data);
+		}
+
+		void device_resolve_objects() override
+		{
+			// Mono back to the CoCo system cartridge audio input line
+			add_sound_route(*m_sid, ALL_OUTPUTS, 1.0);
 		}
 
 	private:
