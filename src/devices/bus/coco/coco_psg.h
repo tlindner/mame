@@ -44,11 +44,9 @@ private:
 	required_device<ay8910_device> m_psg;
 	required_device<sst_39sf040_device> m_flash;
 	required_device<speaker_device> m_speaker;
-	required_ioport m_stereo_config;
 
 	void flash2aaa_w(offs_t offset, u8 data);
 	void flash5555_w(offs_t offset, u8 data);
-	void update_stereo_state(u8 state);
 
 	std::unique_ptr<u8[]> m_sram;
 	u8 m_bank[2];

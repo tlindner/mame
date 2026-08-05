@@ -231,6 +231,7 @@ void coco_ssc_device::device_start()
 	save_item(NAME(m_tms7000_portd));
 }
 
+
 //-------------------------------------------------
 //  device_reset - device-specific reset
 //-------------------------------------------------
@@ -444,7 +445,7 @@ u8 coco_ssc_device::ssc_port_d_r()
 
 	if ((m_tms7000_portc & C_ACS) == 0) /* chip select for AY-3-8913 */
 	{
-		if ( ((m_tms7000_portc & C_BDR) == 0) && ((m_tms7000_portc & C_BC1) == C_BC1)) /* psg read data */
+		if (((m_tms7000_portc & C_BDR) == 0) && ((m_tms7000_portc & C_BC1) == C_BC1)) /* psg read data */
 		{
 			m_tms7000_portd = m_ay->data_r();
 		}

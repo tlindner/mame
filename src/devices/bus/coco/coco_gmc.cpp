@@ -53,8 +53,6 @@ namespace
 
 void coco_pak_gmc_device::device_add_mconfig(machine_config &config)
 {
-// 	SPEAKER(config, "gmc_speaker").front_center();
-// 	SN76489A(config, m_psg, 4_MHz_XTAL).add_route(ALL_OUTPUTS, "gmc_speaker", 1.0);
 	SN76489A(config, m_psg, 4_MHz_XTAL);
 }
 

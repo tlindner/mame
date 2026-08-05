@@ -13,7 +13,7 @@
     connected thru a PIA. It contained no ROM.
 
     It had two modes mono and stereo. Picked by jumper.
-    We emulate stereo to the devices RCA jacks, and mono back thru the
+    We emulate stereo to the device's RCA jacks, and mono back thru the
     cartridge port.
 
 ***************************************************************************/
@@ -68,8 +68,6 @@ namespace
 		void write_psg(u8 bus, u8 data);
 
 	private:
-		void update_routes();
-
 		// internal state
 		required_device<pia6821_device> m_pia;
 		required_device_array<ay8910_device, 4> m_ay8910;
@@ -118,7 +116,6 @@ namespace
 		add_sound_route(*m_ay8910[2], ALL_OUTPUTS, 0.125);
 		add_sound_route(*m_ay8910[3], ALL_OUTPUTS, 0.125);
 	}
-
 
 	//**************************************************************************
 	//  SYMPHONY_TWELVE PSG I/O
@@ -193,6 +190,7 @@ namespace
 		}
 	}
 }
+
 
 //**************************************************************************
 //  DEVICE DECLARATION

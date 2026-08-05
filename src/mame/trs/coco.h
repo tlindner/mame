@@ -111,7 +111,6 @@ public:
 	std::unique_ptr<coco_joy_handler> m_joy_handlers[2];
 	void write_joystick_mux(int slot, uint8_t val);
 	void adjust_host_joy_timer(int target_slot, attotime duration);
-// 	void mux_address_cb(uint8_t value);
 	screen_device *get_screen() { return m_screen; }
 	mc14529_device *get_mux() {return m_mux; }
 
@@ -180,6 +179,7 @@ protected:
 	optional_ioport m_beckerportconfig;
 	required_device<input_merger_device> m_irqs;
 	required_device<input_merger_device> m_firqs;
+	required_ioport_array<4> m_joystick_ports;
 
 	// input ports
 	void update_input_port(int port, uint8_t selection);

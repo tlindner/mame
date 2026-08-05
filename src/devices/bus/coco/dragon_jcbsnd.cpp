@@ -89,7 +89,7 @@ void dragon_jcbsnd_device::device_add_mconfig(machine_config &config)
 
 void dragon_jcbsnd_device::device_resolve_objects()
 {
-	// mono back to the CoCo system cartridge audio input line
+	// mono back to the Dragon system cartridge audio input line
 	add_sound_route(*m_ay8910, ALL_OUTPUTS, 1.0);
 }
 
