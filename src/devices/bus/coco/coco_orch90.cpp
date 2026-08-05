@@ -107,15 +107,6 @@ namespace
 		void write_left(u8 data)   { m_ldac->write(data); }
 		void write_right(u8 data)  { m_rdac->write(data); }
 
-		void update_stereo_state(u8 state)
-		{
-			// Control INCOMING gain on the single stereo speaker!
-			// Input Index 0 = Left DAC route, Input Index 1 = Right DAC route
-			float gain = (state & 0x01) ? 1.0f : 0.0f;
-			m_speaker->set_input_gain(0, gain);
-			m_speaker->set_input_gain(1, gain);
-		}
-
 		// internal state
 		required_memory_region m_eprom;
 		required_device<dac_byte_device_base> m_ldac;

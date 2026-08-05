@@ -110,12 +110,14 @@ coco_state::coco_state(const machine_config &mconfig, device_type type, const ch
 	m_beckerportconfig(*this, BECKERPORT_TAG),
 	m_irqs(*this, "irqs"),
 	m_firqs(*this, "firqs"),
+	m_joystick_ports(*this, {JOYSTICK_RX_TAG, JOYSTICK_RY_TAG, JOYSTICK_LX_TAG, JOYSTICK_LY_TAG}),
 	m_keyboard(*this, "row%u", 0),
 	m_joystick_type_right(*this, CTRL_SEL_RIGHT),
 	m_joystick_type_left(*this, CTRL_SEL_LEFT),
 	m_in_floating_bus_read(false)
 {
 }
+
 
 
 
@@ -317,17 +319,7 @@ void coco_state::pia0_pa_w(uint8_t value)
 
 int coco_state::current_joystick_value(uint8_t mux_addr)
 {
-	switch (mux_addr)
-	{
-		case 0: return ioport(JOYSTICK_RX_TAG)->read(); break;
-		case 1: return ioport(JOYSTICK_RY_TAG)->read(); break;
-		case 2: return ioport(JOYSTICK_LX_TAG)->read(); break;
-		case 3: return ioport(JOYSTICK_LY_TAG)->read(); break;
-		default:
-			osd_printf_warning("Unknown Color Computer joystick axis.\n");
-			return 0;
-			break;
-	}
+	return m_joystick_ports[mux_addr & 3]->read();
 }
 
 

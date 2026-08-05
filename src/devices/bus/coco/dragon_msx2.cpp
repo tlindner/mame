@@ -11,7 +11,6 @@
 #include "dragon_msx2.h"
 #include "render.h"
 #include "screen.h"
-#include "speaker.h"
 
 
 //**************************************************************************
