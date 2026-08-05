@@ -53,6 +53,10 @@ const tiny_rom_entry *coco_psg_device::device_rom_region() const
 //  INPUT_PORTS( cocopsg )
 //-------------------------------------------------
 
+	//**************************************************************************
+	//  INPUT PORTS WITH CHANGED CALLBACK
+	//**************************************************************************
+
 static INPUT_PORTS_START(cocopsg)
 	PORT_START("GAMEPORT_A")
 	PORT_BIT(0x01, IP_ACTIVE_LOW, IPT_JOYSTICK_UP) PORT_8WAY PORT_PLAYER(1)
@@ -90,11 +94,13 @@ ioport_constructor coco_psg_device::device_input_ports() const
 
 void coco_psg_device::device_add_mconfig(machine_config &config)
 {
-	SPEAKER(config, "speaker").front_center();
+	SPEAKER(config, m_speaker).front_center();
+
 	YM2149(config, m_psg, 1_MHz_XTAL);
+	m_psg->set_flags(AY8910_SINGLE_OUTPUT);
 	m_psg->port_a_read_callback().set_ioport("GAMEPORT_A");
 	m_psg->port_b_read_callback().set_ioport("GAMEPORT_B");
-	m_psg->add_route(ALL_OUTPUTS, "speaker", 1.0);
+	m_psg->add_route(ALL_OUTPUTS, "speaker", 0.5);
 
 	SST_39SF040(config, "flash");
 }
@@ -109,6 +115,8 @@ coco_psg_device::coco_psg_device(const machine_config &mconfig, const char *tag,
 	, device_cococart_interface(mconfig, *this)
 	, m_psg(*this, "psg")
 	, m_flash(*this, "flash")
+	, m_speaker(*this, "speaker")
+	, m_stereo_config(*this, "CART_STEREO")
 {
 }
 
@@ -143,6 +151,15 @@ void coco_psg_device::device_reset()
 	install_write_handler(0xbaaa, 0xbaaa, write8sm_delegate(*this, FUNC(coco_psg_device::flash2aaa_w)));
 }
 
+//-------------------------------------------------
+//  device_resolve_objects
+//-------------------------------------------------
+
+void coco_psg_device::device_resolve_objects()
+{
+	add_sound_route(*m_psg, ALL_OUTPUTS, 0.5);
+}
+
 void coco_psg_device::flash2aaa_w(offs_t offset, u8 data)
 {
 	if (BIT(m_control, 5) && BIT(m_control, 3))
@@ -157,6 +174,14 @@ void coco_psg_device::flash5555_w(offs_t offset, u8 data)
 	{
 		m_flash->write(0x5555, data);
 	}
+}
+
+void coco_psg_device::update_stereo_state(u8 state)
+{
+	// Control INCOMING gain on the single stereo speaker!
+	// Input Index 0 = Left DAC route, Input Index 1 = Right DAC route
+	float gain = (state & 0x01) ? 1.0f : 0.0f;
+	m_speaker->set_input_gain(0, gain);
 }
 
 //-------------------------------------------------
