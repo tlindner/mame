@@ -124,8 +124,8 @@ namespace
 		// Single Stereo Speaker (2 output channels)
 		SPEAKER(config, m_speaker, 2).front();
 
-		DAC_8BIT_R2R(config, m_ldac, 0).add_route(ALL_OUTPUTS, "speaker", 0.5, 0);
-		DAC_8BIT_R2R(config, m_rdac, 0).add_route(ALL_OUTPUTS, "speaker", 0.5, 1);
+		DAC_8BIT_R2R(config, m_ldac, 0).add_route(ALL_OUTPUTS, "speaker", 0.5, 0); // ls374.ic5 + r7 (8x20k) + r9 (8x10k)
+		DAC_8BIT_R2R(config, m_rdac, 0).add_route(ALL_OUTPUTS, "speaker", 0.5, 1); // ls374.ic4 + r6 (8x20k) + r8 (8x10k)
 	}
 
 	//-------------------------------------------------

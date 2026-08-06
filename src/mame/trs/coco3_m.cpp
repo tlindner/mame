@@ -225,6 +225,7 @@ coco_rat_mouse::coco_rat_mouse(coco_state &host, int base_slot, ioport_port *but
 	: coco_joy_handler(host, base_slot, buttons)
 	, joy_rat_table{ 15, 33, 24, 42 }
 {
+	m_left = m_right = m_up = m_down = 0;
 }
 
 void coco_rat_mouse::update_axis(int axis)

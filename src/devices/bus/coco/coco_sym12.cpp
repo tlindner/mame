@@ -89,19 +89,19 @@ namespace
 
 		AY8910(config, m_ay8910[0], DERIVED_CLOCK(1, 1));
 		m_ay8910[0]->set_flags(AY8910_SINGLE_OUTPUT);
-		m_ay8910[0]->add_route(ALL_OUTPUTS, "speaker", 0.125, 0);
+		m_ay8910[0]->add_route(ALL_OUTPUTS, "speaker", 0.5, 0);
 
 		AY8910(config, m_ay8910[1], DERIVED_CLOCK(1, 1));
 		m_ay8910[1]->set_flags(AY8910_SINGLE_OUTPUT);
-		m_ay8910[1]->add_route(ALL_OUTPUTS, "speaker", 0.125, 0);
+		m_ay8910[1]->add_route(ALL_OUTPUTS, "speaker", 0.5, 0);
 
 		AY8910(config, m_ay8910[2], DERIVED_CLOCK(1, 1));
 		m_ay8910[2]->set_flags(AY8910_SINGLE_OUTPUT);
-		m_ay8910[2]->add_route(ALL_OUTPUTS, "speaker", 0.125, 1);
+		m_ay8910[2]->add_route(ALL_OUTPUTS, "speaker", 0.5, 1);
 
 		AY8910(config, m_ay8910[3], DERIVED_CLOCK(1, 1));
 		m_ay8910[3]->set_flags(AY8910_SINGLE_OUTPUT);
-		m_ay8910[3]->add_route(ALL_OUTPUTS, "speaker", 0.125, 1);
+		m_ay8910[3]->add_route(ALL_OUTPUTS, "speaker", 0.5, 1);
 	}
 
 	//**************************************************************************
@@ -111,10 +111,10 @@ namespace
 	void coco_symphony_twelve_device::device_resolve_objects()
 	{
 		// Mono downmix back to the CoCo system cartridge audio input line
-		add_sound_route(*m_ay8910[0], ALL_OUTPUTS, 0.125);
-		add_sound_route(*m_ay8910[1], ALL_OUTPUTS, 0.125);
-		add_sound_route(*m_ay8910[2], ALL_OUTPUTS, 0.125);
-		add_sound_route(*m_ay8910[3], ALL_OUTPUTS, 0.125);
+		add_sound_route(*m_ay8910[0], ALL_OUTPUTS, 0.25);
+		add_sound_route(*m_ay8910[1], ALL_OUTPUTS, 0.25);
+		add_sound_route(*m_ay8910[2], ALL_OUTPUTS, 0.25);
+		add_sound_route(*m_ay8910[3], ALL_OUTPUTS, 0.25);
 	}
 
 	//**************************************************************************
