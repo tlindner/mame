@@ -271,7 +271,6 @@ INPUT_PORTS_START( coco3_joystick )
 INPUT_PORTS_END
 
 
-
 //-------------------------------------------------
 //  The Rat Mouse axis and buttons
 //-------------------------------------------------
