@@ -170,3 +170,72 @@ uint32_t coco3_state::screen_update(screen_device &screen, bitmap_rgb32 &bitmap,
 {
 	return (m_screen_config->read() & 1) ? m_gime->update_rgb(bitmap, cliprect) : m_gime->update_composite(bitmap, cliprect);
 }
+
+
+
+/***************************************************************************
+  Color Computer Joystick Abstraction
+ ***************************************************************************/
+
+//-------------------------------------------------
+//  make_joy_handler
+//-------------------------------------------------
+
+std::unique_ptr<coco_joy_handler> coco3_state::make_joy_handler(uint8_t selection, int port)
+{
+    switch (selection)
+    {
+        case JOY_DEVICE_RAT_MOUSE: return std::make_unique<coco_rat_mouse>(*this, port, ioport(RAT_MOUSE_BUTTONS_TAG));
+        default:                   return coco_state::make_joy_handler(selection, port);
+    }
+}
+
+
+const std::type_info& coco3_state::get_type_info_for_selection(uint8_t selection)
+{
+    switch (selection)
+    {
+        case JOY_DEVICE_RAT_MOUSE:   return typeid(coco_rat_mouse);
+        default:                     return coco_state::get_type_info_for_selection(selection);
+    }
+}
+
+//**************************************************************************
+//  coco_joy_handler - Classes for things that plug into the joystick port
+//**************************************************************************
+
+//-------------------------------------------------
+//  coco_rat_mouse
+//-------------------------------------------------
+
+void coco3_state::bind_rat_mouse(quadmouse_device &quad, int port_index)
+{
+    auto route = [this, port_index](auto member_func, int state) {
+        if (auto *rat = dynamic_cast<coco_rat_mouse *>(m_joy_handlers[port_index].get()))
+            (rat->*member_func)(state);
+    };
+
+    quad.write_up().set([route](int state) { route(&coco_rat_mouse::up_w, state); });
+    quad.write_down().set([route](int state) { route(&coco_rat_mouse::down_w, state); });
+    quad.write_left().set([route](int state) { route(&coco_rat_mouse::left_w, state); });
+    quad.write_right().set([route](int state) { route(&coco_rat_mouse::right_w, state); });
+}
+
+coco_rat_mouse::coco_rat_mouse(coco_state &host, int base_slot, ioport_port *buttons)
+	: coco_joy_handler(host, base_slot, buttons)
+	, joy_rat_table{ 15, 33, 24, 42 }
+{
+}
+
+void coco_rat_mouse::update_axis(int axis)
+{
+    bool mn = (axis == 0) ? m_left : m_up;
+    bool pl = (axis == 0) ? m_right : m_down;
+    m_host.write_joystick_mux(m_base_slot + axis, joy_rat_table[(mn << 1) | pl]);
+}
+
+void coco_rat_mouse::left_w(int state)  { m_left  = state; update_axis(0); }
+void coco_rat_mouse::right_w(int state) { m_right = state; update_axis(0); }
+void coco_rat_mouse::up_w(int state)    { m_up    = state; update_axis(1); }
+void coco_rat_mouse::down_w(int state)  { m_down  = state; update_axis(1); }
+

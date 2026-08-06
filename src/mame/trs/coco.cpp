@@ -119,8 +119,6 @@ coco_state::coco_state(const machine_config &mconfig, device_type type, const ch
 }
 
 
-
-
 //-------------------------------------------------
 //  machine_start
 //-------------------------------------------------
@@ -416,29 +414,8 @@ void coco_state::pia0_pa7_w(uint8_t value)
 		cur_joy->hires_trigger(m_dac_output, machine().time(), BIT(mux_addr, 0), current_joystick_value(mux_addr));
 	}
 
-	bool result;
-	if (auto cur_rat = dynamic_cast<coco_rat_mouse*>(m_joy_handlers[joy_port].get()))
-	{
-		int raw_axis_val;
-		switch (mux_addr)
-		{
-			case 0: raw_axis_val= ioport(RAT_MOUSE_RX_TAG)->read(); break;
-			case 1: raw_axis_val= ioport(RAT_MOUSE_RY_TAG)->read(); break;
-			case 2: raw_axis_val= ioport(RAT_MOUSE_LX_TAG)->read(); break;
-			case 3: raw_axis_val= ioport(RAT_MOUSE_LY_TAG)->read(); break;
-			default:
-				osd_printf_warning("Unknown Color Computer joystick axis.\n");
-				raw_axis_val = 0;
-				break;
-		}
+	bool result = m_joy_handlers[joy_port]->evaluate_comparator(m_dac_output, value);
 
-		int translated = coco_rat_mouse::joy_rat_table[raw_axis_val];
-		result = cur_rat->evaluate_comparator(m_dac_output, translated);
-	}
-	else
-	{
-		result = m_joy_handlers[joy_port]->evaluate_comparator(m_dac_output, value);
-	}
     m_pia0_pa_buffer = (m_pia0_pa_buffer & ~0x80) | (result ? 0x80 : 0);
     m_pia_0->set_a_input(m_pia0_pa_buffer);
 	LOG("%s pia0_pa7_w, setting comparator: %d (%11.6f)\n", machine().describe_context(), result, machine().time().as_double());
@@ -963,7 +940,7 @@ const std::type_info& coco_state::get_type_info_for_selection(uint8_t selection)
         case JOY_DEVICE_STANDARD:    return typeid(coco_joy_standard);
         case JOY_DEVICE_TANDY_HIRES: return typeid(coco_tandy_hires_joy);
         case JOY_DEVICE_CM3_HIRES:   return typeid(coco_cm3_hires_joy);
-        case JOY_DEVICE_RAT_MOUSE:   return typeid(coco_rat_mouse);
+
         case JOY_DEVICE_DIECOM_LG:   return typeid(coco_diecom_light_gun);
         default:                     return typeid(coco_joy_disconnected);
     }
@@ -1007,7 +984,7 @@ std::unique_ptr<coco_joy_handler> coco_state::make_joy_handler(uint8_t selection
         case JOY_DEVICE_STANDARD:    return std::make_unique<coco_joy_standard>(*this, port, ioport(JOYSTICK_BUTTONS_TAG));
         case JOY_DEVICE_TANDY_HIRES: return std::make_unique<coco_tandy_hires_joy>(*this, port, ioport(JOYSTICK_BUTTONS_TAG));
         case JOY_DEVICE_CM3_HIRES:   return std::make_unique<coco_cm3_hires_joy>(*this, port, ioport(JOYSTICK_BUTTONS_TAG));
-        case JOY_DEVICE_RAT_MOUSE:   return std::make_unique<coco_rat_mouse>(*this, port, ioport(RAT_MOUSE_BUTTONS_TAG));
+
         case JOY_DEVICE_DIECOM_LG:   return std::make_unique<coco_diecom_light_gun>(*this, port,
         	ioport(DIECOM_LIGHTGUN_BUTTONS_TAG), ioport(DIECOM_LIGHTGUN_RX_TAG), ioport(DIECOM_LIGHTGUN_RY_TAG));
         case JOY_DEVICE_UNCONNECTED: return std::make_unique<coco_joy_disconnected>(*this, port, ioport(JOYSTICK_BUTTONS_TAG));
@@ -1169,7 +1146,6 @@ void coco_tandy_hires_joy::hires_trigger(uint8_t state, attotime current_time, i
         else
         {
             // Reschedule timer for remaining time of a active charge
-//             double remaining_us = (m_charge_start_time - current_time).as_double() * 1e6;
             m_host.adjust_host_joy_timer(m_base_slot + axis, target_time - current_time);
         }
     }
@@ -1217,14 +1193,6 @@ coco_cm3_hires_joy::coco_cm3_hires_joy(coco_state &host, int base_slot, ioport_p
 	m_multiplier = 2624.0;
 	m_offset = 500;
 }
-
-
-
-//-------------------------------------------------
-//  joy_rat_table
-//-------------------------------------------------
-
-const int coco_rat_mouse::joy_rat_table[] = {15, 24, 42, 33 };
 
 
 
