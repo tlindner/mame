@@ -24,16 +24,19 @@
         Audio is switched sample-accurately. Supports an optional linear
         crossfade ramp duration to suppress switching clicks.
 
-    Pinout:
-        A0, A1        -> address_w()
-        INH-X         -> inhibit_x_w()
-        INH-Y         -> inhibit_y_w()
+      Pinout:
+        A, B          -> address_w()      (pins 6, 7)
+		STROBE X      -> inhibit_x_w()    (pin 1)
+		STROBE Y      -> inhibit_y_w()    (pin 15)
 
-        X0-X3         -> x_w() / x_analog_w() / x_sound_input()
-        Y0-Y3         -> y_w() / y_analog_w() / y_sound_input()
+		X0-X3         -> x_w() / x_analog_w() / x_sound_input()   (pins 2-5)
+		Y0-Y3         -> y_w() / y_analog_w() / y_sound_input()   (pins 11-14)
 
-        Z-X           -> zx_callback() / zx_analog_callback() / x_sound_output()
-        Z-Y           -> zy_callback() / zy_analog_callback() / y_sound_output()
+		Z             -> z_callback() / z_analog_callback() / z_sound_output()   (pin 9)
+		W             -> w_callback() / w_analog_callback() / w_sound_output()   (pin 10)
+
+		VDD = pin 16
+		VSS = pin 8
 
     Todo / Unimplemented:
         * Continuous ideal analog switch resistance/slew behavior.
@@ -87,13 +90,13 @@ public:
 	mc14529_device &set_analog_width(unsigned selector, unsigned bits); // default 8 bits
 
 	// digital-mode outputs
-	auto zx_callback() { return m_write_z[SEL_X].bind(); }
-	auto zy_callback() { return m_write_z[SEL_Y].bind(); }
+	auto z_callback() { return m_write_z[SEL_X].bind(); }
+	auto w_callback() { return m_write_z[SEL_Y].bind(); }
 	auto address_changed_callback() { return m_write_address_changed.bind(); }
 
 	// analog-mode outputs (quantized multi-bit value)
-	auto zx_analog_callback() { return m_write_z_analog[SEL_X].bind(); }
-	auto zy_analog_callback() { return m_write_z_analog[SEL_Y].bind(); }
+	auto z_analog_callback() { return m_write_z_analog[SEL_X].bind(); }
+	auto w_analog_callback() { return m_write_z_analog[SEL_Y].bind(); }
 
 	// polling reads of the last-committed digital/analog output (bit or
 	// quantized level). Does not disturb any in-flight transition, same
@@ -108,7 +111,7 @@ public:
 	static constexpr int x_sound_input(unsigned channel) { return SEL_X * NUM_CHANNELS + channel; }
 	static constexpr int y_sound_input(unsigned channel) { return SEL_Y * NUM_CHANNELS + channel; }
 	static constexpr int x_sound_output() { return SEL_X; }
-	static constexpr int y_sound_output() { return SEL_Y; }
+	static constexpr int w_sound_output() { return SEL_Y; }
 
 	// shared address inputs (2-bit: bit 0 = A0, bit 1 = A1)
 	void address_w(int bit, int state);
