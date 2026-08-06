@@ -21,9 +21,9 @@
 #include "bus/rs232/rs232.h"
 #include "imagedev/cassette.h"
 #include "machine/6821pia.h"
-#include "machine/mc14529.h"
 #include "machine/bankdev.h"
 #include "machine/input_merger.h"
+#include "machine/mc14529.h"
 #include "machine/ram.h"
 #include "sound/dac.h"
 
@@ -57,10 +57,10 @@ void coco_cart(device_slot_interface &device);
 #define JOYSTICK_LX_TAG             "joystick_lx"
 #define JOYSTICK_LY_TAG             "joystick_ly"
 #define JOYSTICK_BUTTONS_TAG        "joystick_buttons"
-#define RAT_MOUSE_RX_TAG            "rat_mouse_rx"
-#define RAT_MOUSE_RY_TAG            "rat_mouse_ry"
-#define RAT_MOUSE_LX_TAG            "rat_mouse_lx"
-#define RAT_MOUSE_LY_TAG            "rat_mouse_ly"
+// #define RAT_MOUSE_RX_TAG            "rat_mouse_rx"
+// #define RAT_MOUSE_RY_TAG            "rat_mouse_ry"
+// #define RAT_MOUSE_LX_TAG            "rat_mouse_lx"
+// #define RAT_MOUSE_LY_TAG            "rat_mouse_ly"
 #define RAT_MOUSE_BUTTONS_TAG       "rat_mouse_buttons"
 #define DIECOM_LIGHTGUN_RX_TAG      "dclg_rx"
 #define DIECOM_LIGHTGUN_RY_TAG      "dclg_ry"
@@ -183,8 +183,8 @@ protected:
 
 	// input ports
 	void update_input_port(int port, uint8_t selection);
-	const std::type_info& get_type_info_for_selection(uint8_t selection);
-	std::unique_ptr<coco_joy_handler> make_joy_handler(uint8_t selection, int port);
+	virtual const std::type_info& get_type_info_for_selection(uint8_t selection);
+	virtual std::unique_ptr<coco_joy_handler> make_joy_handler(uint8_t selection, int port);
 	required_ioport_array<7> m_keyboard;
 	optional_ioport m_joystick_type_right;
 	optional_ioport m_joystick_type_left;
@@ -264,13 +264,6 @@ class coco_cm3_hires_joy : public coco_tandy_hires_joy
 {
 public:
 	coco_cm3_hires_joy(coco_state &host, int base_slot, ioport_port *buttons);
-};
-
-class coco_rat_mouse : public coco_joy_handler
-{
-public:
-    using coco_joy_handler::coco_joy_handler;
-	static const int joy_rat_table[];
 };
 
 class coco_diecom_light_gun : public coco_joy_handler
