@@ -79,8 +79,8 @@ void coco3_state::machine_start()
 	m_joy_handlers[0] = std::make_unique<coco_joy_standard>(*this, 0, ioport(JOYSTICK_BUTTONS_TAG));
 	// left joystick
     m_joy_handlers[1] = std::make_unique<coco_joy_standard>(*this, 2, ioport(JOYSTICK_BUTTONS_TAG));
-}
 
+}
 
 
 //-------------------------------------------------

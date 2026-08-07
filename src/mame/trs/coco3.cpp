@@ -276,27 +276,27 @@ INPUT_PORTS_END
 //-------------------------------------------------
 
 static INPUT_PORTS_START(ratmouse_r)
-	PORT_START("x")
-	PORT_BIT(0xf000, IP_ACTIVE_HIGH, IPT_UNUSED)
-	PORT_BIT(0x0fff, 0, IPT_MOUSE_X) PORT_SENSITIVITY(100) PORT_KEYDELTA(0) PORT_CHANGED_MEMBER("encoder_x", FUNC(quadencoder_device::changed), 0)
-	PORT_CONDITION(":" CTRL_SEL_RIGHT, 0x0f, EQUALS, coco_state::JOY_DEVICE_RAT_MOUSE)
+	PORT_INCLUDE( quadmouse )
 
-	PORT_START("y")
-	PORT_BIT(0xf000, IP_ACTIVE_HIGH, IPT_UNUSED)
-	PORT_BIT(0x0fff, 0, IPT_MOUSE_Y) PORT_SENSITIVITY(100) PORT_KEYDELTA(0) PORT_CHANGED_MEMBER("encoder_y", FUNC(quadencoder_device::changed), 0)
-	PORT_CONDITION(":" CTRL_SEL_RIGHT, 0x0f, EQUALS, coco_state::JOY_DEVICE_RAT_MOUSE)
+	PORT_MODIFY("x")
+		PORT_BIT_MODIFY(0x0fff)
+		PORT_CONDITION(":" CTRL_SEL_RIGHT, 0x0f, EQUALS, coco_state::JOY_DEVICE_RAT_MOUSE)
+
+	PORT_MODIFY("y")
+		PORT_BIT_MODIFY(0x0fff)
+		PORT_CONDITION(":" CTRL_SEL_RIGHT, 0x0f, EQUALS, coco_state::JOY_DEVICE_RAT_MOUSE)
 INPUT_PORTS_END
 
 static INPUT_PORTS_START(ratmouse_l)
-	PORT_START("x")
-	PORT_BIT(0xf000, IP_ACTIVE_HIGH, IPT_UNUSED)
-	PORT_BIT(0x0fff, 0, IPT_MOUSE_X) PORT_SENSITIVITY(100) PORT_KEYDELTA(0) PORT_CHANGED_MEMBER("encoder_x", FUNC(quadencoder_device::changed), 0)
-	PORT_CONDITION(":" CTRL_SEL_LEFT, 0x0f, EQUALS, coco_state::JOY_DEVICE_RAT_MOUSE)
+	PORT_INCLUDE( quadmouse )
 
-	PORT_START("y")
-	PORT_BIT(0xf000, IP_ACTIVE_HIGH, IPT_UNUSED)
-	PORT_BIT(0x0fff, 0, IPT_MOUSE_Y) PORT_SENSITIVITY(100) PORT_KEYDELTA(0) PORT_CHANGED_MEMBER("encoder_y", FUNC(quadencoder_device::changed), 0)
-	PORT_CONDITION(":" CTRL_SEL_LEFT, 0x0f, EQUALS, coco_state::JOY_DEVICE_RAT_MOUSE)
+	PORT_MODIFY("x")
+		PORT_BIT_MODIFY(0x0fff)
+		PORT_CONDITION(":" CTRL_SEL_LEFT, 0x0f, EQUALS, coco_state::JOY_DEVICE_RAT_MOUSE)
+
+	PORT_MODIFY("y")
+		PORT_BIT_MODIFY(0x0fff)
+		PORT_CONDITION(":" CTRL_SEL_LEFT, 0x0f, EQUALS, coco_state::JOY_DEVICE_RAT_MOUSE)
 INPUT_PORTS_END
 
 static INPUT_PORTS_START( coco_rat_mouse )
@@ -499,8 +499,10 @@ void coco3_state::coco3(machine_config &config)
 
 	// RAT Mouse devices
 	QUADMOUSE(config, m_ratmouse_r, 0, INPUT_PORTS_NAME(ratmouse_r));
+// 	QUADMOUSE(config, m_ratmouse_r);
 	bind_rat_mouse(*m_ratmouse_r, 0);
 	QUADMOUSE(config, m_ratmouse_l, 0, INPUT_PORTS_NAME(ratmouse_l));
+// 	QUADMOUSE(config, m_ratmouse_l);
 	bind_rat_mouse(*m_ratmouse_l, 1);
 }
 
