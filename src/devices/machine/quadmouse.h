@@ -88,6 +88,8 @@ private:
 	void step(s32 &delta, bool &mn, bool &pl, devcb_write_line &mn_cb, devcb_write_line &pl_cb);
 };
 
+INPUT_PORTS_EXTERN(quadmouse);
+
 DECLARE_DEVICE_TYPE(QUADENCODER, quadencoder_device)
 DECLARE_DEVICE_TYPE(QUADMOUSE, quadmouse_device)
 
