@@ -217,6 +217,13 @@ void gime_device::device_start()
 	save_item(NAME(m_timer_value));
 	save_item(NAME(m_is_blinking));
 	save_pointer(NAME(m_palette_rotated[0]), 16);
+	save_item(NAME(m_cursor_control));
+	save_item(NAME(m_cursor_shape));
+	save_item(NAME(m_cursor_upload_active));
+	save_item(NAME(m_cursor_upload_index));
+	save_item(NAME(m_cursor_pos_index));
+	save_item(NAME(m_cursor_x));
+	save_item(NAME(m_cursor_y));
 }
 
 
@@ -332,6 +339,15 @@ void gime_device::device_reset()
 
 	m_ff22_value = 0;
 	m_ff23_value = 0;
+
+	/* clear hardware cursor state */
+	m_cursor_control = 0x00;
+	memset(m_cursor_shape, 0, sizeof(m_cursor_shape));
+	m_cursor_upload_active = false;
+	m_cursor_upload_index = 0;
+	m_cursor_pos_index = 0;
+	m_cursor_x = 0;
+	m_cursor_y = 0;
 
 	update_memory();
 	reset_timer();
@@ -700,6 +716,14 @@ inline uint8_t gime_device::read_gime_register(offs_t offset)
 			change_gime_firq(0x00);
 			break;
 
+		case 7: // $FF97 - read cursor control ("One True Sprite" extension)
+			// SYNC (bit 1) is live status, not stored state: it reads back
+			// as 1 whenever the shape-upload pointer sits at byte zero -
+			// which is always true except mid-upload, so in steady state
+			// it simply reports "ready for a fresh shape upload"
+			result = (m_cursor_control & ~0x02) | (m_cursor_upload_index == 0 ? 0x02 : 0x00);
+			break;
+
 #ifdef NOPE_NOT_READABLE
 		case 14:
 		case 15:
@@ -932,6 +956,81 @@ inline void gime_device::write_gime_register(offs_t offset, uint8_t data)
 		case 0x05:
 			//  $FF95 Timer register LSB
 			//        Bits 0-7 Low order eight bits of the timer
+			break;
+
+		case 0x06:
+			//  $FF96 Cursor Data ("One True Sprite" extension)
+			//        Behavior depends on which mode $FF96 is currently in
+			//        (see $FF97 SYNC below), not on any bit in this byte:
+			//
+			//        Position mode (the default, always returned to after
+			//        an upload finishes): a free-running, self-aligning
+			//        3-byte cycle - X hi, X lo, Y, X hi, X lo, Y, ... - with
+			//        no control-register write needed to enter or stay in
+			//        this mode. This is the hot path (mouse polling).
+			//
+			//        Shape-upload mode (entered only via SYNC): the next
+			//        16 writes load the cursor bitmap (2 bitplanes x 8
+			//        rows); afterward $FF96 reverts to position mode with
+			//        both pointers realigned to zero.
+			if (m_cursor_upload_active)
+			{
+				update_value(&m_cursor_shape[m_cursor_upload_index], data);
+				m_cursor_upload_index++;
+				if (m_cursor_upload_index >= 16)
+				{
+					// upload complete - revert to position mode, guaranteed aligned
+					m_cursor_upload_index = 0;
+					m_cursor_upload_active = false;
+					m_cursor_pos_index = 0;
+				}
+			}
+			else
+			{
+				switch (m_cursor_pos_index)
+				{
+				case 0: // X high bits (bits 9-8, only bits 1-0 of this byte are used)
+					update_value(&m_cursor_x, uint16_t((m_cursor_x & 0x0ff) | ((data & 0x03) << 8)));
+					break;
+				case 1: // X low byte
+					update_value(&m_cursor_x, uint16_t((m_cursor_x & 0x300) | data));
+					break;
+				case 2: // Y position
+					update_value(&m_cursor_y, data);
+					break;
+				}
+
+				// free-running: always ready for the next triple, never
+				// needs to be armed or cleared by a $FF97 write
+				m_cursor_pos_index = (m_cursor_pos_index + 1) % 3;
+			}
+			break;
+
+		case 0x07:
+			//  $FF97 Cursor Control ("One True Sprite" extension)
+			//        Bit 7   EN    1 = cursor displayed
+			//        Bits 6-5 W1:W0 foreground palette slot (0-3)
+			//        Bits 4-3 B1:B0 background palette slot (0-3)
+			//        Bit 2   --    Reserved (reads back as 0)
+			//        Bit 1   SYNC  write 1 = switch $FF96 to shape-upload
+			//                      mode and reset both pointers to zero
+			//                      (read = live "ready to upload" status)
+			//        Bit 0   SIZE  0 = 8x8 cursor, 1 = 16x16 (pixel-doubled) cursor
+			if (data & 0x02)
+			{
+				// SYNC: begin (or restart) a 16-byte shape upload. Resetting
+				// the position pointer alongside it guarantees a partial
+				// position write can never straddle an upload - whatever
+				// interrupted it, the next 3 writes to $FF96 after the
+				// upload finishes are a clean, aligned position triple
+				m_cursor_upload_active = true;
+				m_cursor_upload_index = 0;
+				m_cursor_pos_index = 0;
+			}
+
+			// track everything except SYNC (a pulse) and the reserved bit;
+			// this also feeds the video redraw dirty-flag via update_value()
+			update_value(&m_cursor_control, uint8_t(data & ~0x06));
 			break;
 
 		case 0x08:
@@ -1937,7 +2036,74 @@ bool gime_device::update_screen(bitmap_rgb32 &bitmap, const rectangle &cliprect,
 			}
 		}
 	}
+
+	// overlay the hardware cursor ("One True Sprite" extension), if any
+	draw_cursor(bitmap, rectangle(min_x, max_x, min_y, max_y), palette);
+
 	return 0;
+}
+
+
+
+//-------------------------------------------------
+//  draw_cursor - overlay the $FF96/$FF97 hardware
+//  cursor on top of the just-rendered frame
+//
+//  NOTE: unlike body pixels, the cursor is not part
+//  of the per-scanline mid-frame raster-effect
+//  machinery (m_scanlines[]); it is drawn once per
+//  frame using whichever GIME palette is active at
+//  the time update_screen() is called. A cursor that
+//  spans a palette change mid-frame will not itself
+//  raster-split - this mirrors the fact that the
+//  cursor is an overlay independent of body memory,
+//  not a claim about the real hardware's behavior.
+//-------------------------------------------------
+
+void gime_device::draw_cursor(bitmap_rgb32 &bitmap, const rectangle &cliprect, const pixel_t *RESTRICT palette)
+{
+	// bit 7 EN
+	if ((m_cursor_control & 0x80) == 0)
+		return;
+
+	const bool size16 = (m_cursor_control & 0x01) != 0;
+	const int pixel_size = size16 ? 2 : 1;
+	const int cursor_extent = 8 * pixel_size;
+
+	// resolve foreground/background colors from the currently active GIME palette
+	const uint8_t fg_slot = (m_cursor_control >> 5) & 0x03;
+	const uint8_t bg_slot = (m_cursor_control >> 3) & 0x03;
+	const pixel_t fg_color = palette[m_palette_rotated[m_palette_rotated_position][fg_slot] & 0x3f];
+	const pixel_t bg_color = palette[m_palette_rotated[m_palette_rotated_position][bg_slot] & 0x3f];
+
+	int min_x = cliprect.min_x > int(m_cursor_x) ? cliprect.min_x : int(m_cursor_x);
+	int max_x = cliprect.max_x < int(m_cursor_x) + cursor_extent - 1 ? cliprect.max_x : int(m_cursor_x) + cursor_extent - 1;
+	int min_y = cliprect.min_y > int(m_cursor_y) ? cliprect.min_y : int(m_cursor_y);
+	int max_y = cliprect.max_y < int(m_cursor_y) + cursor_extent - 1 ? cliprect.max_y : int(m_cursor_y) + cursor_extent - 1;
+
+	for (int y = min_y; y <= max_y; y++)
+	{
+		const int row = (y - int(m_cursor_y)) / pixel_size;
+		const uint8_t plane0 = m_cursor_shape[row * 2 + 0];
+		const uint8_t plane1 = m_cursor_shape[row * 2 + 1];
+		pixel_t *RESTRICT pixels = bitmap_addr(bitmap, y, 0);
+
+		for (int x = min_x; x <= max_x; x++)
+		{
+			const int col = (x - int(m_cursor_x)) / pixel_size;
+			const uint8_t bit = 7 - col;
+			const bool p0 = (plane0 >> bit) & 0x01;
+			const bool p1 = (plane1 >> bit) & 0x01;
+
+			if (!p0 && !p1)
+				continue; // transparent - leave the underlying pixel untouched
+
+			if (p0 && p1)
+				pixels[x] ^= 0xffffff; // XOR mode - inverts whatever is already there, so it stays visible over any background
+			else
+				pixels[x] = p1 ? fg_color : bg_color;
+		}
+	}
 }
 
 

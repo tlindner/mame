@@ -153,6 +153,28 @@ protected:
 	scanline_record             m_scanlines[25+25+192+26+25];
 	bool                        m_displayed_rgb;
 
+	// hardware cursor state ("One True Sprite" extension - $FF96/$FF97)
+	//
+	// $FF96 and $FF97 are unused/reserved in the real GIME's register map
+	// (only $FF90-$FF95 and $FF98-$FF9F are documented), so they were
+	// chosen for this extension rather than the proposal's original
+	// $FFD0/$FFD1, which collide with the SAM's own registers at
+	// $FFC0-$FFDF that this chip already emulates.
+	//
+	// $FF96 is state-driven rather than flag-driven: it defaults to a
+	// free-running 3-byte position cycle (X-hi, X-lo, Y) that never needs
+	// a control-register write to enter or stay in. Writing SYNC (bit 1
+	// of $FF97) switches it into a 16-byte shape-upload sequence instead,
+	// resetting both pointers; after the 16th byte it reverts to position
+	// mode automatically, guaranteed realigned.
+	uint8_t                     m_cursor_control;      // EN/W1:W0/B1:B0/SYNC/SIZE (SYNC excluded from storage - it is a pulse, not state; bit 2 reserved)
+	uint8_t                     m_cursor_shape[16];     // 8 rows x (plane 0, plane 1), uploaded via $FF96
+	bool                        m_cursor_upload_active; // true while $FF96 is consuming a 16-byte shape upload
+	uint8_t                     m_cursor_upload_index;  // next shape byte offset (0-15) while uploading
+	uint8_t                     m_cursor_pos_index;     // next position byte index (0-2), free-running mod 3
+	uint16_t                    m_cursor_x;             // 0-639
+	uint8_t                     m_cursor_y;             // 0-199
+
 	// palette state
 	uint8_t                     m_palette_rotated[1024][16];
 	uint16_t                    m_palette_rotated_position;
@@ -224,6 +246,7 @@ protected:
 	void update_rgb_palette();
 	void update_composite_palette();
 	void update_border(uint16_t physical_scanline);
+	void draw_cursor(bitmap_rgb32 &bitmap, const rectangle &cliprect, const pixel_t *RESTRICT palette);
 	pixel_t get_composite_color(int color);
 	pixel_t get_rgb_color(int color);
 	offs_t get_video_base();
