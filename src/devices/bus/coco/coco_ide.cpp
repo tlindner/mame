@@ -110,6 +110,14 @@ void coco_ide_device::add_sound_route(device_sound_interface &sound_device, int 
 	device_cococart_interface::add_sound_route(sound_device, output_index, gain);
 }
 
+//-------------------------------------------------
+//  set_sound_gain
+//-------------------------------------------------
+
+void coco_ide_device::set_sound_gain(device_sound_interface &sound_device, int output_index, double gain)
+{
+	device_cococart_interface::set_sound_gain(sound_device, output_index, gain);
+}
 
 //-------------------------------------------------
 //  ide_read

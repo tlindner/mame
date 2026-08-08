@@ -43,6 +43,7 @@ protected:
 
 	virtual address_space &cartridge_space() override;
 	virtual void add_sound_route(device_sound_interface &sound_device, int output_index, double gain) override;
+	virtual void set_sound_gain(device_sound_interface &sound_device, int output_index, double gain) override;
 
 private:
 	void irq_w(int state);

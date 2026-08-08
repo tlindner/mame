@@ -121,6 +121,7 @@ namespace
 
 		virtual address_space &cartridge_space() override;
 		virtual void add_sound_route(device_sound_interface &sound_device, int output_index, double gain) override;
+		virtual void set_sound_gain(device_sound_interface &sound_device, int output_index, double gain) override;
 		virtual ioport_constructor device_input_ports() const override ATTR_COLD;
 
 		// device references
@@ -270,6 +271,15 @@ void coco_multipak_device::device_resolve_objects()
 void coco_multipak_device::add_sound_route(device_sound_interface &sound_device, int output_index, double gain)
 {
 	sound_device.add_route(output_index, *this, gain, 0);
+}
+
+//-------------------------------------------------
+//  add_sound_route
+//-------------------------------------------------
+
+void coco_multipak_device::set_sound_gain(device_sound_interface &sound_device, int output_index, double gain)
+{
+    sound_device.set_route_gain(output_index, this, 0, gain);
 }
 
 //-------------------------------------------------
