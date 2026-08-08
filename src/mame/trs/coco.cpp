@@ -703,6 +703,16 @@ void coco_state::add_sound_route(device_sound_interface &sound_device, int outpu
 
 
 
+//-------------------------------------------------
+//  add_sound_route
+//-------------------------------------------------
+
+void coco_state::set_sound_gain(device_sound_interface &sound_device, int output_index, double gain)
+{
+    sound_device.set_route_gain(output_index, m_mux, gain, mc14529_device::y_sound_input(2));
+}
+
+
 /***************************************************************************
   DISASSEMBLY OVERRIDE (OS9 syscalls)
  ***************************************************************************/

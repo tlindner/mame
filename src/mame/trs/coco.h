@@ -123,6 +123,7 @@ public:
 	void cart_w(int state) { cart_w((bool) state); }
 	virtual address_space &cartridge_space() override;
 	virtual void add_sound_route(device_sound_interface &sound_device, int output_index, double gain) override;
+	virtual void set_sound_gain(device_sound_interface &sound_device, int output_index, double gain) override;
 
 	// disassembly override
 	static offs_t os9_dasm_override(std::ostream &stream, offs_t pc, const util::disasm_interface::data_buffer &opcodes, const util::disasm_interface::data_buffer &params);
