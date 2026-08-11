@@ -216,32 +216,32 @@ private:
 class coco_joy_handler
 {
 protected:
-    coco_state &m_host;
-    int m_base_slot;
+	coco_state &m_host;
+	int m_base_slot;
 	ioport_port *m_buttons;
 
 public:
-    coco_joy_handler(coco_state &host, int base_slot, ioport_port *buttons);
+	coco_joy_handler(coco_state &host, int base_slot, ioport_port *buttons);
 
-    virtual ~coco_joy_handler() = default;
-    virtual void joy_changed(int axis, int joy_val) {}
-    virtual bool evaluate_comparator(int dac, int joy_val);
-    virtual uint8_t button_status();
-    virtual void hires_trigger(uint8_t state, attotime current_time, int axis, int joy_val) {};
-    virtual void saturated(s32 target_slot) {}
+	virtual ~coco_joy_handler() = default;
+	virtual void joy_changed(int axis, int joy_val) {}
+	virtual bool evaluate_comparator(int dac, int joy_val);
+	virtual uint8_t button_status();
+	virtual void hires_trigger(uint8_t state, attotime current_time, int axis, int joy_val) {};
+	virtual void saturated(s32 target_slot) {}
 	virtual void lightgun_clock(int clock) {}
 };
 
 class coco_joy_disconnected : public coco_joy_handler
 {
 public:
-    using coco_joy_handler::coco_joy_handler;
+	using coco_joy_handler::coco_joy_handler;
 };
 
 class coco_joy_standard : public coco_joy_handler
 {
 public:
-    using coco_joy_handler::coco_joy_handler;
+	using coco_joy_handler::coco_joy_handler;
 	virtual void joy_changed(int axis, int joy_val) override;
 };
 
@@ -255,10 +255,10 @@ public:
 	virtual bool evaluate_comparator(int dac, int joy_val) override;
 
 protected:
-    double m_multiplier;
-    double m_offset;
+	double m_multiplier;
+	double m_offset;
 	bool m_was_low;
-    attotime m_charge_start_time;
+	attotime m_charge_start_time;
 };
 
 class coco_cm3_hires_joy : public coco_tandy_hires_joy
@@ -273,7 +273,7 @@ public:
 	coco_diecom_light_gun(coco_state &host, int base_slot, ioport_port *buttons, ioport_port *h_port, ioport_port *v_port);
 
 	virtual void lightgun_clock(int clock) override;
-    virtual void saturated(s32 target_slot) override;
+	virtual void saturated(s32 target_slot) override;
 
 protected:
 	static const int dclg_table[];

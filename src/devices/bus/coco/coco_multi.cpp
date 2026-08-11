@@ -279,7 +279,7 @@ void coco_multipak_device::add_sound_route(device_sound_interface &sound_device,
 
 void coco_multipak_device::set_sound_gain(device_sound_interface &sound_device, int output_index, double gain)
 {
-    sound_device.set_route_gain(output_index, this, 0, gain);
+	sound_device.set_route_gain(output_index, this, 0, gain);
 }
 
 //-------------------------------------------------

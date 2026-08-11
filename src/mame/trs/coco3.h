@@ -73,7 +73,7 @@ private:
 
 //**************************************************************************
 //  coco_joy_handler - classes for things that plug into the joystick port
-//                     and sometimes casette / serial
+//  and sometimes casette / serial
 //**************************************************************************
 
 class coco_rat_mouse : public coco_joy_handler

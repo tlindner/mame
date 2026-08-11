@@ -95,7 +95,7 @@ INPUT_PORTS_END
 
 void coco_xsid_device::device_post_load()
 {
-    update_audio_routing();
+	update_audio_routing();
 }
 
 ioport_constructor coco_xsid_device::device_input_ports() const

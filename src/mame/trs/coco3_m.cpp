@@ -78,7 +78,7 @@ void coco3_state::machine_start()
 	// right joystick
 	m_joy_handlers[0] = std::make_unique<coco_joy_standard>(*this, 0, ioport(JOYSTICK_BUTTONS_TAG));
 	// left joystick
-    m_joy_handlers[1] = std::make_unique<coco_joy_standard>(*this, 2, ioport(JOYSTICK_BUTTONS_TAG));
+	m_joy_handlers[1] = std::make_unique<coco_joy_standard>(*this, 2, ioport(JOYSTICK_BUTTONS_TAG));
 
 }
 
@@ -129,12 +129,12 @@ void coco3_state::ff40_write(offs_t offset, uint8_t data)
 
 void coco3_state::on_keyboard_state_changed(bool any_pressed)
 {
-    if (any_pressed != m_prev_keyboard_pressed)
-    {
-        m_gime->set_il1(true);
-        m_gime->set_il1(false);
-        m_prev_keyboard_pressed = any_pressed;
-    }
+	if (any_pressed != m_prev_keyboard_pressed)
+	{
+		m_gime->set_il1(true);
+		m_gime->set_il1(false);
+		m_prev_keyboard_pressed = any_pressed;
+	}
 }
 
 
@@ -183,21 +183,21 @@ uint32_t coco3_state::screen_update(screen_device &screen, bitmap_rgb32 &bitmap,
 
 std::unique_ptr<coco_joy_handler> coco3_state::make_joy_handler(uint8_t selection, int port)
 {
-    switch (selection)
-    {
-        case JOY_DEVICE_RAT_MOUSE: return std::make_unique<coco_rat_mouse>(*this, port, ioport(RAT_MOUSE_BUTTONS_TAG));
-        default:                   return coco_state::make_joy_handler(selection, port);
-    }
+	switch (selection)
+	{
+		case JOY_DEVICE_RAT_MOUSE: return std::make_unique<coco_rat_mouse>(*this, port, ioport(RAT_MOUSE_BUTTONS_TAG));
+		default:                   return coco_state::make_joy_handler(selection, port);
+	}
 }
 
 
 const std::type_info& coco3_state::get_type_info_for_selection(uint8_t selection)
 {
-    switch (selection)
-    {
-        case JOY_DEVICE_RAT_MOUSE:   return typeid(coco_rat_mouse);
-        default:                     return coco_state::get_type_info_for_selection(selection);
-    }
+	switch (selection)
+	{
+		case JOY_DEVICE_RAT_MOUSE:   return typeid(coco_rat_mouse);
+		default:                     return coco_state::get_type_info_for_selection(selection);
+	}
 }
 
 //**************************************************************************
@@ -210,15 +210,15 @@ const std::type_info& coco3_state::get_type_info_for_selection(uint8_t selection
 
 void coco3_state::bind_rat_mouse(quadmouse_device &quad, int port_index)
 {
-    auto route = [this, port_index](auto member_func, int state) {
-        if (auto *rat = dynamic_cast<coco_rat_mouse *>(m_joy_handlers[port_index].get()))
-            (rat->*member_func)(state);
-    };
+	auto route = [this, port_index](auto member_func, int state) {
+		if (auto *rat = dynamic_cast<coco_rat_mouse *>(m_joy_handlers[port_index].get()))
+			(rat->*member_func)(state);
+	};
 
-    quad.write_up().set([route](int state) { route(&coco_rat_mouse::up_w, state); });
-    quad.write_down().set([route](int state) { route(&coco_rat_mouse::down_w, state); });
-    quad.write_left().set([route](int state) { route(&coco_rat_mouse::left_w, state); });
-    quad.write_right().set([route](int state) { route(&coco_rat_mouse::right_w, state); });
+	quad.write_up().set([route](int state) { route(&coco_rat_mouse::up_w, state); });
+	quad.write_down().set([route](int state) { route(&coco_rat_mouse::down_w, state); });
+	quad.write_left().set([route](int state) { route(&coco_rat_mouse::left_w, state); });
+	quad.write_right().set([route](int state) { route(&coco_rat_mouse::right_w, state); });
 }
 
 coco_rat_mouse::coco_rat_mouse(coco_state &host, int base_slot, ioport_port *buttons)
@@ -230,9 +230,9 @@ coco_rat_mouse::coco_rat_mouse(coco_state &host, int base_slot, ioport_port *but
 
 void coco_rat_mouse::update_axis(int axis)
 {
-    bool mn = (axis == 0) ? m_left : m_up;
-    bool pl = (axis == 0) ? m_right : m_down;
-    m_host.write_joystick_mux(m_base_slot + axis, joy_rat_table[(mn << 1) | pl]);
+	bool mn = (axis == 0) ? m_left : m_up;
+	bool pl = (axis == 0) ? m_right : m_down;
+	m_host.write_joystick_mux(m_base_slot + axis, joy_rat_table[(mn << 1) | pl]);
 }
 
 void coco_rat_mouse::left_w(int state)  { m_left  = state; update_axis(0); }
