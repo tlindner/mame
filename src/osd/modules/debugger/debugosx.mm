@@ -61,6 +61,7 @@ public:
 
 	virtual void init_debugger(running_machine &machine) override;
 	virtual void wait_for_debugger(device_t &device, bool firststop) override;
+	virtual void wake_debugger() override;
 	virtual void debugger_update() override;
 
 private:
@@ -166,6 +167,31 @@ void debugger_osx::wait_for_debugger(device_t &device, bool firststop)
 									   dequeue:YES];
 	if (ev != nil)
 		[NSApp sendEvent:ev];
+
+	[pool release];
+}
+
+
+//============================================================
+//  debugger_osx::wake_debugger
+//  post a synthetic event so nextEventMatchingMask returns
+//  (may be called from any thread)
+//============================================================
+
+void debugger_osx::wake_debugger()
+{
+	NSAutoreleasePool *const pool = [[NSAutoreleasePool alloc] init];
+
+	NSEvent *const ev = [NSEvent otherEventWithType:NSEventTypeApplicationDefined
+										   location:NSZeroPoint
+									  modifierFlags:0
+										  timestamp:0
+									   windowNumber:0
+											context:nil
+											subtype:0
+											  data1:0
+											  data2:0];
+	[NSApp postEvent:ev atStart:YES];
 
 	[pool release];
 }

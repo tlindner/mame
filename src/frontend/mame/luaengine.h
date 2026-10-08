@@ -14,6 +14,7 @@
 
 #include "notifier.h"
 
+#include <atomic>
 #include <functional>
 #include <map>
 #include <memory>
@@ -63,6 +64,8 @@ public:
 	void attach_notifiers();
 	void on_sound_update(const std::map<std::string, std::vector<std::pair<const sound_stream::sample_t *, int>>> &sound);
 	void on_periodic();
+	unsigned periodic_interval_ms() const { return m_periodic_interval_ms; }
+	void wake_debugger(); // thread-safe
 	bool on_missing_mandatory_image(const std::string &instance_name);
 	void on_machine_before_startup_screens();
 	void on_machine_before_load_settings();
@@ -168,6 +171,8 @@ private:
 	lua_State *m_lua_state;
 	std::unique_ptr<sol::state_view> m_sol_state;
 	running_machine *m_machine;
+	std::atomic<running_machine *> m_wake_machine{nullptr}; // machine whose debugger emu.thread events may wake
+	unsigned m_periodic_interval_ms = 0; // smallest interval requested via emu.register_periodic, 0 = none
 
 	std::vector<std::string> m_menu;
 

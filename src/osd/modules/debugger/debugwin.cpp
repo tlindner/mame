@@ -51,6 +51,7 @@ public:
 		osd_module(OSD_DEBUG_PROVIDER, "windows"),
 		debug_module(),
 		m_osd(nullptr),
+		m_wake_event(nullptr),
 		m_machine(nullptr),
 		m_prefs(),
 		m_waiting_for_debugger(false),
@@ -71,6 +72,7 @@ public:
 
 	virtual void init_debugger(running_machine &machine) override;
 	virtual void wait_for_debugger(device_t &device, bool firststop) override;
+	virtual void wake_debugger() override;
 	virtual void debugger_update() override;
 
 protected:
@@ -107,6 +109,7 @@ private:
 	void load_configuration(util::xml::data_node const &parentnode);
 
 	windows_osd_interface *m_osd;
+	HANDLE m_wake_event; // auto-reset; signalled by wake_debugger() from any thread
 	running_machine *m_machine;
 	std::unique_ptr<debugger::win::debugger_preferences> m_prefs;
 	bool m_waiting_for_debugger;
@@ -129,6 +132,10 @@ int debugger_windows::init(osd_interface &osd, osd_options const &options)
 	if (!m_osd)
 		return -1;
 
+	m_wake_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	if (!m_wake_event)
+		return -1;
+
 	return 0;
 }
 
@@ -142,6 +149,12 @@ void debugger_windows::exit()
 	m_main_console = nullptr;
 	m_prefs.reset();
 	m_machine = nullptr;
+
+	if (m_wake_event)
+	{
+		CloseHandle(m_wake_event);
+		m_wake_event = nullptr;
+	}
 }
 
 
@@ -208,29 +221,44 @@ void debugger_windows::wait_for_debugger(device_t &device, bool firststop)
 	// run input polling to ensure that our status is in sync
 	downcast<windows_osd_interface&>(machine().osd()).poll_input_modules(false);
 
-	// get and process messages
-	MSG message;
-	GetMessage(&message, nullptr, 0, 0);
-
-	switch (message.message)
+	// Block until there is a window message or the core asks us to return (see
+	// wake_debugger).  No timeout: the core wakes us when it needs attention.
+	DWORD const result = MsgWaitForMultipleObjectsEx(1, &m_wake_event, INFINITE, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+	if (result == (WAIT_OBJECT_0 + 1))
 	{
-	// check for F10 -- we need to capture that ourselves
-	case WM_SYSKEYDOWN:
-	case WM_SYSKEYUP:
-		if (message.wParam == VK_F4 && message.message == WM_SYSKEYDOWN)
-			SendMessage(GetAncestor(GetFocus(), GA_ROOT), WM_CLOSE, 0, 0);
-		if (message.wParam == VK_F10)
-			SendMessage(GetAncestor(GetFocus(), GA_ROOT), (message.message == WM_SYSKEYDOWN) ? WM_KEYDOWN : WM_KEYUP, message.wParam, message.lParam);
-		break;
+		// process everything that's queued (equivalent to QEventLoop::AllEvents)
+		MSG message;
+		while (PeekMessage(&message, nullptr, 0, 0, PM_REMOVE))
+		{
+			switch (message.message)
+			{
+			// check for F10 -- we need to capture that ourselves
+			case WM_SYSKEYDOWN:
+			case WM_SYSKEYUP:
+				if (message.wParam == VK_F4 && message.message == WM_SYSKEYDOWN)
+					SendMessage(GetAncestor(GetFocus(), GA_ROOT), WM_CLOSE, 0, 0);
+				if (message.wParam == VK_F10)
+					SendMessage(GetAncestor(GetFocus(), GA_ROOT), (message.message == WM_SYSKEYDOWN) ? WM_KEYDOWN : WM_KEYUP, message.wParam, message.lParam);
+				break;
 
-	// process everything else
-	default:
-		winwindow_dispatch_message(*m_machine, message);
-		break;
+			// process everything else
+			default:
+				winwindow_dispatch_message(*m_machine, message);
+				break;
+			}
+		}
 	}
 
 	// mark the debugger as active
 	m_waiting_for_debugger = false;
+}
+
+
+void debugger_windows::wake_debugger()
+{
+	// may be called from any thread
+	if (m_wake_event)
+		SetEvent(m_wake_event);
 }
 
 

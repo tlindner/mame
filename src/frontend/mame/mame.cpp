@@ -470,6 +470,11 @@ void emulator_info::periodic_check()
 	return mame_machine_manager::instance()->lua()->on_periodic();
 }
 
+unsigned emulator_info::periodic_interval_ms()
+{
+	return mame_machine_manager::instance()->lua()->periodic_interval_ms();
+}
+
 bool emulator_info::frame_hook()
 {
 	return mame_machine_manager::instance()->lua()->frame_hook();

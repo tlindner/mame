@@ -514,6 +514,11 @@ void running_machine::schedule_exit()
 {
 	m_exit_pending = true;
 
+	// if the debugger is blocked waiting for OS events, make it notice (this can be
+	// called from other threads, e.g. the Windows console control handler)
+	if (m_debugger)
+		m_debugger->cpu().wake_debugger();
+
 	// if we're executing, abort out immediately
 	m_scheduler.eat_all_cycles();
 
@@ -531,6 +536,9 @@ void running_machine::schedule_exit()
 void running_machine::schedule_hard_reset()
 {
 	m_hard_reset_pending = true;
+
+	if (m_debugger)
+		m_debugger->cpu().wake_debugger();
 
 	// if we're executing, abort out immediately
 	m_scheduler.eat_all_cycles();

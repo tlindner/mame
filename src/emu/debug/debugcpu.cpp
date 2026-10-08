@@ -29,7 +29,12 @@
 #include "osdepend.h"
 #include "xmlfile.h"
 
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <cstdio>
+#include <mutex>
+#include <thread>
 
 
 const size_t debugger_cpu::NUM_TEMP_VARIABLES = 10;
@@ -56,6 +61,8 @@ debugger_cpu::debugger_cpu(running_machine &machine)
 	, m_wpsize(0)
 	, m_last_periodic_update_time(0)
 	, m_comments_loaded(false)
+	, m_waiting(false)
+	, m_wake_pending(false)
 {
 	m_tempvar = make_unique_clear<u64[]>(NUM_TEMP_VARIABLES);
 
@@ -413,6 +420,71 @@ void debugger_cpu::halt_on_next_instruction(device_t *device, util::format_argum
 }
 
 
+namespace {
+
+// Requests a wake-up of the debugger wait loop at a fixed rate for as long as it exists.
+// Only ever created when a script has explicitly asked for a rate; MAME has no default.
+class debugger_wake_ticker
+{
+public:
+	debugger_wake_ticker(debugger_cpu &cpu, std::chrono::milliseconds interval) :
+		m_cpu(cpu),
+		m_interval(interval),
+		m_stop(false),
+		m_thread([this] () { run(); }) // last, so everything above is initialised first
+	{
+	}
+
+	~debugger_wake_ticker()
+	{
+		{
+			std::lock_guard<std::mutex> guard(m_mutex);
+			m_stop = true;
+		}
+		m_cv.notify_one();
+		m_thread.join();
+	}
+
+	debugger_wake_ticker(debugger_wake_ticker const &) = delete;
+	debugger_wake_ticker &operator=(debugger_wake_ticker const &) = delete;
+
+private:
+	void run()
+	{
+		std::unique_lock<std::mutex> lock(m_mutex);
+		while (!m_stop)
+		{
+			if (!m_cv.wait_for(lock, m_interval, [this] () { return m_stop; }))
+			{
+				lock.unlock();
+				m_cpu.wake_debugger();
+				lock.lock();
+			}
+		}
+	}
+
+	debugger_cpu &m_cpu;
+	std::chrono::milliseconds const m_interval;
+	std::mutex m_mutex;
+	std::condition_variable m_cv;
+	bool m_stop;
+	std::thread m_thread;
+};
+
+} // anonymous namespace
+
+
+void debugger_cpu::wake_debugger()
+{
+	// only bother the OSD if the loop is actually running and we haven't already asked
+	if (m_waiting.load(std::memory_order_acquire) && !m_wake_pending.exchange(true, std::memory_order_acq_rel))
+	{
+		if (m_machine.debug_flags & DEBUG_FLAG_OSD_ENABLED)
+			m_machine.osd().wake_debugger();
+	}
+}
+
+
 //-------------------------------------------------
 //  wait_for_debugger - pause during execution to
 //  allow debugging
@@ -441,16 +513,36 @@ void debugger_cpu::wait_for_debugger(device_t &device)
 
 	// wait for the debugger; during this time, disable sound output
 	m_machine.sound().debugger_mute(true);
+	std::unique_ptr<debugger_wake_ticker> ticker;
+	unsigned ticker_interval = 0;
+	m_waiting.store(true, std::memory_order_release);
 	while (is_stopped())
 	{
+		// consume any outstanding wake request *before* looking at state, so a request
+		// made after this point is guaranteed to make the OSD wait below return
+		m_wake_pending.store(false, std::memory_order_release);
+
 		// flush any pending updates before waiting again
 		m_machine.debug_view().flush_osd_updates();
 
 		emulator_info::periodic_check();
 
-		// clear the memory modified flag and wait
+		// run any commands queued from other threads (see debugger_console::queue_command)
+		m_machine.debugger().console().process_queued_commands();
+
+		// keep the ticker in step with the rate scripts asked for (default: none, so we block)
+		if (unsigned const interval = emulator_info::periodic_interval_ms(); interval != ticker_interval)
+		{
+			ticker.reset();
+			if (interval)
+				ticker = std::make_unique<debugger_wake_ticker>(*this, std::chrono::milliseconds(interval));
+			ticker_interval = interval;
+		}
+
+		// clear the memory modified flag and wait, unless a periodic hook has already
+		// resumed execution or scheduled an exit/reset (don't block for nothing)
 		set_memory_modified(false);
-		if (m_machine.debug_flags & DEBUG_FLAG_OSD_ENABLED)
+		if (is_stopped() && !m_machine.scheduled_event_pending() && (m_machine.debug_flags & DEBUG_FLAG_OSD_ENABLED))
 			m_machine.osd().wait_for_debugger(device, firststop);
 		firststop = false;
 
@@ -469,6 +561,8 @@ void debugger_cpu::wait_for_debugger(device_t &device)
 		if (m_machine.scheduled_event_pending())
 			set_execution_running();
 	}
+	m_waiting.store(false, std::memory_order_release);
+	ticker.reset();
 	m_machine.sound().debugger_mute(false);
 
 	// remember the last visible CPU in the debugger

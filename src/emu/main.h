@@ -57,6 +57,7 @@ public:
 	static int start_frontend(emu_options &options, osd_interface &osd, int argc, char *argv[]);
 	static bool draw_user_interface(running_machine& machine);
 	static void periodic_check();
+	static unsigned periodic_interval_ms(); // smallest rate (ms) a script asked periodic_check() be serviced at; 0 = no request
 	static bool frame_hook();
 	static void sound_hook(const std::map<std::string, std::vector<std::pair<const float *, int>>> &sound); // Can't use sound_stream::sample_t sadly
 	static void layout_script_cb(layout_file &file, const char *script);

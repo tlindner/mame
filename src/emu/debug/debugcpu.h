@@ -13,6 +13,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <set>
 #include <utility>
 
@@ -401,7 +402,7 @@ public:
 	void set_within_instruction(bool within_instruction) { m_within_instruction_hook = within_instruction; }
 	void set_memory_modified(bool memory_modified) { m_memory_modified = memory_modified; }
 	void set_execution_stopped() { m_execution_state = exec_state::STOPPED; }
-	void set_execution_running() { m_execution_state = exec_state::RUNNING; }
+	void set_execution_running() { m_execution_state = exec_state::RUNNING; wake_debugger(); }
 	void set_wpinfo(offs_t address, u64 data, offs_t size) { m_wpaddr = address; m_wpdata = data; m_wpsize = size; }
 
 	// device_debug helpers
@@ -414,6 +415,11 @@ public:
 	void ensure_comments_loaded();
 	void reset_transient_flags();
 	void wait_for_debugger(device_t &device);
+
+	// Thread-safe.  If the debugger is stopped and the OSD debugger is blocked waiting for
+	// OS events, make it return so wait_for_debugger() can re-evaluate machine state.
+	// Cheap, non-blocking, coalesces repeated requests, no-op when nothing is waiting.
+	void wake_debugger();
 
 private:
 	static const size_t NUM_TEMP_VARIABLES;
@@ -448,6 +454,9 @@ private:
 	osd_ticks_t m_last_periodic_update_time;
 
 	bool        m_comments_loaded;
+
+	std::atomic<bool> m_waiting;        // inside the wait_for_debugger loop
+	std::atomic<bool> m_wake_pending;   // a wake request has been posted and not yet consumed
 };
 
 #endif // MAME_EMU_DEBUG_DEBUGCPU_H

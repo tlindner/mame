@@ -498,6 +498,37 @@ void debugger_console::source_script(const char *file)
 
 
 //-------------------------------------------------
+//  queue_command - post a command from any thread
+//-------------------------------------------------
+
+void debugger_console::queue_command(std::string command)
+{
+	{
+		std::lock_guard<std::mutex> guard(m_queued_commands_mutex);
+		m_queued_commands.emplace_back(std::move(command));
+	}
+	m_machine.debugger().cpu().wake_debugger();
+}
+
+
+//-------------------------------------------------
+//  process_queued_commands - run commands posted
+//  by queue_command, in order
+//-------------------------------------------------
+
+void debugger_console::process_queued_commands()
+{
+	std::vector<std::string> commands;
+	{
+		std::lock_guard<std::mutex> guard(m_queued_commands_mutex);
+		commands.swap(m_queued_commands);
+	}
+	for (auto const &command : commands)
+		execute_command(command, true);
+}
+
+
+//-------------------------------------------------
 //  process_source_file - executes commands from
 //  a source file
 //-------------------------------------------------

@@ -19,6 +19,7 @@
 #include "imagedev/cassette.h"
 #include "imagedev/cdromimg.h"
 
+#include "debug/debugcpu.h"
 #include "debugger.h"
 #include "drivenum.h"
 #include "emuopts.h"
@@ -88,9 +89,12 @@ private:
 	std::mutex m_guard;
 	std::condition_variable m_sync;
 	bool m_busy = false;
+	std::function<void ()> m_notify; // called (from the worker thread) when we finish or yield
 
 public:
 	bool m_yield = false;
+
+	void set_notify(std::function<void ()> notify) { m_notify = std::move(notify); }
 
 	thread_context()
 	{
@@ -104,6 +108,8 @@ public:
 					std::unique_lock<std::mutex> yield_lock(m_guard);
 					m_result = m_state["status"];
 					m_yield = true;
+					if (m_notify)
+						m_notify(); // tell the emulation thread there's something to collect
 					m_sync.wait(yield_lock);
 					m_yield = false;
 				});
@@ -124,26 +130,32 @@ public:
 		}
 
 		std::thread th(
-				[this, func = res.get<sol::protected_function>()] ()
+				[this, notify = m_notify, func = res.get<sol::protected_function>()] ()
 				{
 					auto ret = func();
-					std::unique_lock<std::mutex> result_lock(m_guard);
-					if (ret.valid())
 					{
-						auto result = ret.get<std::optional<char const *> >();
-						if (!result)
-							osd_printf_error("[LUA ERROR] in thread: return value must be string\n");
-						else if (!*result)
-							m_result.clear();
+						std::unique_lock<std::mutex> result_lock(m_guard);
+						if (ret.valid())
+						{
+							auto result = ret.get<std::optional<char const *> >();
+							if (!result)
+								osd_printf_error("[LUA ERROR] in thread: return value must be string\n");
+							else if (!*result)
+								m_result.clear();
+							else
+								m_result = *result;
+						}
 						else
-							m_result = *result;
+						{
+							sol::error err = ret;
+							osd_printf_error("[LUA ERROR] in thread: %s\n", err.what());
+						}
+						m_busy = false;
 					}
-					else
-					{
-						sol::error err = ret;
-						osd_printf_error("[LUA ERROR] in thread: %s\n", err.what());
-					}
-					m_busy = false;
+
+					// result is ready: wake the emulation thread if it's idle in the debugger
+					if (notify)
+						notify();
 				});
 		m_busy = true;
 		m_yield = false;
@@ -752,6 +764,8 @@ void lua_engine::on_machine_reset()
 
 void lua_engine::on_machine_stop()
 {
+	m_wake_machine.store(nullptr, std::memory_order_release);
+
 	// clear waiting tasks
 	m_timer = nullptr;
 	std::vector<int> expired;
@@ -857,8 +871,19 @@ bool lua_engine::on_missing_mandatory_image(const std::string &instance_name)
 	return handled;
 }
 
+void lua_engine::wake_debugger()
+{
+	// may be called from any thread; does nothing unless the debugger is waiting
+	if (running_machine *const machine = m_wake_machine.load(std::memory_order_acquire))
+	{
+		if (machine->debug_flags & DEBUG_FLAG_ENABLED)
+			machine->debugger().cpu().wake_debugger();
+	}
+}
+
 void lua_engine::attach_notifiers()
 {
+	m_wake_machine.store(&machine(), std::memory_order_release);
 	machine().add_notifier(MACHINE_NOTIFY_RESET, machine_notify_delegate(&lua_engine::on_machine_prestart, this), true);
 	machine().add_notifier(MACHINE_NOTIFY_RESET, machine_notify_delegate(&lua_engine::on_machine_reset, this));
 	machine().add_notifier(MACHINE_NOTIFY_EXIT, machine_notify_delegate(&lua_engine::on_machine_stop, this));
@@ -1035,7 +1060,14 @@ void lua_engine::initialize()
 	emu["register_prestart"] = [this] (sol::function func) { register_function(func, "LUA_ON_PRESTART"); };
 	emu["register_frame_done"] = [this] (sol::function func) { register_function(func, "LUA_ON_FRAME_DONE"); };
 	emu["register_sound_update"] = [this] (sol::function func) { register_function(func, "LUA_ON_SOUND_UPDATE"); };
-	emu["register_periodic"] = [this] (sol::function func) { register_function(func, "LUA_ON_PERIODIC"); };
+	emu["register_periodic"] = [this] (sol::function func, sol::optional<unsigned> interval)
+			{
+				register_function(func, "LUA_ON_PERIODIC");
+				// optional: ask to be called at least this often (ms) even while the debugger is
+				// stopped and idle; the smallest request wins, none means no timer at all
+				if (interval && *interval)
+					m_periodic_interval_ms = m_periodic_interval_ms ? (std::min)(m_periodic_interval_ms, *interval) : *interval;
+			};
 	emu["register_mandatory_file_manager_override"] = [this] (sol::function func) { register_function(func, "LUA_ON_MANDATORY_FILE_MANAGER_OVERRIDE"); };
 	emu["register_before_load_settings"] = [this](sol::function func) { register_function(func, "LUA_ON_BEFORE_LOAD_SETTINGS"); };
 	emu["register_menu"] =
@@ -1260,7 +1292,16 @@ void lua_engine::initialize()
  * thread.yield - check if thread is yielding
  */
 
-	auto thread_type = emu.new_usertype<thread_context>("thread", sol::call_constructor, sol::constructors<sol::types<>>());
+	auto thread_type = emu.new_usertype<thread_context>(
+			"thread",
+			sol::call_constructor,
+			sol::factories(
+				[this] ()
+				{
+					auto context = std::make_shared<thread_context>();
+					context->set_notify([this] () { wake_debugger(); });
+					return context;
+				}));
 	thread_type.set_function("start", &thread_context::start);
 	thread_type.set_function("continue", &thread_context::resume);
 	thread_type["result"] = sol::property(&thread_context::result);

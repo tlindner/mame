@@ -16,7 +16,10 @@
 #include "textbuf.h"
 
 #include <functional>
+#include <mutex>
 #include <set>
+#include <string>
+#include <vector>
 
 
 /***************************************************************************
@@ -82,6 +85,12 @@ public:
 	void            register_command(std::string_view command, u32 flags, int minparams, int maxparams, std::function<void (const std::vector<std::string_view> &)> &&handler);
 	void            source_script(const char *file);
 	void            process_source_file();
+
+	// Thread-safe.  Queue a command to be run by the debugger loop (on the emulation thread) and
+	// wake the loop if it is blocked waiting for OS events.  Commands run while the debugger is
+	// stopped; if the machine is running they wait until the next stop.
+	void            queue_command(std::string command);
+	void            process_queued_commands();
 
 	// console management
 	void vprintf(util::format_argument_pack<char> const &args);
@@ -194,6 +203,9 @@ private:
 	std::set<debug_command, debug_command::compare> m_commandlist;
 
 	std::unique_ptr<std::istream> m_source_file;        // script source file
+
+	std::mutex                  m_queued_commands_mutex;
+	std::vector<std::string>    m_queued_commands;      // commands posted from other threads
 	std::unique_ptr<emu_file> m_logfile;                // logfile for debug console output
 };
 

@@ -786,6 +786,7 @@ public:
 
 	virtual void init_debugger(running_machine &machine) override;
 	virtual void wait_for_debugger(device_t &device, bool firststop) override;
+	virtual void wake_debugger() override { } // already polls on its own schedule
 	virtual void debugger_update() override;
 
 	std::string get_register_string(int gdb_regnum);

@@ -77,6 +77,12 @@ public:
 	virtual void init_debugger() = 0;
 	virtual void wait_for_debugger(device_t &device, bool firststop) = 0;
 
+	// Thread-safe.  If wait_for_debugger() is blocked waiting for OS events, make it
+	// return promptly so the core can re-evaluate its state.  May be called from any
+	// thread at any time, must not block, and may cause at most one spurious return.
+	// The default does nothing (appropriate for implementations that never block).
+	virtual void wake_debugger() { }
+
 	// audio overridables
 	virtual bool no_sound() = 0;
 	virtual bool sound_external_per_channel_volume() = 0;
