@@ -250,7 +250,7 @@ void sam6883_device::configure_ram()
 	}
 
 	for (offs_t block = 0; block < size; block += 0x40)
-		m_ram_block[block >> 6] = m_ram_ptr + block;
+		m_ram_rblock[block >> 6] = m_ram_wblock[block >> 6] = m_ram_ptr + block;
 
 	// drop bank ranges outside the installed RAM
 	std::erase_if(m_bank_ranges, [size] (bank_range const &r) { return r.end >= size; });
@@ -258,7 +258,7 @@ void sam6883_device::configure_ram()
 	{
 		if ((r.start & 0x3f) || ((r.end + 1) & 0x3f) || (r.end < r.start))
 			fatalerror("%s: RAM bank $%04X-$%04X is not 64 byte aligned\n", tag(), r.start, r.end);
-		r.base = m_ram_ptr + r.start;
+		r.read = r.write = m_ram_ptr + r.start;
 	}
 	m_ram_banked = !m_bank_ranges.empty();
 }
@@ -269,17 +269,24 @@ void sam6883_device::configure_ram()
 //  RAM at other memory
 //-------------------------------------------------
 
-void sam6883_device::set_ram_bank(offs_t start, uint8_t *base)
+void sam6883_device::set_ram_bank(offs_t start, uint8_t *read, uint8_t *write)
 {
 	for (bank_range &r : m_bank_ranges)
 	{
 		if (r.start == start)
 		{
-			r.base = base ? base : (m_ram_ptr + start);
+			r.read = read ? read : (m_ram_ptr + start);
+			r.write = write ? write : (m_ram_ptr + start);
 			for (offs_t block = r.start; block <= r.end; block += 0x40)
-				m_ram_block[block >> 6] = r.base + (block - r.start);
-			for (auto const &[bank, offset] : r.banks)
-				bank->set_base(r.base + offset);
+			{
+				m_ram_rblock[block >> 6] = r.read + (block - r.start);
+				m_ram_wblock[block >> 6] = r.write + (block - r.start);
+			}
+			for (auto const &[rbank, wbank, offset] : r.banks)
+			{
+				rbank->set_base(r.read + offset);
+				wbank->set_base(r.write + offset);
+			}
 			return;
 		}
 	}
@@ -351,7 +358,7 @@ uint8_t sam6883_device::ram_read(int32_t offset)
 		return space(0).unmap();
 	if (!m_ram_ptr)
 		return m_ram_space.read_byte(offset);
-	return m_ram_banked ? m_ram_block[offset >> 6][offset & 0x3f] : m_ram_ptr[offset];
+	return m_ram_banked ? m_ram_rblock[offset >> 6][offset & 0x3f] : m_ram_ptr[offset];
 }
 
 
@@ -360,7 +367,7 @@ void sam6883_device::ram_write(int32_t offset, uint8_t data)
 	if (offset < 0)
 		return;
 	if (m_ram_banked)
-		m_ram_block[offset >> 6][offset & 0x3f] = data;
+		m_ram_wblock[offset >> 6][offset & 0x3f] = data;
 	else if (m_ram_ptr)
 		m_ram_ptr[offset] = data;
 	else
@@ -583,11 +590,10 @@ void sam6883_device::install_ram_run(memory_view::memory_view_entry &entry, offs
 		offs_t const last = start + length - 1;
 		if (range)
 		{
-			memory_bank &bank = ram_bank(*range, offset - range->start);
+			auto const [rbank, wbank] = ram_bank(*range, offset - range->start);
+			entry.install_read_bank(start, last, rbank);
 			if (writable)
-				entry.install_readwrite_bank(start, last, &bank);
-			else
-				entry.install_read_bank(start, last, &bank);
+				entry.install_write_bank(start, last, wbank);
 		}
 		else if (writable)
 		{
@@ -609,16 +615,19 @@ void sam6883_device::install_ram_run(memory_view::memory_view_entry &entry, offs
 //  offset into a bank range
 //-------------------------------------------------
 
-memory_bank &sam6883_device::ram_bank(bank_range &range, offs_t offset)
+std::pair<memory_bank *, memory_bank *> sam6883_device::ram_bank(bank_range &range, offs_t offset)
 {
-	for (auto const &[bank, bank_offset] : range.banks)
+	for (auto const &[rbank, wbank, bank_offset] : range.banks)
 		if (bank_offset == offset)
-			return *bank;
+			return std::make_pair(rbank, wbank);
 
-	memory_bank *const bank = machine().memory().bank_alloc(*this, subtag(util::string_format("ram%04x", range.start + offset)));
-	bank->set_base(range.base + offset);
-	range.banks.emplace_back(bank, offset);
-	return *bank;
+	std::string const name = util::string_format("ram%04x", range.start + offset);
+	memory_bank *const rbank = machine().memory().bank_alloc(*this, subtag(name + "r"));
+	memory_bank *const wbank = machine().memory().bank_alloc(*this, subtag(name + "w"));
+	rbank->set_base(range.read + offset);
+	wbank->set_base(range.write + offset);
+	range.banks.emplace_back(rbank, wbank, offset);
+	return std::make_pair(rbank, wbank);
 }
 
 
