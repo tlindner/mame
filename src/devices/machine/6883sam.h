@@ -13,6 +13,8 @@
 
 #pragma once
 
+#include "machine/ram.h"
+
 
 //**************************************************************************
 //  SAM6883 CORE
@@ -85,6 +87,20 @@ protected:
 class sam6883_device : public device_t, public device_memory_interface, public sam6883_friend_device_interface
 {
 public:
+	// Dynamic RAM chip organisations, named by the cells each chip holds.
+	// Data width does not matter to the SAM, so 64K x 1, 64K x 4 and 64K x 8
+	// parts are all DRAM_64K.  The 8K and 32K parts are half-good 16K and 64K
+	// chips with the upper column half unusable.
+	enum class ram_chip : uint8_t
+	{
+		DRAM_4K,        // MCM4027
+		DRAM_8K,        // half-good MCM4116
+		DRAM_16K,       // MCM4116
+		DRAM_32K,       // half-good MCM6665 (TMS4532 and similar)
+		DRAM_64K,       // MCM6665, also 64K static RAM
+		DRAM_16K_X4     // TMS4416, LS785 only
+	};
+
 	template <typename T>
 	sam6883_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock, T &&cpu_tag)
 		: sam6883_device(mconfig, tag, owner, clock)
@@ -94,9 +110,15 @@ public:
 
 	sam6883_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
-	// CPU read/write handlers
-	uint8_t read(offs_t offset);
-	void write(offs_t offset, uint8_t data);
+	// RAM is taken directly from a ram_device when one is set; otherwise
+	// accesses go through address space 0 ("ram") as physical addresses
+	template <typename T> void set_ram(T &&tag) { m_ram.set_tag(std::forward<T>(tag)); }
+
+	// chip organisation for a RAM size (sizes without one use a default)
+	void set_ram_layout(uint32_t size, ram_chip chip, uint8_t banks = 1);
+
+	// SN74LS785: P1 selects 16K x 4 addressing in the 16K memory size
+	void set_ls785(bool ls785) { m_ls785 = ls785; }
 
 	// typically called by VDG
 	ATTR_FORCE_INLINE uint8_t display_read(offs_t offset)
@@ -116,7 +138,7 @@ public:
 			if ((old_counter ^ m_counter) & 0x0008)
 				counter_update_bit3(!BIT(m_counter, 3));
 		}
-		return m_ram_space.read_byte(m_counter & m_counter_mask);
+		return ram_read(ram_offset(m_mux, m_counter));
 	}
 
 	void hs_w(int state);
@@ -131,6 +153,48 @@ protected:
 	virtual space_config_vector memory_space_config() const override;
 
 private:
+	// address multiplexer modes, from M1/M0 (and P1 on the LS785)
+	enum : uint8_t
+	{
+		MUX_4K = 0,
+		MUX_16K,
+		MUX_64K,
+		MUX_16K_X4,
+		MUX_COUNT
+	};
+
+	struct ram_layout
+	{
+		uint32_t size;
+		ram_chip chip;
+		uint8_t banks;
+	};
+
+	struct chip_info
+	{
+		uint8_t row_bits;       // row address pins, from Z0
+		uint8_t col_shift;      // first column address pin
+		uint8_t col_bits;       // column address pins
+		int8_t dead_bit;        // cell address bit selecting the bad half, or -1
+	};
+
+	static const chip_info s_chips[];
+
+	// RAM configuration
+	optional_device<ram_device> m_ram;
+	std::vector<ram_layout>     m_layouts;
+	bool                        m_ls785;
+	uint8_t                     *m_ram_ptr = nullptr;
+	const chip_info             *m_chip = nullptr;
+	uint8_t                     m_ram_banks = 1;
+	uint32_t                    m_ram_chip_size = 0;
+
+	// CPU memory map
+	memory_view                 m_view;
+	uint8_t                     m_view_index[MUX_COUNT][2][2][2] = {}; // mux, TY, P1, address dependent rate
+	uint8_t                     m_mux = MUX_4K;
+	bool                        m_rate_ad = false;
+
 	// memory space configuration
 	address_space_config        m_ram_config;
 	address_space_config        m_rom0_config;
@@ -146,7 +210,6 @@ private:
 	memory_access<14, 0, 0, ENDIANNESS_BIG>::cache m_rom_space[3];
 	memory_access< 5, 0, 0, ENDIANNESS_BIG>::specific m_io_space[3];
 	memory_access< 7, 0, 0, ENDIANNESS_BIG>::cache m_boot_space;
-	uint16_t                    m_counter_mask = 0;
 
 	// SAM state
 	uint16_t                    m_counter = 0;
@@ -167,6 +230,19 @@ private:
 	void counter_set_bit4_input(bool level);
 	void counter_set_bit5_input(bool level);
 	void counter_mode_changed(uint8_t old_mode);
+
+	// RAM addressing
+	void configure_ram() ATTR_COLD;
+	int32_t ram_offset(uint8_t mux, uint16_t address) const;
+	uint8_t ram_read(int32_t offset);
+	void ram_write(int32_t offset, uint8_t data);
+	uint8_t current_mux() const;
+
+	// CPU memory map
+	void install_cpu_map() ATTR_COLD;
+	void install_view(int index, uint8_t mux, bool ty, bool p1, bool rate_ad) ATTR_COLD;
+	void install_ram_region(memory_view::memory_view_entry &entry, offs_t start, offs_t end, uint8_t mux, uint16_t page, bool writable) ATTR_COLD;
+	void slow_cycle();
 
 	// other members
 	void horizontal_sync();

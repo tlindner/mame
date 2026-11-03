@@ -105,7 +105,7 @@ private:
 
 void microbx2_state::mem_map(address_map &map)
 {
-	map(0x0000, 0xffff).rw("sam", FUNC(sam6883_device::read), FUNC(sam6883_device::write));
+	// installed by the SAM
 }
 
 void microbx2_state::ram_map(address_map &map)

@@ -284,7 +284,7 @@ void d64plus_state::machine_reset()
 
 void dragon_state::dragon_mem(address_map &map)
 {
-	map(0x0000, 0xffff).rw(m_sam, FUNC(sam6883_device::read), FUNC(sam6883_device::write));
+	// installed by the SAM
 }
 
 
@@ -491,6 +491,8 @@ void dragon_state::dragon_base(machine_config &config)
 	m_pia_1->irqb_handler().set(m_firqs, FUNC(input_merger_device::in_w<1>));
 
 	SAM6883(config, m_sam, 14.218_MHz_XTAL, m_maincpu);
+	m_sam->set_ram(m_ram);
+	m_sam->set_ram_layout(0x8000, sam6883_device::ram_chip::DRAM_32K); // BASIC selects the 64K memory size
 	m_sam->set_addrmap(0, &dragon_state::coco_ram);
 	m_sam->set_addrmap(1, &dragon_state::coco_rom0);
 	m_sam->set_addrmap(2, &dragon_state::coco_rom1);
@@ -610,6 +612,7 @@ void dragon200e_state::dragon200e(machine_config &config)
 void d64plus_state::d64plus(machine_config &config)
 {
 	dragon64(config);
+	m_sam->set_ram(finder_base::DUMMY_TAG); // RAM is banked in the SAM's RAM space
 	// video hardware
 	screen_device &plus_screen(SCREEN(config, "plus_screen"));
 	plus_screen.set_raw(14.218_MHz_XTAL, 912, 0, 640, 316, 0, 264);

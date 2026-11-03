@@ -37,7 +37,7 @@
 
 void coco12_state::coco_mem(address_map &map)
 {
-	map(0x0000, 0xffff).rw(m_sam, FUNC(sam6883_device::read), FUNC(sam6883_device::write));
+	// installed by the SAM
 }
 
 void coco12_state::coco_ram(address_map &map)
@@ -565,6 +565,8 @@ void coco12_state::coco(machine_config &config)
 	m_pia_1->irqb_handler().set(m_firqs, FUNC(input_merger_device::in_w<1>));
 
 	SAM6883(config, m_sam, XTAL(14'318'181), m_maincpu);
+	m_sam->set_ram(m_ram);
+	m_sam->set_ram_layout(0x8000, sam6883_device::ram_chip::DRAM_32K); // memory sense reports 64K chips
 	m_sam->set_addrmap(0, &coco12_state::coco_ram);
 	m_sam->set_addrmap(1, &coco12_state::coco_rom0);
 	m_sam->set_addrmap(2, &coco12_state::coco_rom1);
@@ -673,6 +675,7 @@ void deluxecoco_state::deluxecoco(machine_config &config)
 	m_psg->add_route(ALL_OUTPUTS, "speaker", 1.0);
 
 	// Adjust Memory Map
+	m_sam->set_ram(finder_base::DUMMY_TAG); // RAM is banked in the SAM's RAM space
 	m_sam->set_addrmap(3, &deluxecoco_state::deluxecoco_rom2);
 	m_sam->set_addrmap(5, &deluxecoco_state::deluxecoco_io1);
 
@@ -683,6 +686,8 @@ void deluxecoco_state::deluxecoco(machine_config &config)
 void coco12_state::coco2b(machine_config &config)
 {
 	coco(config);
+
+	m_sam->set_ls785(true);
 
 	MC6847T1(config.replace(), m_vdg, XTAL(14'318'181) / 4);
 	m_vdg->set_field_sync_extra_transitions(false);

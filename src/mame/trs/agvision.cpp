@@ -221,6 +221,7 @@ void agvision_state::agvision(machine_config &config)
 
 	// memory controller
 	SAM6883(config, m_sam, XTAL(14'318'181), m_maincpu);
+	m_sam->set_ram(m_ram);
 	m_sam->set_addrmap(2, &agvision_state::rom_map);            // ROM at $A000
 	m_sam->set_addrmap(3, &agvision_state::static_ram_map);     // RAM at $C000
 	m_sam->set_addrmap(4, &agvision_state::io0_map);            //  IO at $FF00
@@ -240,7 +241,7 @@ void agvision_state::agvision(machine_config &config)
 
 void agvision_state::mem_map(address_map &map)
 {
-	map(0x0000, 0xffff).rw(m_sam, FUNC(sam6883_device::read), FUNC(sam6883_device::write));
+	// installed by the SAM
 }
 
 void agvision_state::rom_map(address_map &map)

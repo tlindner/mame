@@ -43,8 +43,17 @@
          1  Set     V0  VDG Mode
          0  Clear   V0  VDG Mode
 
-    All parts of the SAM are fully emulated except R1/R0 (the changes in the
-    MPU rate are approximated) and M1/M0
+    The SAM installs a memory view over $0000-$FEFF of the CPU's program
+    space.  There is one view entry for every combination of address
+    multiplexer mode (M1/M0, and P1 on the LS785), map type, page bit and
+    address dependent rate, all built at start.  RAM is addressed through
+    the multiplexer as described by the host's chip layout, so mismatched
+    memory size settings alias or lose RAM as they do on hardware.
+
+    Not emulated: DRAM refresh, VDG clock synchronisation, the loss of VDG
+    data in the fast rate, and the exact E/Q stretch when the address
+    dependent rate changes speed.  Address dependent slow cycles are
+    approximated as one extra fast cycle.
 
 ***************************************************************************/
 
@@ -79,6 +88,17 @@
 
 DEFINE_DEVICE_TYPE(SAM6883, sam6883_device, "sam6883", "MC6883 SAM")
 
+// row pins, first column pin, column pins, bad half bit
+const sam6883_device::chip_info sam6883_device::s_chips[] =
+{
+	{ 6, 0, 6, -1 },    // DRAM_4K
+	{ 7, 0, 7, 13 },    // DRAM_8K
+	{ 7, 0, 7, -1 },    // DRAM_16K
+	{ 8, 0, 8, 15 },    // DRAM_32K
+	{ 8, 0, 8, -1 },    // DRAM_64K
+	{ 8, 1, 6, -1 }     // DRAM_16K_X4
+};
+
 
 
 //**************************************************************************
@@ -93,6 +113,9 @@ sam6883_device::sam6883_device(const machine_config &mconfig, const char *tag, d
 	: device_t(mconfig, SAM6883, tag, owner, clock)
 	, device_memory_interface(mconfig, *this)
 	, sam6883_friend_device_interface(mconfig, *this, 4)
+	, m_ram(*this, finder_base::DUMMY_TAG)
+	, m_ls785(false)
+	, m_view(*this, "view")
 	, m_ram_config("ram", ENDIANNESS_BIG, 8, 16, 0)
 	, m_rom0_config("rom0", ENDIANNESS_BIG, 8, 13, 0)
 	, m_rom1_config("rom1", ENDIANNESS_BIG, 8, 13, 0)
@@ -102,6 +125,17 @@ sam6883_device::sam6883_device(const machine_config &mconfig, const char *tag, d
 	, m_io2_config("io2", ENDIANNESS_BIG, 8, 5, 0)
 	, m_boot_config("boot", ENDIANNESS_BIG, 8, 7, 0)
 {
+}
+
+
+//-------------------------------------------------
+//  set_ram_layout - describe the RAM chips used
+//  for a RAM size
+//-------------------------------------------------
+
+void sam6883_device::set_ram_layout(uint32_t size, ram_chip chip, uint8_t banks)
+{
+	m_layouts.push_back(ram_layout{ size, chip, banks });
 }
 
 sam6883_friend_device_interface::sam6883_friend_device_interface(const machine_config &mconfig, device_t &device, int divider)
@@ -140,6 +174,9 @@ device_memory_interface::space_config_vector sam6883_device::memory_space_config
 
 void sam6883_device::device_start()
 {
+	if (m_ram.found() && !m_ram->started())
+		throw device_missing_dependencies();
+
 	// get spaces
 	space(0).cache(m_ram_space);
 	for (int i = 0; i < 3; i++)
@@ -148,10 +185,15 @@ void sam6883_device::device_start()
 		space(i + 4).specific(m_io_space[i]);
 	space(7).cache(m_boot_space);
 
+	configure_ram();
+	install_cpu_map();
+
+	// the display counter is not cleared by a SAM reset
+	counter_reset(0);
+
 	// save state support
 	save_item(NAME(m_sam_state));
 	save_item(NAME(m_divider));
-	save_item(NAME(m_counter_mask));
 	save_item(NAME(m_counter));
 	save_item(NAME(m_counter_xdiv));
 	save_item(NAME(m_counter_ydiv));
@@ -161,82 +203,322 @@ void sam6883_device::device_start()
 
 
 //-------------------------------------------------
-//  read - read from one of the eight spaces
+//  configure_ram - find the chip layout for the
+//  installed RAM
 //-------------------------------------------------
 
-uint8_t sam6883_device::read(offs_t offset)
+void sam6883_device::configure_ram()
 {
-	bool mode_64k = (m_sam_state & SAM_STATE_M1) == SAM_STATE_M1;
-	if (offset < (mode_64k && (m_sam_state & SAM_STATE_TY) ? 0xff00 : 0x8000))
+	// without a ram_device, space 0 is addressed as physical RAM
+	uint32_t const size = m_ram.found() ? m_ram->size() : 0x10000;
+	if (m_ram.found())
+		m_ram_ptr = m_ram->pointer();
+
+	ram_layout layout{ 0, ram_chip::DRAM_64K, 0 };
+	for (ram_layout const &l : m_layouts)
+		if (l.size == size)
+			layout = l;
+
+	if (!layout.banks)
 	{
-		// RAM reads: 0000–7FFF or 0000–FEFF
-		if (mode_64k && (m_sam_state & (SAM_STATE_TY | SAM_STATE_P1)) == SAM_STATE_P1)
-			offset |= 0x8000;
-		return m_ram_space.read_byte(offset);
+		switch (size)
+		{
+		case 0x1000:  layout = ram_layout{ size, ram_chip::DRAM_4K, 1 }; break;
+		case 0x2000:  layout = ram_layout{ size, ram_chip::DRAM_4K, 2 }; break;
+		case 0x4000:  layout = ram_layout{ size, ram_chip::DRAM_16K, 1 }; break;
+		case 0x8000:  layout = ram_layout{ size, ram_chip::DRAM_16K, 2 }; break;
+		case 0x10000: layout = ram_layout{ size, ram_chip::DRAM_64K, 1 }; break;
+		default:
+			fatalerror("%s: no RAM layout for %u bytes\n", tag(), size);
+		}
 	}
-	else if (offset < 0xc000 || offset >= 0xffe0)
+
+	m_chip = &s_chips[unsigned(layout.chip)];
+	m_ram_banks = layout.banks;
+	m_ram_chip_size = 1U << (m_chip->row_bits + m_chip->col_bits - ((m_chip->dead_bit >= 0) ? 1 : 0));
+
+	if ((m_ram_banks < 1) || (m_ram_banks > 2) || ((m_ram_banks * m_ram_chip_size) != size))
+		fatalerror("%s: RAM layout of %u bank(s) of %u bytes does not match %u bytes of RAM\n", tag(), m_ram_banks, m_ram_chip_size, size);
+	if ((layout.chip == ram_chip::DRAM_16K_X4) && !m_ls785)
+		fatalerror("%s: 16K x 4 RAM requires an LS785\n", tag());
+}
+
+
+//-------------------------------------------------
+//  ram_offset - pass an address through the
+//  RAM address multiplexer; returns the RAM
+//  offset, or -1 when no RAM chip responds
+//-------------------------------------------------
+
+int32_t sam6883_device::ram_offset(uint8_t mux, uint16_t address) const
+{
+	// Figure 6.  In the 4K and 16K sizes Z7 is RAS1, which stays high unless
+	// the second bank is being accessed.  In the 64K sizes, bit 15 of the
+	// address is the page bit for map type 0 MPU accesses.
+	unsigned row, col, bank = 0;
+	switch (mux)
 	{
-		// ROM spaces: 8000–9FFF and A000–BFFF + FFE0–FFFF
-		return m_rom_space[BIT(offset, 13)].read_byte(offset & 0x1fff);
+	case MUX_4K:
+		bank = BIT(address, 12);
+		row = (address & 0x7f) | (bank ? 0x00 : 0x80);
+		col = ((address >> 6) & 0x3f) | (bank ? 0x00 : 0x80);   // Z6 is low
+		break;
+
+	case MUX_16K:
+		bank = BIT(address, 14);
+		row = (address & 0x7f) | (bank ? 0x00 : 0x80);
+		col = ((address >> 7) & 0x7f) | (bank ? 0x00 : 0x80);
+		break;
+
+	case MUX_16K_X4:
+		row = address & 0xff;
+		col = (address >> 7) & 0xff;
+		break;
+
+	default:
+		row = address & 0xff;
+		col = address >> 8;
+		break;
 	}
-	else if (offset < 0xff00)
+
+	if (bank >= m_ram_banks)
+		return -1;
+
+	uint32_t cell = (row & ((1U << m_chip->row_bits) - 1))
+			| (((col >> m_chip->col_shift) & ((1U << m_chip->col_bits) - 1)) << m_chip->row_bits);
+
+	// half-good chips: only the lower half of the cells work
+	if (m_chip->dead_bit >= 0)
 	{
-		// ROM2 space: C000–FEFF
-		return m_rom_space[2].read_byte(offset & 0x3fff);
+		if (BIT(cell, m_chip->dead_bit))
+			return -1;
+		cell = (cell & ((1U << m_chip->dead_bit) - 1)) | ((cell >> 1) & ~((1U << m_chip->dead_bit) - 1));
 	}
-	else if (offset < 0xff60)
-	{
-		// I/O spaces: FF00–FF1F (slow), FF20–FF3F, FF40–FF5F
-		return m_io_space[BIT(offset, 5, 2)].read_byte(offset & 0x1f);
-	}
+
+	return (bank * m_ram_chip_size) + cell;
+}
+
+
+//-------------------------------------------------
+//  ram_read/ram_write - access RAM by offset
+//-------------------------------------------------
+
+uint8_t sam6883_device::ram_read(int32_t offset)
+{
+	if (offset < 0)
+		return space(0).unmap();
+	return m_ram_ptr ? m_ram_ptr[offset] : m_ram_space.read_byte(offset);
+}
+
+
+void sam6883_device::ram_write(int32_t offset, uint8_t data)
+{
+	if (offset < 0)
+		return;
+	if (m_ram_ptr)
+		m_ram_ptr[offset] = data;
 	else
+		m_ram_space.write_byte(offset, data);
+}
+
+
+//-------------------------------------------------
+//  current_mux - address multiplexer mode for the
+//  current SAM state
+//-------------------------------------------------
+
+uint8_t sam6883_device::current_mux() const
+{
+	if (m_sam_state & SAM_STATE_M1)
+		return MUX_64K;
+	else if (m_sam_state & SAM_STATE_M0)
+		return (m_ls785 && (m_sam_state & SAM_STATE_P1)) ? MUX_16K_X4 : MUX_16K;
+	else
+		return MUX_4K;
+}
+
+
+//-------------------------------------------------
+//  install_cpu_map - set up the CPU program space
+//-------------------------------------------------
+
+void sam6883_device::install_cpu_map()
+{
+	address_space &space = m_cpu->space(AS_PROGRAM);
+
+	// $FF00-$FFFF decodes the same way in both map types
+	space.install_readwrite_handler(0xff00, 0xff1f,
+			read8sm_delegate(*this, NAME([this] (offs_t offset) { if (m_rate_ad) slow_cycle(); return m_io_space[0].read_byte(offset); })),
+			write8sm_delegate(*this, NAME([this] (offs_t offset, uint8_t data) { if (m_rate_ad) slow_cycle(); m_io_space[0].write_byte(offset, data); })));
+	space.install_readwrite_handler(0xff20, 0xff3f,
+			read8sm_delegate(*this, NAME([this] (offs_t offset) { return m_io_space[1].read_byte(offset); })),
+			write8sm_delegate(*this, NAME([this] (offs_t offset, uint8_t data) { m_io_space[1].write_byte(offset, data); })));
+	space.install_readwrite_handler(0xff40, 0xff5f,
+			read8sm_delegate(*this, NAME([this] (offs_t offset) { return m_io_space[2].read_byte(offset); })),
+			write8sm_delegate(*this, NAME([this] (offs_t offset, uint8_t data) { m_io_space[2].write_byte(offset, data); })));
+	space.install_readwrite_handler(0xff60, 0xffdf,
+			read8sm_delegate(*this, NAME([this] (offs_t offset) { return m_boot_space.read_byte(offset); })),
+			write8sm_delegate(*this, NAME([this] (offs_t offset, uint8_t data)
+			{
+				m_boot_space.write_byte(offset, data);
+				if (offset >= 0x60)
+					internal_write(offset & 0x1f, data);
+			})));
+	space.install_readwrite_handler(0xffe0, 0xffff,
+			read8sm_delegate(*this, NAME([this] (offs_t offset) { return m_rom_space[1].read_byte(offset + 0x1fe0); })),
+			write8sm_delegate(*this, NAME([this] (offs_t offset, uint8_t data) { m_rom_space[1].write_byte(offset + 0x1fe0, data); })));
+
+	// $0000-$FEFF depends on the SAM state
+	space.install_view(0x0000, 0xfeff, m_view);
+	int count = 0;
+	for (uint8_t mux = 0; mux < MUX_COUNT; mux++)
 	{
-		// FF60–FFDF
-		return m_boot_space.read_byte(offset - 0xff60);
+		if ((mux == MUX_16K_X4) && !m_ls785)
+			continue;
+		for (int ty = 0; ty < 2; ty++)
+		{
+			for (int p1 = 0; p1 < 2; p1++)
+			{
+				for (int ad = 0; ad < 2; ad++)
+				{
+					// the page bit only reaches the multiplexer in the 64K sizes with map type 0
+					if (p1 && ((mux != MUX_64K) || ty))
+					{
+						m_view_index[mux][ty][p1][ad] = m_view_index[mux][ty][0][ad];
+					}
+					else
+					{
+						m_view_index[mux][ty][p1][ad] = count;
+						install_view(count++, mux, ty, p1, ad);
+					}
+				}
+			}
+		}
 	}
 }
 
 
 //-------------------------------------------------
-//  write - write to RAM, I/O or internal register
+//  install_view - populate one view entry
 //-------------------------------------------------
 
-void sam6883_device::write(offs_t offset, uint8_t data)
+void sam6883_device::install_view(int index, uint8_t mux, bool ty, bool p1, bool rate_ad)
 {
-	bool mode_64k = (m_sam_state & SAM_STATE_M1) == SAM_STATE_M1;
-	if (offset < 0x8000)
+	memory_view::memory_view_entry &entry = m_view[index];
+
+	// $0000-$7FFF is RAM in both map types (S=0 reading, S=7 writing)
+	install_ram_region(entry, 0x0000, 0x7fff, mux, (!ty && p1) ? 0x8000 : 0x0000, true);
+
+	if (!ty)
 	{
-		// RAM write space: 0000–7FFF (nominally space 7)
-		if (mode_64k && (m_sam_state & (SAM_STATE_TY | SAM_STATE_P1)) == SAM_STATE_P1)
-			offset |= 0x8000;
-		m_ram_space.write_byte(offset, data);
-	}
-	else if (offset < 0xc000 || offset >= 0xffe0)
-	{
-		// ROM spaces: 8000–9FFF and A000–BFFF + FFE0–FFFF (may write through to RAM)
-		if (offset < 0xc000 && mode_64k && (m_sam_state & SAM_STATE_TY))
-			m_ram_space.write_byte(offset, data);
-		m_rom_space[BIT(offset, 13)].write_byte(offset & 0x1fff, data);
-	}
-	else if (offset < 0xff00)
-	{
-		// ROM2 space: C000–FEFF (may write through to RAM)
-		if (mode_64k && (m_sam_state & SAM_STATE_TY))
-			m_ram_space.write_byte(offset, data);
-		m_rom_space[2].write_byte(offset & 0x3fff, data);
-	}
-	else if (offset < 0xff60)
-	{
-		// I/O spaces: FF00–FF1F (slow), FF20–FF3F, FF40–FF5F
-		m_io_space[BIT(offset, 5, 2)].write_byte(offset & 0x1f, data);
+		// map type 0: ROM0, ROM1 and ROM2 (one handler, so opcode fetches
+		// moving between the ROMs do not refill the CPU's cache)
+		entry.install_readwrite_handler(0x8000, 0xfeff,
+				read8sm_delegate(*this, NAME([this] (offs_t offset)
+				{
+					return (offset < 0x4000)
+							? m_rom_space[BIT(offset, 13)].read_byte(offset & 0x1fff)
+							: m_rom_space[2].read_byte(offset & 0x3fff);
+				})),
+				write8sm_delegate(*this, NAME([this] (offs_t offset, uint8_t data)
+				{
+					if (offset < 0x4000)
+						m_rom_space[BIT(offset, 13)].write_byte(offset & 0x1fff, data);
+					else
+						m_rom_space[2].write_byte(offset & 0x3fff, data);
+				})));
 	}
 	else
 	{
-		// FF60–FFDF
-		m_boot_space.write_byte(offset - 0xff60, data);
-		if (offset >= 0xffc0)
-			internal_write(offset & 0x1f, data);
+		// map type 1: RAM is read (S=0), writes also select ROM0, ROM1 or ROM2
+		install_ram_region(entry, 0x8000, 0xfeff, mux, 0x0000, false);
+		entry.install_write_handler(0x8000, 0xfeff, write8sm_delegate(*this, [this, mux] (offs_t offset, uint8_t data)
+		{
+			offs_t const address = offset + 0x8000;
+			ram_write(ram_offset(mux, address), data);
+			if (address < 0xc000)
+				m_rom_space[BIT(address, 13)].write_byte(address & 0x1fff, data);
+			else
+				m_rom_space[2].write_byte(address & 0x3fff, data);
+		}, "ty1_write"));
 	}
+
+	// address dependent rate: $0000-$7FFF is accessed at the slow rate
+	if (rate_ad)
+	{
+		entry.install_readwrite_tap(0x0000, 0x7fff, "sam_rate",
+				[this] (offs_t offset, uint8_t &data, uint8_t mem_mask) { slow_cycle(); },
+				[this] (offs_t offset, uint8_t &data, uint8_t mem_mask) { slow_cycle(); });
+	}
+}
+
+
+//-------------------------------------------------
+//  install_ram_region - map CPU addresses to RAM
+//  through the address multiplexer
+//-------------------------------------------------
+
+void sam6883_device::install_ram_region(memory_view::memory_view_entry &entry, offs_t start, offs_t end, uint8_t mux, uint16_t page, bool writable)
+{
+	if (!m_ram_ptr)
+	{
+		// RAM in address space 0: translate every access
+		entry.install_read_handler(start, end, read8sm_delegate(*this, [this, start, mux, page] (offs_t offset)
+		{
+			return ram_read(ram_offset(mux, (start + offset) | page));
+		}, "ram_read"));
+		if (writable)
+		{
+			entry.install_write_handler(start, end, write8sm_delegate(*this, [this, start, mux, page] (offs_t offset, uint8_t data)
+			{
+				ram_write(ram_offset(mux, (start + offset) | page), data);
+			}, "ram_write"));
+		}
+		return;
+	}
+
+	// RAM from a ram_device: install each run of linearly addressed cells.
+	// Z0-Z5 always carry A0-A5 on the row, so runs are whole 64 byte blocks.
+	for (offs_t base = start; base <= end; )
+	{
+		int32_t const offset = ram_offset(mux, base | page);
+		offs_t last = base + 0x3f;
+		while (last < end)
+		{
+			int32_t const next = ram_offset(mux, (last + 1) | page);
+			if ((offset < 0) ? (next >= 0) : (next != (offset + int32_t(last + 1 - base))))
+				break;
+			last += 0x40;
+		}
+
+		if (offset < 0)
+		{
+			if (writable)
+				entry.nop_readwrite(base, last);
+			else
+				entry.nop_read(base, last);
+		}
+		else if (writable)
+		{
+			entry.install_ram(base, last, m_ram_ptr + offset);
+		}
+		else
+		{
+			entry.install_rom(base, last, m_ram_ptr + offset);
+		}
+		base = last + 1;
+	}
+}
+
+
+//-------------------------------------------------
+//  slow_cycle - stretch an access in the address
+//  dependent rate from a fast cycle to a slow one
+//-------------------------------------------------
+
+void sam6883_device::slow_cycle()
+{
+	m_cpu->adjust_icount(-1);
 }
 
 
@@ -246,7 +528,7 @@ void sam6883_device::write(offs_t offset, uint8_t data)
 
 void sam6883_device::device_reset()
 {
-	counter_reset(0);
+	// VClk held low clears the control register, nothing else
 	m_sam_state = 0x0000;
 	update_state();
 }
@@ -278,56 +560,15 @@ void sam6883_device::update_state()
 
 
 //-------------------------------------------------
-//  update_memory
+//  update_memory - select the view for the
+//  memory size, map type, page and rate bits
 //-------------------------------------------------
 
 void sam6883_device::update_memory()
 {
-	// Memory size - allowed restricting memory accesses to something less than
-	// 32k
-	//
-	// This was a SAM switch that occupied 4 addresses:
-	//
-	//      $FFDD   (set)   R1
-	//      $FFDC   (clear) R1
-	//      $FFDB   (set)   R0
-	//      $FFDA   (clear) R0
-	//
-	// R1:R0 formed the following states:
-	//      00  - 4k
-	//      01  - 16k
-	//      10  - 64k
-	//      11  - static RAM (??)
-	//
-	// If something less than 64k was set, the low RAM would be smaller and
-	// mirror the other parts of the RAM
-	//
-	// TODO:  Find out what "static RAM" is
-	// TODO:  This should affect _all_ memory accesses, not just video ram
-	// TODO:  Verify that the CoCo 3 ignored this
-
-	// switch depending on the M1/M0 variables
-	switch(m_sam_state & (SAM_STATE_M1|SAM_STATE_M0))
-	{
-		case 0:
-			// 4K mode
-			m_counter_mask = 0x0FFF;
-			break;
-
-		case SAM_STATE_M0:
-			// 16K mode
-			m_counter_mask = 0x3FFF;
-			break;
-
-		case SAM_STATE_M1:
-			// 64k mode (dynamic)
-		case SAM_STATE_M1|SAM_STATE_M0:
-			// 64k mode (static)
-			// full 64k RAM or ROM/RAM
-			// CoCo Max requires these two be treated the same
-			m_counter_mask = 0xfFFF;
-			break;
-	}
+	m_mux = current_mux();
+	m_rate_ad = (m_sam_state & (SAM_STATE_R1 | SAM_STATE_R0)) == SAM_STATE_R0;
+	m_view.select(m_view_index[m_mux][BIT(m_sam_state, 15)][BIT(m_sam_state, 10)][m_rate_ad ? 1 : 0]);
 }
 
 
@@ -358,8 +599,8 @@ void sam6883_friend_device_interface::update_cpu_clock()
 	// the screen to display garbage because the M6847 could not display
 	// fast enough.
 	//
-	// TODO:  Make the overclock more accurate.  In dual speed, ROM was a fast
-	// access but RAM was not.  I don't know how to simulate this.
+	// In dual speed the CPU runs at the fast rate here; the MC6883 device
+	// stretches its slow accesses itself.  The GIME does not.
 
 	int speed = (m_sam_state & (SAM_STATE_R1|SAM_STATE_R0)) / SAM_STATE_R0;
 	m_cpu->owner()->set_unscaled_clock(device().clock() / (m_divider * (speed ? 2 : 4)));
@@ -387,7 +628,7 @@ void sam6883_device::internal_write(offs_t offset, uint8_t data)
 		counter_mode_changed(old_mode);
 
 	// based on the mask, apply effects
-	if (xorval & (SAM_STATE_TY|SAM_STATE_M1|SAM_STATE_M0|SAM_STATE_P1))
+	if (xorval & (SAM_STATE_TY|SAM_STATE_M1|SAM_STATE_M0|SAM_STATE_P1|SAM_STATE_R1|SAM_STATE_R0))
 		update_memory();
 	if (xorval & (SAM_STATE_R1|SAM_STATE_R0))
 		update_cpu_clock();
