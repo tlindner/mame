@@ -241,6 +241,48 @@ void sam6883_device::configure_ram()
 		fatalerror("%s: RAM layout of %u bank(s) of %u bytes does not match %u bytes of RAM\n", tag(), m_ram_banks, m_ram_chip_size, size);
 	if ((layout.chip == ram_chip::DRAM_16K_X4) && !m_ls785)
 		fatalerror("%s: 16K x 4 RAM requires an LS785\n", tag());
+
+	if (!m_ram_ptr)
+	{
+		if (!m_bank_ranges.empty())
+			fatalerror("%s: RAM banks require a ram_device\n", tag());
+		return;
+	}
+
+	for (offs_t block = 0; block < size; block += 0x40)
+		m_ram_block[block >> 6] = m_ram_ptr + block;
+
+	// drop bank ranges outside the installed RAM
+	std::erase_if(m_bank_ranges, [size] (bank_range const &r) { return r.end >= size; });
+	for (bank_range &r : m_bank_ranges)
+	{
+		if ((r.start & 0x3f) || ((r.end + 1) & 0x3f) || (r.end < r.start))
+			fatalerror("%s: RAM bank $%04X-$%04X is not 64 byte aligned\n", tag(), r.start, r.end);
+		r.base = m_ram_ptr + r.start;
+	}
+	m_ram_banked = !m_bank_ranges.empty();
+}
+
+
+//-------------------------------------------------
+//  set_ram_bank - point a bank range of physical
+//  RAM at other memory
+//-------------------------------------------------
+
+void sam6883_device::set_ram_bank(offs_t start, uint8_t *base)
+{
+	for (bank_range &r : m_bank_ranges)
+	{
+		if (r.start == start)
+		{
+			r.base = base ? base : (m_ram_ptr + start);
+			for (offs_t block = r.start; block <= r.end; block += 0x40)
+				m_ram_block[block >> 6] = r.base + (block - r.start);
+			for (auto const &[bank, offset] : r.banks)
+				bank->set_base(r.base + offset);
+			return;
+		}
+	}
 }
 
 
@@ -307,7 +349,9 @@ uint8_t sam6883_device::ram_read(int32_t offset)
 {
 	if (offset < 0)
 		return space(0).unmap();
-	return m_ram_ptr ? m_ram_ptr[offset] : m_ram_space.read_byte(offset);
+	if (!m_ram_ptr)
+		return m_ram_space.read_byte(offset);
+	return m_ram_banked ? m_ram_block[offset >> 6][offset & 0x3f] : m_ram_ptr[offset];
 }
 
 
@@ -315,7 +359,9 @@ void sam6883_device::ram_write(int32_t offset, uint8_t data)
 {
 	if (offset < 0)
 		return;
-	if (m_ram_ptr)
+	if (m_ram_banked)
+		m_ram_block[offset >> 6][offset & 0x3f] = data;
+	else if (m_ram_ptr)
 		m_ram_ptr[offset] = data;
 	else
 		m_ram_space.write_byte(offset, data);
@@ -500,16 +546,79 @@ void sam6883_device::install_ram_region(memory_view::memory_view_entry &entry, o
 			else
 				entry.nop_read(base, last);
 		}
-		else if (writable)
-		{
-			entry.install_ram(base, last, m_ram_ptr + offset);
-		}
 		else
 		{
-			entry.install_rom(base, last, m_ram_ptr + offset);
+			install_ram_run(entry, base, last, offset, writable);
 		}
 		base = last + 1;
 	}
+}
+
+
+//-------------------------------------------------
+//  install_ram_run - install linearly addressed
+//  RAM, using banks where the host may move it
+//-------------------------------------------------
+
+void sam6883_device::install_ram_run(memory_view::memory_view_entry &entry, offs_t start, offs_t end, uint32_t offset, bool writable)
+{
+	while (start <= end)
+	{
+		// split the run at the edges of bank ranges
+		offs_t length = end - start + 1;
+		bank_range *range = nullptr;
+		for (bank_range &r : m_bank_ranges)
+		{
+			if ((offset >= r.start) && (offset <= r.end))
+			{
+				range = &r;
+				length = std::min<offs_t>(length, r.end - offset + 1);
+			}
+			else if (r.start > offset)
+			{
+				length = std::min<offs_t>(length, r.start - offset);
+			}
+		}
+
+		offs_t const last = start + length - 1;
+		if (range)
+		{
+			memory_bank &bank = ram_bank(*range, offset - range->start);
+			if (writable)
+				entry.install_readwrite_bank(start, last, &bank);
+			else
+				entry.install_read_bank(start, last, &bank);
+		}
+		else if (writable)
+		{
+			entry.install_ram(start, last, m_ram_ptr + offset);
+		}
+		else
+		{
+			entry.install_rom(start, last, m_ram_ptr + offset);
+		}
+
+		start += length;
+		offset += length;
+	}
+}
+
+
+//-------------------------------------------------
+//  ram_bank - find or create the bank for an
+//  offset into a bank range
+//-------------------------------------------------
+
+memory_bank &sam6883_device::ram_bank(bank_range &range, offs_t offset)
+{
+	for (auto const &[bank, bank_offset] : range.banks)
+		if (bank_offset == offset)
+			return *bank;
+
+	memory_bank *const bank = machine().memory().bank_alloc(*this, subtag(util::string_format("ram%04x", range.start + offset)));
+	bank->set_base(range.base + offset);
+	range.banks.emplace_back(bank, offset);
+	return *bank;
 }
 
 

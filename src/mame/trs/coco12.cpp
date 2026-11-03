@@ -675,7 +675,7 @@ void deluxecoco_state::deluxecoco(machine_config &config)
 	m_psg->add_route(ALL_OUTPUTS, "speaker", 1.0);
 
 	// Adjust Memory Map
-	m_sam->set_ram(finder_base::DUMMY_TAG); // RAM is banked in the SAM's RAM space
+	m_sam->add_ram_bank(0x4000, 0x7fff);
 	m_sam->set_addrmap(3, &deluxecoco_state::deluxecoco_rom2);
 	m_sam->set_addrmap(5, &deluxecoco_state::deluxecoco_io1);
 

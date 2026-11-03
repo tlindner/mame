@@ -115,26 +115,27 @@ void coco12_state::pia1_pb_w(uint8_t data)
 void deluxecoco_state::machine_start()
 {
 	coco12_state::machine_start();
-	configure_sam();
 
-	m_ram_view.disable();
 	m_rom_view.select(0);
+
+	save_item(NAME(m_ram_bank_select));
+	machine().save().register_postload(save_prepost_delegate(FUNC(deluxecoco_state::update_ram_bank), this));
+	update_ram_bank();
 }
 
 
 
 //-------------------------------------------------
-//  deluxecoco_state::configure_sam
+//  deluxecoco_state::update_ram_bank
 //-------------------------------------------------
 
-void deluxecoco_state::configure_sam()
+void deluxecoco_state::update_ram_bank()
 {
-	m_sam->space(0).install_view(0x4000, 0x7fff, m_ram_view);
-
-	m_ram_view[0].install_ram(0x4000, 0x7fff, m_ram->pointer() + 0x0000);
-	m_ram_view[1].install_ram(0x4000, 0x7fff, m_ram->pointer() + 0x4000);
-	m_ram_view[2].install_ram(0x4000, 0x7fff, m_ram->pointer() + 0x8000);
-	m_ram_view[3].install_ram(0x4000, 0x7fff, m_ram->pointer() + 0xc000);
+	// bit 2 points physical RAM $4000-$7FFF at one of the four 16K blocks
+	if (BIT(m_ram_bank_select, 2) && (m_ram->size() >= 0x10000))
+		m_sam->set_ram_bank(0x4000, m_ram->pointer() + (m_ram_bank_select & 0x03) * 0x4000);
+	else
+		m_sam->set_ram_bank(0x4000, nullptr);
 }
 
 
@@ -146,10 +147,8 @@ void deluxecoco_state::ff30_write(offs_t offset, uint8_t data)
 {
 	if (offset == 0)
 	{
-		if (BIT(data, 2))
-			m_ram_view.select(data & 0x03);
-		else
-			m_ram_view.disable();
+		m_ram_bank_select = data & 0x07;
+		update_ram_bank();
 
 		m_rom_view.select(BIT(data, 7));
 

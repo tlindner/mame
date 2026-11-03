@@ -195,16 +195,13 @@ void d64plus_state::d64plus_bank_w(uint8_t data)
 	switch (data & 0x06)
 	{
 	case 0:  // Standard Dragon 32 Dynamic bank
-		m_pram_bank->set_entry(0);
-		m_vram_bank->set_entry(0);
+		m_pram_bank = m_vram_bank = 0;
 		break;
 	case 2:  // First extra 32K bank (A)
-		m_pram_bank->set_entry(1);
-		m_vram_bank->set_entry(1);
+		m_pram_bank = m_vram_bank = 1;
 		break;
 	case 6:  // Second extra 32K bank (B)
-		m_pram_bank->set_entry(2);
-		m_vram_bank->set_entry(2);
+		m_pram_bank = m_vram_bank = 2;
 		break;
 	default:
 		logerror("unknown bank register $FFE2 = %02x\n", data);
@@ -212,8 +209,32 @@ void d64plus_state::d64plus_bank_w(uint8_t data)
 	}
 	if (data & 0x01)
 	{
-		m_vram_bank->set_entry(3);  // Video RAM bank (C)
+		m_vram_bank = 3;  // Video RAM bank (C)
 	}
+	update_ram_banks();
+}
+
+
+//-------------------------------------------------
+//  update_ram_banks - point the SAM's physical
+//  RAM at the selected banks
+//-------------------------------------------------
+
+void d64plus_state::update_ram_banks()
+{
+	auto bank_base = [this] (uint8_t bank) -> uint8_t *
+	{
+		switch (bank)
+		{
+		case 1:  return &m_plus_ram[0x0000];
+		case 2:  return &m_plus_ram[0x8000];
+		case 3:  return &m_video_ram[0];
+		default: return nullptr;
+		}
+	};
+	uint8_t *const pram = bank_base(m_pram_bank);
+	m_sam->set_ram_bank(0x0000, bank_base(m_vram_bank));
+	m_sam->set_ram_bank(0x0800, pram ? (pram + 0x0800) : nullptr);
 }
 
 
@@ -248,15 +269,9 @@ void d64plus_state::machine_start()
 {
 	dragon64_state::machine_start();
 
-	m_sam->space(0).install_readwrite_bank(0x0000, 0x7fff, m_pram_bank);
-	m_sam->space(0).install_readwrite_bank(0x0000, 0x07ff, m_vram_bank);
-
-	m_pram_bank->configure_entry(0, m_ram->pointer());
-	m_pram_bank->configure_entries(1, 2, m_plus_ram, 0x8000);
-
-	m_vram_bank->configure_entry(0, m_ram->pointer());
-	m_vram_bank->configure_entries(1, 2, m_plus_ram, 0x8000);
-	m_vram_bank->configure_entry(3, m_video_ram);
+	save_item(NAME(m_pram_bank));
+	save_item(NAME(m_vram_bank));
+	machine().save().register_postload(save_prepost_delegate(FUNC(d64plus_state::update_ram_banks), this));
 
 	address_space &space = m_maincpu->space(AS_PROGRAM);
 	space.install_readwrite_handler(0xffe0, 0xffe0, read8smo_delegate(*m_crtc, FUNC(mc6845_device::status_r)), write8smo_delegate(*m_crtc, FUNC(mc6845_device::address_w)));
@@ -273,8 +288,8 @@ void d64plus_state::machine_reset()
 {
 	dragon64_state::machine_reset();
 
-	m_pram_bank->set_entry(0);
-	m_vram_bank->set_entry(0);
+	m_pram_bank = m_vram_bank = 0;
+	update_ram_banks();
 }
 
 
@@ -612,7 +627,8 @@ void dragon200e_state::dragon200e(machine_config &config)
 void d64plus_state::d64plus(machine_config &config)
 {
 	dragon64(config);
-	m_sam->set_ram(finder_base::DUMMY_TAG); // RAM is banked in the SAM's RAM space
+	m_sam->add_ram_bank(0x0000, 0x07ff);
+	m_sam->add_ram_bank(0x0800, 0x7fff);
 	// video hardware
 	screen_device &plus_screen(SCREEN(config, "plus_screen"));
 	plus_screen.set_raw(14.218_MHz_XTAL, 912, 0, 640, 316, 0, 264);

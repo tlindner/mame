@@ -117,6 +117,13 @@ public:
 	// chip organisation for a RAM size (sizes without one use a default)
 	void set_ram_layout(uint32_t size, ram_chip chip, uint8_t banks = 1);
 
+	// physical RAM ranges (64 byte aligned) a host may point at other memory
+	// at run time; ranges beyond the installed RAM are ignored
+	void add_ram_bank(offs_t start, offs_t end) { m_bank_ranges.push_back(bank_range{ start, end }); }
+
+	// point a bank range at other memory, or back at the ram_device with nullptr
+	void set_ram_bank(offs_t start, uint8_t *base);
+
 	// SN74LS785: P1 selects 16K x 4 addressing in the 16K memory size
 	void set_ls785(bool ls785) { m_ls785 = ls785; }
 
@@ -187,11 +194,21 @@ private:
 		int8_t dead_bit;        // cell address bit selecting the bad half, or -1
 	};
 
+	struct bank_range
+	{
+		offs_t start, end;
+		uint8_t *base = nullptr;
+		std::vector<std::pair<memory_bank *, offs_t> > banks; // bank and its offset into the range
+	};
+
 	static const chip_info s_chips[];
 
 	// RAM configuration
 	optional_device<ram_device> m_ram;
 	std::vector<ram_layout>     m_layouts;
+	std::vector<bank_range>     m_bank_ranges;
+	uint8_t                     *m_ram_block[0x10000 >> 6] = {}; // per 64 byte block of physical RAM
+	bool                        m_ram_banked = false;
 	bool                        m_ls785;
 	uint8_t                     *m_ram_ptr = nullptr;
 	const chip_info             *m_chip = nullptr;
@@ -253,6 +270,8 @@ private:
 	void install_cpu_map() ATTR_COLD;
 	void install_view(int index, uint8_t mux, bool ty, bool p1, bool rate_ad) ATTR_COLD;
 	void install_ram_region(memory_view::memory_view_entry &entry, offs_t start, offs_t end, uint8_t mux, uint16_t page, bool writable) ATTR_COLD;
+	void install_ram_run(memory_view::memory_view_entry &entry, offs_t start, offs_t end, uint32_t offset, bool writable) ATTR_COLD;
+	memory_bank &ram_bank(bank_range &range, offs_t offset) ATTR_COLD;
 	void slow_cycle();
 	static uint8_t s_decode(bool ty, offs_t address, bool write);
 

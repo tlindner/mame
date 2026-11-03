@@ -92,7 +92,6 @@ public:
 		, m_acia(*this, "mosacia")
 		, m_psg(*this, "psg")
 		, m_timer(*this, "timer")
-		, m_ram_view(*this, "ram_view")
 		, m_rom_view(*this, "rom_view")
 	{
 	}
@@ -102,7 +101,7 @@ public:
 
 protected:
 	virtual void machine_start() override ATTR_COLD;
-	void configure_sam();
+	void update_ram_bank();
 	void deluxecoco_rom2(address_map &map) ATTR_COLD;
 	void deluxecoco_io1(address_map &map) ATTR_COLD;
 
@@ -113,8 +112,8 @@ protected:
 	TIMER_DEVICE_CALLBACK_MEMBER(perodic_timer);
 
 private:
-	memory_view m_ram_view;
 	memory_view m_rom_view;
+	uint8_t m_ram_bank_select = 0;
 };
 
 #endif // MAME_TRS_COCO12_H
