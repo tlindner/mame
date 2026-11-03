@@ -405,6 +405,8 @@ void sam6883_device::install_cpu_map()
 void sam6883_device::install_view(int index, uint8_t mux, bool ty, bool p1, bool rate_ad)
 {
 	memory_view::memory_view_entry &entry = m_view[index];
+	m_view_ty[index] = ty;
+	m_view_count = std::max(m_view_count, index + 1);
 
 	// $0000-$7FFF is RAM in both map types (S=0 reading, S=7 writing)
 	install_ram_region(entry, 0x0000, 0x7fff, mux, (!ty && p1) ? 0x8000 : 0x0000, true);
@@ -507,6 +509,70 @@ void sam6883_device::install_ram_region(memory_view::memory_view_entry &entry, o
 			entry.install_rom(base, last, m_ram_ptr + offset);
 		}
 		base = last + 1;
+	}
+}
+
+
+//-------------------------------------------------
+//  s_decode - S2-S0 for an MPU access (Figures
+//  14-17)
+//-------------------------------------------------
+
+uint8_t sam6883_device::s_decode(bool ty, offs_t address, bool write)
+{
+	if (address < 0x8000)
+		return write ? 7 : 0;                   // RAM
+	else if (address < 0xff00)
+	{
+		if (ty && !write)
+			return 0;                           // map type 1 RAM
+		return (address < 0xa000) ? 1 : (address < 0xc000) ? 2 : 3;
+	}
+	else if (address < 0xff60)
+		return 4 + BIT(address, 5, 2);          // I/O0-I/O2
+	else if (address < 0xffe0)
+		return 7;                               // including the control register
+	else
+		return 2;                               // vectors from ROM1
+}
+
+
+//-------------------------------------------------
+//  install_s_tap - tap every MPU access that
+//  selects one S2-S0 value
+//-------------------------------------------------
+
+void sam6883_device::install_s_tap(uint8_t s, std::string name, tap_func tapr, tap_func tapw)
+{
+	// S2-S0 is constant over each of these ranges for a given map type
+	static constexpr std::pair<offs_t, offs_t> ranges[] =
+	{
+		{ 0x0000, 0x7fff }, { 0x8000, 0x9fff }, { 0xa000, 0xbfff }, { 0xc000, 0xfeff },
+		{ 0xff00, 0xff1f }, { 0xff20, 0xff3f }, { 0xff40, 0xff5f }, { 0xff60, 0xffdf }, { 0xffe0, 0xffff }
+	};
+
+	if (!started())
+		throw emu_fatalerror("%s: install_s_tap called before the SAM has started\n", tag());
+
+	auto install = [&] (address_space_installer &installer, bool ty, offs_t start, offs_t end)
+	{
+		if (tapr && (s_decode(ty, start, false) == s))
+			installer.install_read_tap(start, end, name, tapr);
+		if (tapw && (s_decode(ty, start, true) == s))
+			installer.install_write_tap(start, end, name, tapw);
+	};
+
+	for (auto const &[start, end] : ranges)
+	{
+		if (start < 0xff00)
+		{
+			for (int i = 0; i < m_view_count; i++)
+				install(m_view[i], m_view_ty[i], start, end);
+		}
+		else
+		{
+			install(m_cpu->space(AS_PROGRAM), false, start, end);
+		}
 	}
 }
 

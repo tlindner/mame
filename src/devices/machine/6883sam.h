@@ -120,6 +120,15 @@ public:
 	// SN74LS785: P1 selects 16K x 4 addressing in the 16K memory size
 	void set_ls785(bool ls785) { m_ls785 = ls785; }
 
+	// S2-S0 device select for an MPU access in the current state (Figure 17)
+	uint8_t s_lines(offs_t address, bool write) const { return s_decode(m_sam_state & SAM_STATE_TY, address, write); }
+
+	// Tap the MPU accesses that drive S2-S0 to a value; taps see the full
+	// address, and either may be empty.  Tapping S=0 or S=7 makes RAM accesses
+	// go through the tap instead of directly to memory.
+	using tap_func = std::function<void (offs_t offset, uint8_t &data, uint8_t mem_mask)>;
+	void install_s_tap(uint8_t s, std::string name, tap_func tapr, tap_func tapw);
+
 	// typically called by VDG
 	ATTR_FORCE_INLINE uint8_t display_read(offs_t offset)
 	{
@@ -192,6 +201,8 @@ private:
 	// CPU memory map
 	memory_view                 m_view;
 	uint8_t                     m_view_index[MUX_COUNT][2][2][2] = {}; // mux, TY, P1, address dependent rate
+	bool                        m_view_ty[MUX_COUNT * 2 * 2 * 2] = {};
+	int                         m_view_count = 0;
 	uint8_t                     m_mux = MUX_4K;
 	bool                        m_rate_ad = false;
 
@@ -243,6 +254,7 @@ private:
 	void install_view(int index, uint8_t mux, bool ty, bool p1, bool rate_ad) ATTR_COLD;
 	void install_ram_region(memory_view::memory_view_entry &entry, offs_t start, offs_t end, uint8_t mux, uint16_t page, bool writable) ATTR_COLD;
 	void slow_cycle();
+	static uint8_t s_decode(bool ty, offs_t address, bool write);
 
 	// other members
 	void horizontal_sync();
