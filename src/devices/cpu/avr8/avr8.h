@@ -1078,6 +1078,7 @@ protected:
 	uint8_t m_spi_prescale_count;
 	int8_t m_spi_prescale_countdown;
 	uint8_t m_spi_rx_shift;
+	uint8_t m_spi_tx_shift;
 
 	// timers
 	void gtccr_w(uint8_t data);
