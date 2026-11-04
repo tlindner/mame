@@ -44,6 +44,7 @@
 #include "coco_fdc.h"
 #include "coco_gmc.h"
 #include "coco_ide.h"
+#include "coco_sdc.h"
 #include "coco_max.h"
 #include "coco_midi.h"
 #include "coco_multi.h"
@@ -493,6 +494,11 @@ u32 cococart_slot_device::get_cart_size()
 	return 0x8000;
 }
 
+bool cococart_slot_device::cts_read_is_dynamic()
+{
+	return m_cart && m_cart->cts_read_is_dynamic();
+}
+
 //-------------------------------------------------
 //  set_cart_base_update
 //-------------------------------------------------
@@ -860,6 +866,7 @@ void coco_cart_add_fdcs(device_slot_interface &device)
 	device.option_add("cp450_fdc", CP450_FDC);
 	device.option_add("fdc", COCO_FDC);
 	device.option_add("scii", COCO_SCII);
+	device.option_add("sdc", COCO_SDC);
 }
 
 
