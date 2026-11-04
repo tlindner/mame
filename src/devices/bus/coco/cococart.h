@@ -95,6 +95,7 @@ public:
 	// cart base
 	u8 *get_cart_base();
 	u32 get_cart_size();
+	bool cts_read_is_dynamic();
 	void set_cart_base_update(cococart_base_update_delegate update);
 
 private:
@@ -170,6 +171,8 @@ public:
 
 	virtual u8 *get_cart_base();
 	virtual u32 get_cart_size();
+	// Cartridge reads must reach the device even when the host banks ROM directly.
+	virtual bool cts_read_is_dynamic() { return false; }
 	void set_cart_base_update(cococart_base_update_delegate update);
 	virtual memory_region *get_cart_memregion();
 
