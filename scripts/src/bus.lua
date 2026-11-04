@@ -1937,6 +1937,8 @@ if BUSES["COCO"] then
 		MAME_DIR .. "src/devices/bus/coco/coco_ram.h",
 		MAME_DIR .. "src/devices/bus/coco/coco_rs232.cpp",
 		MAME_DIR .. "src/devices/bus/coco/coco_rs232.h",
+		MAME_DIR .. "src/devices/bus/coco/coco_sdc.cpp",
+		MAME_DIR .. "src/devices/bus/coco/coco_sdc.h",
 		MAME_DIR .. "src/devices/bus/coco/coco_ssc.cpp",
 		MAME_DIR .. "src/devices/bus/coco/coco_ssc.h",
 		MAME_DIR .. "src/devices/bus/coco/coco_stecomp.cpp",
