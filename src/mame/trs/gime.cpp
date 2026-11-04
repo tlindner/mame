@@ -577,6 +577,8 @@ inline void gime_device::update_memory()
 void gime_device::update_memory(int bank)
 {
 	// choose bank
+	int const bank_index = bank;
+	bool cart_selected = false;
 	assert((bank >= 0) && (bank < std::size(m_read_banks)) && (bank < std::size(m_write_banks)));
 	memory_bank *read_bank = m_read_banks[bank];
 	memory_bank *write_bank = m_write_banks[bank];
@@ -631,6 +633,8 @@ void gime_device::update_memory(int bank)
 			if (m_cart_rom)
 			{
 				// perform the look up (ROM page is pinned to MMU slot)
+				m_cart_read_offsets[bank_index] = (((bank & 3) ^ 2) * 0x2000) % m_cart_size + offset;
+				cart_selected = m_cart_device->cts_read_is_dynamic();
 				memory = &m_cart_rom[(((bank & 3) ^ 2) * 0x2000) % m_cart_size];
 			}
 			else
@@ -649,6 +653,25 @@ void gime_device::update_memory(int bank)
 		// we're in RAM
 		memory = memory_pointer(block * 0x2000);
 		is_read_only = false;
+	}
+
+	// Dynamic cartridges (e.g. flash status and read-triggered programming)
+	// need CTS cycles only in pages that currently select cartridge ROM.
+	if (cart_selected != m_cart_read_enabled[bank_index])
+	{
+		m_cart_read_taps[bank_index].remove();
+		m_cart_read_enabled[bank_index] = cart_selected;
+		if (cart_selected)
+		{
+			offs_t const start = bank_index == 8 ? 0xfe00 : bank_index * 0x2000;
+			offs_t const end = bank_index == 8 ? 0xfeff : bank_index == 7 ? 0xfdff : start + 0x1fff;
+			m_cart_read_taps[bank_index] = m_maincpu->space(AS_PROGRAM).install_read_tap(
+					start, end, "cart_rom_r",
+					[this, bank_index, start] (offs_t address, u8 &data, u8 mem_mask)
+					{
+						data = m_cart_device->cts_read(m_cart_read_offsets[bank_index] + address - start);
+					});
+		}
 	}
 
 	// set the banks
