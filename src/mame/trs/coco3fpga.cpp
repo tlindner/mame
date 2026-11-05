@@ -25,8 +25,9 @@
     - Main CPU is MAME's MC6809E; CPU09 instruction timing differs.
     - Video is rendered a scanline at a time at the HSYNC falling edge.  The
       fetch pipeline is modelled by mode, not cycle by cycle.
-    - Interrupt flip-flops are updated at source events; the two-stage
-      synchronisers and one-cycle clear strobes are treated as immediate.
+    - Interrupt flip-flops are updated at source events; their synchronisers
+      and one-cycle clear strobes are treated as immediate.  Disk HALT/NMI
+      crossings retain their synchroniser delays.
     - The block copy engine runs in CPU09 idle cycles, which MAME's 6809
       does not expose; it is emulated at one step per CPU clock.
     - The SDRAM sector store and the SPI bridge complete transfers at once,
@@ -35,7 +36,9 @@
       connector; the receiver (ps2_keyboard.v) and translator (cocokey.v)
       are ported at event level, without the receiver's clock sampling.
     - Joystick latches are host analog axes, not the paddles.v converter.
-    - The 6551 and both 6850s use MAME's MOS6551 and ACIA6850 devices.
+    - The 6551 and WiFi 6850 use MAME's MOS6551 and ACIA6850 devices.
+    - DriveWire uses the CoCo Becker TCP byte transport, with polling status
+      translated for the firmware's 6850 register map; baud settings are ignored.
     - Cross-clock-domain synchronisers between the 6809 and the 6502 are
       treated as immediate (with a perfect scheduling quantum).
     - The 6502's codec I2C bus always acknowledges.  The main-CPU I2C bus
@@ -60,6 +63,7 @@
 
 #include "emu.h"
 
+#include "bus/coco/coco_dwsock.h"
 #include "bus/pc_kbd/keyboards.h"
 #include "bus/pc_kbd/pc_kbdc.h"
 #include "bus/rs232/rs232.h"
@@ -89,8 +93,7 @@ public:
 		, m_iocpu(*this, "iocpu")
 		, m_screen(*this, "screen")
 		, m_flash(*this, "flash")
-		, m_acia(*this, "acia")
-		, m_acia_clock(*this, "acia_clock")
+		, m_beckerport(*this, "dwsock")
 		, m_wifi_acia(*this, "wifi_acia")
 		, m_wifi_clock(*this, "wifi_clock")
 		, m_uart(*this, "uart")
@@ -124,11 +127,9 @@ private:
 	static constexpr u32 PIXEL_CLOCK = 25'000'000;
 	static constexpr int LINE_DOTS = 798;
 	static constexpr int FRAME_LINES = 524;
-	static constexpr int VIS_WIDTH = 720;      // left border .. end of right border
+	static constexpr int VIS_WIDTH = 640;      // VGA active width, referenced to HSYNC
 	static constexpr int VIS_HEIGHT = 486;     // top border .. end of bottom border
-	static constexpr int VIS_LEFT_DOTS = 64;   // dots of the previous line shown at x=0
 	static constexpr int VIS_TOP_LINES = 18;   // LINE 506..523 shown above LINE 0
-	static constexpr int ACTIVE_X = 80;        // first active dot on screen
 
 	static constexpr u32 CHIP_SIZE = 0x200000; // each SRAM position is 2 MB
 
@@ -141,8 +142,7 @@ private:
 	required_device<m6502_device> m_iocpu;
 	required_device<screen_device> m_screen;
 	required_device<amd_29f032_device> m_flash;
-	required_device<acia6850_device> m_acia;
-	required_device<clock_device> m_acia_clock;
+	required_device<beckerport_device> m_beckerport;
 	required_device<acia6850_device> m_wifi_acia;
 	required_device<clock_device> m_wifi_clock;
 	required_device<mos6551_device> m_uart;
@@ -189,6 +189,10 @@ private:
 	u8 ioreg_r(offs_t addr);
 	void ioreg_w(offs_t addr, u8 data);
 
+	// DriveWire byte transport, with 6850-compatible polling status
+	u8 drivewire_r(offs_t reg);
+	u8 m_drivewire_status, m_drivewire_data;
+
 	// SPI bridge
 	u8 spi_r(offs_t reg);
 	void spi_w(offs_t reg, u8 data);
@@ -227,6 +231,13 @@ private:
 	void update_interrupts();
 	void update_halt();
 	void update_nmi();
+	TIMER_CALLBACK_MEMBER(disk_halt_sync);
+	TIMER_CALLBACK_MEMBER(disk_halt_status_sync);
+	TIMER_CALLBACK_MEMBER(disk_nmi_sync);
+	emu_timer *m_disk_halt_timer;
+	emu_timer *m_disk_halt_status_timer;
+	emu_timer *m_disk_nmi_timer;
+	u8 m_disk_halt_request, m_disk_nmi_request;
 	void update_io_irq();
 	void update_halt_code();
 	void hsync_int_edge(bool falling);
@@ -521,13 +532,41 @@ void coco3fpga_state::update_halt()
 			|| (m_wrfifo_count >= 0x200)                    // TX FIFO full
 			|| m_halt_state6                                // halting command
 			|| (BIT(m_ctrl, 6) && BIT(m_buff_add, 8));      // halt after 256 bytes
-	m_maincpu->set_input_line(INPUT_LINE_HALT, (halt && !m_cpu_reset) ? ASSERT_LINE : CLEAR_LINE);
-	m_halt_sig = halt;
+	if (halt != bool(m_disk_halt_request))
+	{
+		m_disk_halt_request = halt;
+		// CoCo3IO.v: HALT_BUF0/1/2 sample on falling PH_2.  In particular,
+		// the final sector read must not suspend the CPU inside its LDB.
+		m_disk_halt_timer->adjust(m_maincpu->cycles_to_attotime(3), halt);
+	}
+}
+
+TIMER_CALLBACK_MEMBER(coco3fpga_state::disk_halt_sync)
+{
+	m_maincpu->set_input_line(INPUT_LINE_HALT, (param && !m_cpu_reset) ? ASSERT_LINE : CLEAR_LINE);
+	// The 6502 sees HALT_BUF2 through two more synchroniser stages.
+	m_disk_halt_status_timer->adjust(m_iocpu->cycles_to_attotime(2), param);
+}
+
+TIMER_CALLBACK_MEMBER(coco3fpga_state::disk_halt_status_sync)
+{
+	m_halt_sig = param;
 }
 
 void coco3fpga_state::update_nmi()
 {
-	m_maincpu->set_input_line(INPUT_LINE_NMI, (m_density && BIT(m_ctrl, 5)) ? ASSERT_LINE : CLEAR_LINE);
+	const bool nmi = m_density && BIT(m_ctrl, 5);
+	if (nmi != bool(m_disk_nmi_request))
+	{
+		m_disk_nmi_request = nmi;
+		// FORCE_NMI_09_BUF0/1 cross from the 6502 to falling PH_2.
+		m_disk_nmi_timer->adjust(m_maincpu->cycles_to_attotime(2), nmi);
+	}
+}
+
+TIMER_CALLBACK_MEMBER(coco3fpga_state::disk_nmi_sync)
+{
+	m_maincpu->set_input_line(INPUT_LINE_NMI, param ? ASSERT_LINE : CLEAR_LINE);
 }
 
 void coco3fpga_state::update_io_irq()
@@ -2143,7 +2182,7 @@ u8 coco3fpga_state::io_r(offs_t offset)
 	if ((addr & 0xf000) == 0x3000 || addr >= 0xf800)
 		return m_fw[1][addr & 0xfff];
 	if ((addr & 0xff80) == 0xf500)
-		return m_acia->read(addr & 1);
+		return drivewire_r(addr & 1);
 	if ((addr & 0xff80) == 0xf580)
 		return m_wifi_acia->read(addr & 1);
 	if ((addr & 0xfe00) == 0xf600)
@@ -2160,7 +2199,11 @@ void coco3fpga_state::io_w(offs_t offset, u8 data)
 	if (addr < 0x0200)
 		m_io_ram[addr] = data;
 	else if ((addr & 0xff80) == 0xf500)
-		m_acia->write(addr & 1, data);
+	{
+		// Baud/control writes have no effect on the byte transport.
+		if (BIT(addr, 0))
+			m_beckerport->write(beckerport_device::DWS_DATA, data);
+	}
 	else if ((addr & 0xff80) == 0xf580)
 		m_wifi_acia->write(addr & 1, data);
 	else if ((addr & 0xfe00) == 0xf600)
@@ -2173,6 +2216,24 @@ void coco3fpga_state::io_w(offs_t offset, u8 data)
 	else if ((addr & 0xff00) == 0xf400)
 		ioreg_w(addr, data);
 	// firmware blocks are read-only to the 6502
+}
+
+
+// DriveWire firmware polls the 6850 receive-ready bit (bit 0), whereas
+// Becker status reports available data in bit 1.  Transmit is always ready.
+u8 coco3fpga_state::drivewire_r(offs_t reg)
+{
+	if (!machine().side_effects_disabled())
+	{
+		if (!reg)
+			m_drivewire_status = 0x02 | (m_beckerport->read(beckerport_device::DWS_STATUS) == 0x02);
+		else
+		{
+			m_drivewire_data = m_beckerport->read(beckerport_device::DWS_DATA);
+			m_drivewire_status &= ~0x01;
+		}
+	}
+	return reg ? m_drivewire_data : m_drivewire_status;
 }
 
 
@@ -2653,10 +2714,11 @@ void coco3fpga_state::gen_active(u16 *out, int width)
 	}
 }
 
-// HBORDER is set from count 800 (512-wide only; 640-wide modes skip it) and
-// from count 16, and cleared at 655.  So 512-wide lines get an 80-dot left
-// and 64-dot right border, 640-wide active lines get none, and in vertical
-// border lines the border also covers the active width (section 9.1).
+// Reference the visible window to HSYNC, not the start of PIXEL_COUNT.
+// Narrow modes skip 64 counts before sync; wide modes skip them after sync.
+// Thus narrow active video starts 64 dots later relative to sync, giving
+// 64-dot borders in the 640-dot viewport.  The extra 16 dots of narrow left
+// border are outside this window.  Wide modes have no horizontal border.
 void coco3fpga_state::render_line(int line)
 {
 	const int y = (line + VIS_TOP_LINES) % FRAME_LINES;
@@ -2668,6 +2730,7 @@ void coco3fpga_state::render_line(int line)
 	const rgb_t black(0, 0, 0);
 	const bool w512 = m_line_mode_256;
 	const int width = w512 ? 512 : 640;
+	const int active_x = w512 ? 64 : 0;
 
 	std::fill_n(dest, VIS_WIDTH, u32(black));
 	if (!m_vborder)
@@ -2676,20 +2739,20 @@ void coco3fpga_state::render_line(int line)
 	const rgb_t border = code_to_rgb(border_code(), dim);
 	if (w512)
 	{
-		std::fill_n(dest, ACTIVE_X, u32(border));
-		std::fill_n(dest + ACTIVE_X + 512, 64, u32(border));
+		std::fill_n(dest, active_x, u32(border));
+		std::fill_n(dest + active_x + 512, 64, u32(border));
 	}
 
 	if (m_vblank)
 	{
-		std::fill_n(dest + ACTIVE_X, width, u32(border));
+		std::fill_n(dest + active_x, width, u32(border));
 		return;
 	}
 
 	u16 codes[640];
 	gen_active(codes, width);
 	for (int x = 0; x < width; x++)
-		dest[ACTIVE_X + x] = code_to_rgb(codes[x], dim);
+		dest[active_x + x] = code_to_rgb(codes[x], dim);
 }
 
 TIMER_CALLBACK_MEMBER(coco3fpga_state::line_event)
@@ -2786,8 +2849,6 @@ void coco3fpga_state::update_acia_clocks()
 {
 	// eight pulses per 27 master clocks, then /8, /4, /2 or /1
 	static constexpr int div[4] = { 8, 4, 2, 1 };
-	const int sel = (m_switches->read() >> 7) & 3;
-	m_acia_clock->set_unscaled_clock(u32(50'000'000.0 * 8.0 / 27.0 / div[sel]));
 	m_wifi_clock->set_unscaled_clock(u32(50'000'000.0 * 8.0 / 27.0 / div[m_wf_baud & 3]));
 }
 
@@ -2872,6 +2933,10 @@ void coco3fpga_state::periph_reset()
 	m_vblank = 0;
 	m_vsync = 1;
 
+	// DriveWire
+	m_drivewire_status = 0x02;
+	m_drivewire_data = 0;
+
 	// SPI
 	m_spi_en = m_spi_irq_en = 0;
 	m_spi_buffer = 0xff;
@@ -2895,6 +2960,12 @@ void coco3fpga_state::periph_reset()
 	m_halt_state6 = 0;
 	m_halt_code = 0;
 	m_halt_state_timer->adjust(attotime::never);
+	m_disk_halt_timer->adjust(attotime::never);
+	m_disk_halt_status_timer->adjust(attotime::never);
+	m_disk_nmi_timer->adjust(attotime::never);
+	m_disk_halt_request = m_disk_nmi_request = m_halt_sig = 0;
+	m_maincpu->set_input_line(INPUT_LINE_HALT, CLEAR_LINE);
+	m_maincpu->set_input_line(INPUT_LINE_NMI, CLEAR_LINE);
 	m_rdfifo_head = m_rdfifo_count = 0;
 	m_wrfifo_head = m_wrfifo_count = 0;
 	m_wf_rdfifo_head = m_wf_rdfifo_count = 0;
@@ -2973,6 +3044,9 @@ void coco3fpga_state::machine_start()
 	m_halt_state_timer = timer_alloc(FUNC(coco3fpga_state::halt_state_expired), this);
 	m_i2c_timer = timer_alloc(FUNC(coco3fpga_state::i2c_done), this);
 	m_rtc_timer = timer_alloc(FUNC(coco3fpga_state::rtc_i2c_done), this);
+	m_disk_halt_timer = timer_alloc(FUNC(coco3fpga_state::disk_halt_sync), this);
+	m_disk_halt_status_timer = timer_alloc(FUNC(coco3fpga_state::disk_halt_status_sync), this);
+	m_disk_nmi_timer = timer_alloc(FUNC(coco3fpga_state::disk_nmi_sync), this);
 	m_dma_timer = timer_alloc(FUNC(coco3fpga_state::dma_step), this);
 
 	save_pointer(NAME(m_ram), 4 * CHIP_SIZE);
@@ -3121,6 +3195,8 @@ void coco3fpga_state::machine_start()
 	save_item(NAME(m_min));
 	save_item(NAME(m_sec));
 	save_item(NAME(m_click));
+	save_item(NAME(m_drivewire_status));
+	save_item(NAME(m_drivewire_data));
 	save_item(NAME(m_spi_en));
 	save_item(NAME(m_spi_irq_en));
 	save_item(NAME(m_spi_ss));
@@ -3155,6 +3231,8 @@ void coco3fpga_state::machine_start()
 	save_item(NAME(m_halt_state6));
 	save_item(NAME(m_halt_code));
 	save_item(NAME(m_halt_sig));
+	save_item(NAME(m_disk_halt_request));
+	save_item(NAME(m_disk_nmi_request));
 	save_item(NAME(m_i2c_device));
 	save_item(NAME(m_i2c_reg));
 	save_item(NAME(m_i2c_data_in));
@@ -3301,12 +3379,12 @@ static INPUT_PORTS_START( coco3fpga )
 	PORT_DIPNAME(0x040, 0x000, "SW6: Ignore SD detect/write protect")
 	PORT_DIPSETTING(0x000, DEF_STR(Off))
 	PORT_DIPSETTING(0x040, DEF_STR(On))
-	PORT_DIPNAME(0x180, 0x000, "SW8-7: DriveWire baud") PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco3fpga_state::switches_changed), 0)
+	PORT_DIPNAME(0x180, 0x000, "SW8-7: DriveWire baud (unused with Becker)") PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco3fpga_state::switches_changed), 0)
 	PORT_DIPSETTING(0x000, "115200")
 	PORT_DIPSETTING(0x080, "230400")
 	PORT_DIPSETTING(0x100, "460800")
 	PORT_DIPSETTING(0x180, "921600")
-	PORT_DIPNAME(0x200, 0x000, "SW9: Swap DriveWire/RS-232 connectors")
+	PORT_DIPNAME(0x200, 0x000, "SW9: Swap DriveWire/RS-232 connectors (unused with Becker)")
 	PORT_DIPSETTING(0x000, DEF_STR(Off))
 	PORT_DIPSETTING(0x200, DEF_STR(On))
 
@@ -3345,18 +3423,8 @@ void coco3fpga_state::coco3fpga(machine_config &config)
 	m_screen->set_raw(PIXEL_CLOCK, LINE_DOTS, 0, VIS_WIDTH, FRAME_LINES, 0, VIS_HEIGHT);
 	m_screen->set_screen_update(FUNC(coco3fpga_state::screen_update));
 
-	// DriveWire 6850 on the I/O processor ($F500)
-	ACIA6850(config, m_acia);
-	m_acia->txd_handler().set("dwire", FUNC(rs232_port_device::write_txd));
-	m_acia->rts_handler().set(m_acia, FUNC(acia6850_device::write_cts));
-	m_acia->rts_handler().append(m_acia, FUNC(acia6850_device::write_dcd));
-
-	CLOCK(config, m_acia_clock, 1'851'852);     // 50 MHz * 8 / 27 / 8
-	m_acia_clock->signal_handler().set(m_acia, FUNC(acia6850_device::write_txc));
-	m_acia_clock->signal_handler().append(m_acia, FUNC(acia6850_device::write_rxc));
-
-	rs232_port_device &dwire(RS232_PORT(config, "dwire", default_rs232_devices, nullptr));
-	dwire.rxd_handler().set(m_acia, FUNC(acia6850_device::write_rxd));
+	// DriveWire uses the same TCP byte transport as the CoCo Becker port.
+	COCO_DWSOCK(config, m_beckerport);
 
 	// WiFi (ESP8266) 6850 on the I/O processor ($F580); IRQ not connected
 	ACIA6850(config, m_wifi_acia);
