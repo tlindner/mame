@@ -48003,6 +48003,9 @@ coco3h
 coco3p
 msm3
 
+@source:trs/coco3fpga.cpp
+coco3fpga
+
 @source:trs/dgn_beta.cpp
 dgnbeta
 
