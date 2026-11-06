@@ -890,6 +890,7 @@ void coco_cart_add_multi_pak(device_slot_interface &device)
 {
 	// and the Multi-Pak itself is optional because they cannot be daisy chained
 	device.option_add("multi", COCO_MULTIPAK);
+	device.option_add("multi16", COCO_MULTIPAK16);
 }
 
 
