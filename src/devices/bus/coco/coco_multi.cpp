@@ -90,6 +90,7 @@ class coco_multipak_device
 public:
 	static_assert(SlotCount >= 1 && SlotCount <= 16, "Multi-Pak requires 1 to 16 slots");
 	INPUT_CHANGED_MEMBER( switch_changed );
+	INPUT_CHANGED_MEMBER( cart_strap_changed );
 
 protected:
 	coco_multipak_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, u32 clock);
@@ -138,6 +139,7 @@ private:
 
 	// methods
 	void set_select(u8 new_select);
+	void update_cart_line();
 	u8 ff7f_read();
 	void ff7f_write(u8 data);
 };
@@ -146,6 +148,12 @@ class coco_multipak4_device : public coco_multipak_device<4>
 {
 public:
 	coco_multipak4_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock);
+};
+
+class coco_multipak16_device : public coco_multipak_device<16>
+{
+public:
+	coco_multipak16_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock);
 };
 
 // ======================> dragon_multipak_device
@@ -221,6 +229,7 @@ void dragon_multipak_device::device_add_mconfig(machine_config &config)
 //**************************************************************************
 
 DEFINE_DEVICE_TYPE_PRIVATE(COCO_MULTIPAK, device_cococart_interface, coco_multipak4_device, "coco_multipack", "CoCo Multi-Pak Interface")
+DEFINE_DEVICE_TYPE_PRIVATE(COCO_MULTIPAK16, device_cococart_interface, coco_multipak16_device, "coco_multipack16", "CoCo 16-Slot Multi-Pak Interface")
 DEFINE_DEVICE_TYPE_PRIVATE(DRAGON_MULTIPAK, device_cococart_interface, dragon_multipak_device, "dragon_multipack", "Dragon Multi-Pak Interface")
 
 
@@ -284,6 +293,10 @@ ioport_constructor coco_multipak_device<SlotCount>::device_input_ports() const
 		static char const *const names[] = { "Slot 1", "Slot 2", "Slot 3", "Slot 4", "Slot 5", "Slot 6", "Slot 7", "Slot 8", "Slot 9", "Slot 10", "Slot 11", "Slot 12", "Slot 13", "Slot 14", "Slot 15", "Slot 16" };
 		for (unsigned i = 0; i < SlotCount; ++i)
 			configurer.setting_alloc(i, names[i]);
+		PORT_START("cart_strap")
+		PORT_CONFNAME(0x01, 0x00, "Strap CART lines together") PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(coco_multipak_device<SlotCount>::cart_strap_changed), 0)
+		PORT_CONFSETTING(0x00, DEF_STR(No))
+		PORT_CONFSETTING(0x01, DEF_STR(Yes))
 	};
 }
 
@@ -302,6 +315,11 @@ coco_multipak_device<SlotCount>::coco_multipak_device(const machine_config &mcon
 
 coco_multipak4_device::coco_multipak4_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock)
 	: coco_multipak_device<4>(mconfig, COCO_MULTIPAK, tag, owner, clock)
+{
+}
+
+coco_multipak16_device::coco_multipak16_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock)
+	: coco_multipak_device<16>(mconfig, COCO_MULTIPAK16, tag, owner, clock)
 {
 }
 
@@ -354,6 +372,12 @@ INPUT_CHANGED_MEMBER( coco_multipak_device<SlotCount>::switch_changed )
 {
 	if (m_block == 0)
 		set_select(newval | (newval << 4));
+}
+
+template <unsigned SlotCount>
+INPUT_CHANGED_MEMBER( coco_multipak_device<SlotCount>::cart_strap_changed )
+{
+	update_cart_line();
 }
 
 
@@ -432,18 +456,36 @@ void coco_multipak_device<SlotCount>::set_select(u8 new_select)
 {
 	LOGSWITCH( "set_select: 0x%02X\n", new_select);
 
-	// identify old value for CART, in case this needs to change
-	cococart_slot_device::line_value old_cart = (active_cts_slot() ? active_cts_slot()->get_line_value(line::CART) : line_value::CLEAR);
-
 	// change value
 	m_select = new_select;
 
-	// did the CART line change?
-	line_value new_cart = (active_cts_slot() ? active_cts_slot()->get_line_value(line::CART) : line_value::CLEAR);
-	if (new_cart != old_cart)
-		owning_slot().set_line_value(line::CART, new_cart);
+	update_cart_line();
 
 	cart_base_changed();
+}
+
+template <unsigned SlotCount>
+void coco_multipak_device<SlotCount>::update_cart_line()
+{
+	line_value cart = line_value::CLEAR;
+	if (ioport("cart_strap")->read())
+	{
+		for (auto &slot : m_slots)
+		{
+			line_value const value = slot->get_line_value(line::CART);
+			if (value == line_value::ASSERT)
+			{
+				cart = value;
+				break;
+			}
+			if (value == line_value::Q)
+				cart = value;
+		}
+	}
+	else if (active_cts_slot())
+		cart = active_cts_slot()->get_line_value(line::CART);
+
+	owning_slot().set_line_value(line::CART, cart);
 }
 
 
@@ -482,6 +524,11 @@ void coco_multipak_device<SlotCount>::update_line(int slot_number, line ln)
 	switch (ln)
 	{
 	case line::CART:
+		if (ioport("cart_strap")->read())
+		{
+			update_cart_line();
+			return;
+		}
 		// only propagate if this is coming from the slot specified
 		propagate = slot_number == active_cts_slot_number();
 		LOGCART( "update_line: slot: %d, line: CART, value: %s, propogate: %s\n", slot_number, owning_slot().line_value_string(slot(slot_number).get_line_value(ln)), propagate ? "yes" : "no" );

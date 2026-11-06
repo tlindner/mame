@@ -9,6 +9,7 @@
 
 // device type definition
 DECLARE_DEVICE_TYPE(COCO_MULTIPAK, device_cococart_interface)
+DECLARE_DEVICE_TYPE(COCO_MULTIPAK16, device_cococart_interface)
 DECLARE_DEVICE_TYPE(DRAGON_MULTIPAK, device_cococart_interface)
 
 #endif // MAME_BUS_COCO_COCO_MULTI_H
