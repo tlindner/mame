@@ -255,6 +255,12 @@ void coco_sdc_device::update_lines()
 
 u8 coco_sdc_device::scs_read(offs_t offset)
 {
+	// Streaming hosts poll status for READY, then read a whole sector
+	// without further handshaking.  Keep the processors interleaved
+	// while polling so the first data reads cannot overtake the MCU.
+	if (!machine().side_effects_disabled() && (offset & 0x18) == 0x08 && (BIT(m_registers[0], 0) || m_drq))
+		machine().scheduler().perfect_quantum(attotime::from_usec(100));
+
 	switch (offset & 0x1b)
 	{
 	case 2:
