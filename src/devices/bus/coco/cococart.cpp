@@ -917,6 +917,7 @@ void dragon_cart_add_fdcs(device_slot_interface &device)
 {
 	device.option_add("dragon_fdc", DRAGON_FDC);
 	device.option_add("premier_fdc", PREMIER_FDC);
+	device.option_add("sdc", DRAGON_SDC);
 	device.option_add("sdtandy_fdc", SDTANDY_FDC);
 }
 
