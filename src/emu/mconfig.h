@@ -113,6 +113,10 @@ public:
 	template <class DeviceClass> DeviceClass *device(const char *tag) const { return downcast<DeviceClass *>(device(tag)); }
 	attotime maximum_quantum(attotime const &default_quantum) const;
 	device_execute_interface *perfect_quantum_device() const;
+	bool sound_startup_ramp() const { return m_sound_startup_ramp; }
+
+	// opt in to a 250 ms fade-in for host audio output
+	void set_sound_startup_ramp(bool enabled = true) { m_sound_startup_ramp = enabled; }
 
 	/// \brief Apply visitor to internal layouts
 	///
@@ -247,6 +251,7 @@ private:
 	device_t *                          m_current_device;
 	maximum_quantum_map                 m_maximum_quantums;
 	std::pair<device_t *, std::string>  m_perfect_quantum_device;
+	bool                               m_sound_startup_ramp = false;
 };
 
 #endif // MAME_EMU_MCONFIG_H

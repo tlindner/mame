@@ -483,9 +483,10 @@ void sound_manager::run_effects()
 		// Send the result to the osd
 		for(auto &stream : m_osd_output_streams)
 			if(stream.m_samples) {
-				// Fade in each new output stream over 250 ms, after effects and mixing.
+				// If enabled by the driver, fade in each new output stream over 250 ms.
+				// Apply the ramp after effects and mixing.
 				// Count output samples so the duration is independent of emulation speed.
-				u32 const ramp_samples = std::max<u32>(1, stream.m_rate / 4);
+				u32 const ramp_samples = machine().config().sound_startup_ramp() ? std::max<u32>(1, stream.m_rate / 4) : 0;
 				u32 const samples = std::min(stream.m_samples, ramp_samples - stream.m_startup_ramp_samples);
 				s16 *dest = stream.m_buffer.data();
 				for(u32 sample = 0; sample != samples; sample++) {

@@ -475,6 +475,8 @@ void t4426_cart(device_slot_interface &device)
 
 void coco_state::coco_sound(machine_config &config)
 {
+	config.set_sound_startup_ramp();
+
 	SPEAKER(config, "speaker").front_center();
 
 	// 6-bit D/A: R10-15 = 10K, 20K, 40.2K, 80.6K, 162K, 324K (according to parts list); output also controls joysticks
