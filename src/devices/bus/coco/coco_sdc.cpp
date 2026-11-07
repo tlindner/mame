@@ -5,13 +5,18 @@
     CoCo SDC, revision C (Darren Atkinson, 2013)
 
     U1: ATmega328P, external 10 MHz clock
-    U2: two XC9572XL CPLDs (ROM banking and floppy-controller interface)
+    U2: XC9536XL (ROM banking, flash data latch, status latch) and
+        XC9572XL (floppy-controller interface); the schematic labels both
+        as XC9572XL
     U3: SST39SF010, eight 16 KiB banks
 
     The MCU implements the FDC command processor.  The CPLD model supplies
     host registers, the MCU register bus and transfer handshakes.  CoCo
-    control-latch and HALT/NMI wiring follow coco_fdc.cpp.  CPLD equations
-    are unavailable; exact timing remains unverified.
+    control-latch and HALT/NMI wiring follow coco_fdc.cpp.  Both CPLDs
+    ignore A2, so FF44-FF4F mirror FF40-FF4B, and the control latch
+    decodes FF40 only.  CPLD equations come from a 2016/2017 programmer
+    dump (SDC36XL.jed, SDC72XL.jed) that may predate current boards;
+    exact timing remains unverified.
 
     MCU wiring from CoCoSDC_Schema_RevC.pdf:
       PD0-PD7 = XD0-XD7; PB0 = IRQ; PB1 = INDEX
@@ -367,7 +372,6 @@ void coco_sdc_device_base::scs_write(offs_t offset, u8 data)
 	switch (offset & 0x1b)
 	{
 	case 0:
-	case 1:
 		m_dskreg = data;
 		update_lines();
 		break;
