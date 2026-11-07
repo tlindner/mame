@@ -482,8 +482,22 @@ void sound_manager::run_effects()
 
 		// Send the result to the osd
 		for(auto &stream : m_osd_output_streams)
-			if(stream.m_samples)
+			if(stream.m_samples) {
+				// Fade in each new output stream over 250 ms, after effects and mixing.
+				// Count output samples so the duration is independent of emulation speed.
+				u32 const ramp_samples = std::max<u32>(1, stream.m_rate / 4);
+				u32 const samples = std::min(stream.m_samples, ramp_samples - stream.m_startup_ramp_samples);
+				s16 *dest = stream.m_buffer.data();
+				for(u32 sample = 0; sample != samples; sample++) {
+					float const t = float(stream.m_startup_ramp_samples++) / ramp_samples;
+					float const gain = t * t * (3.0f - 2.0f * t);
+					for(u32 channel = 0; channel != stream.m_channels; channel++) {
+						*dest = s16(*dest * gain);
+						dest++;
+					}
+				}
 				machine().osd().sound_stream_sink_update(stream.m_id, stream.m_buffer.data(), stream.m_samples);
+			}
 
 		machine().osd().sound_end_update();
 #ifndef SOUND_DISABLE_THREADING
