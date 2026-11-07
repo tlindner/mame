@@ -33,8 +33,17 @@
 
     Both WD-compatible byte transfers and SDC-DOS enhanced word transfers
     use the real MCU firmware and its SD/FAT implementation. No separate
-    WD177x or host-side FAT parser is involved. Dragon wiring and index
-    timing remain TODO.
+    WD177x or host-side FAT parser is involved. Index timing remains TODO.
+
+    The DRGN DIP switch is modelled as a separate device. In Dragon mode
+    the MCU samples RA0 low, the WD-compatible registers move to FF40-FF43
+    and the control register to FF48 (from SETUP.VDK PROGRAMR), and the
+    interrupt wiring follows dragon_fdc.cpp: NMI from INTRQ gated by
+    control bit 5, DRQ on CART (FIRQ), no HALT. The flash data latch and
+    bank register move to FF4A/FF4B with the same programming protocol
+    (from the DOSPlus 5.0 DW4/SDC extender v0.25.15 source).  SDC-DOS is
+    CoCo-only, so the Dragon device instead has DOSPlus with that extender
+    in bank 0 and DragonDOS 1.0 in bank 1.
 
     Flash programming is inferred from SETUP.DSK FLASHER: FF43 bit 7 arms
     one CTS read as a flash write using the FF42 data latch. Unlock,
@@ -51,9 +60,12 @@
 #include "logmacro.h"
 
 DEFINE_DEVICE_TYPE(COCO_SDC, coco_sdc_device, "coco_sdc", "CoCo SDC (Rev C)")
+DEFINE_DEVICE_TYPE(DRAGON_SDC, dragon_sdc_device, "dragon_sdc", "CoCo SDC (Rev C, Dragon mode)")
 
 ROM_START(coco_sdc)
 	ROM_REGION(0x20000, "flash", ROMREGION_ERASEFF)
+	// Stock flash: bank 0 SDC-DOS, bank 1 Disk BASIC 1.1; other banks erased.
+	ROM_LOAD("disk11.rom", 0x04000, 0x2000, CRC(0b9c5415) SHA1(10bdc5aa2d7d7f205f67b47b19003a4bd89defd1))
 	// Extracted from SDC SETUP.DSK, SDC-DOS.ROM (DECB header/trailer removed).
 	ROM_LOAD("sdc_dos.rom", 0x00000, 0x4000, CRC(0a16c181) SHA1(16e110743914e0682ec21e5d905476fb1eec174e))
 
@@ -61,6 +73,33 @@ ROM_START(coco_sdc)
 	ROM_LOAD("atmega328p.bin", 0x0000, 0x8000, CRC(16ed5ab1) SHA1(85b273fc8fb85814eb5a8ff8830e74a2ef0c0d74))
 	ROM_REGION(0x400, "eeprom", ROMREGION_ERASEFF)
 ROM_END
+
+ROM_START(dragon_sdc)
+	// Bank 0 DOSPlus, bank 1 DragonDOS 1.0; SDC-DOS is CoCo-only.
+	ROM_REGION(0x20000, "flash", ROMREGION_ERASEFF)
+	// DOSPlus 5.0 with Pere Serrat's DW4&SDC extender v0.25.15 (2021-06-10),
+	// UPD2515.BIN from "DW42 v0.25.15 SDC-Updater.VDK" (DECB header removed).
+	ROM_LOAD("dp50sdc.rom", 0x00000, 0x3f00, CRC(21860147) SHA1(4ad1cda8a0329a0e0f753faa2d027ca1a74967d1))
+	ROM_LOAD("ddos10.rom", 0x04000, 0x2000, CRC(b44536f6) SHA1(a8918c71d319237c1e3155bb38620acb114a80bc))
+
+	ROM_REGION(0x8000, "mcu", ROMREGION_ERASEFF)
+	// Identical to FIRMWARE.BIN in the Dragon SETUP.VDK, plus bootloader.
+	ROM_LOAD("atmega328p.bin", 0x0000, 0x8000, CRC(16ed5ab1) SHA1(85b273fc8fb85814eb5a8ff8830e74a2ef0c0d74))
+	ROM_REGION(0x400, "eeprom", ROMREGION_ERASEFF)
+ROM_END
+
+static INPUT_PORTS_START(dragon_sdc)
+	PORT_START("SWITCHES")
+	PORT_CONFNAME(0x07, 0x00, "Startup Flash Bank")
+	PORT_CONFSETTING(0x00, "0")
+	PORT_CONFSETTING(0x01, "1")
+	PORT_CONFSETTING(0x02, "2")
+	PORT_CONFSETTING(0x03, "3")
+	PORT_CONFSETTING(0x04, "4")
+	PORT_CONFSETTING(0x05, "5")
+	PORT_CONFSETTING(0x06, "6")
+	PORT_CONFSETTING(0x07, "7")
+INPUT_PORTS_END
 
 static INPUT_PORTS_START(coco_sdc)
 	PORT_START("SWITCHES")
@@ -80,50 +119,61 @@ static INPUT_PORTS_START(coco_sdc)
 	PORT_CONFSETTING(0x01, "AUTO")
 INPUT_PORTS_END
 
-coco_sdc_device::coco_sdc_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock)
-	: device_t(mconfig, COCO_SDC, tag, owner, clock)
+coco_sdc_device_base::coco_sdc_device_base(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, u32 clock, bool dragon)
+	: device_t(mconfig, type, tag, owner, clock)
 	, device_cococart_interface(mconfig, *this)
 	, m_mcu(*this, "mcu")
 	, m_flash(*this, "flash")
 	, m_sdcard(*this, "sdcard")
 	, m_switches(*this, "SWITCHES")
+	, m_dragon(dragon)
+{
+}
+
+coco_sdc_device::coco_sdc_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock)
+	: coco_sdc_device_base(mconfig, COCO_SDC, tag, owner, clock, false)
 	, m_autostart(*this, "AUTO")
 {
 }
 
-void coco_sdc_device::program_map(address_map &map)
+dragon_sdc_device::dragon_sdc_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock)
+	: coco_sdc_device_base(mconfig, DRAGON_SDC, tag, owner, clock, true)
+{
+}
+
+void coco_sdc_device_base::program_map(address_map &map)
 {
 	map(0x0000, 0x7fff).rom();
 }
 
-void coco_sdc_device::data_map(address_map &map)
+void coco_sdc_device_base::data_map(address_map &map)
 {
 	map(0x0100, 0x08ff).ram();
 }
 
-void coco_sdc_device::device_add_mconfig(machine_config &config)
+void coco_sdc_device_base::device_add_mconfig(machine_config &config)
 {
 	ATMEGA328(config, m_mcu, 10_MHz_XTAL);
-	m_mcu->set_addrmap(AS_PROGRAM, &coco_sdc_device::program_map);
-	m_mcu->set_addrmap(AS_DATA, &coco_sdc_device::data_map);
+	m_mcu->set_addrmap(AS_PROGRAM, &coco_sdc_device_base::program_map);
+	m_mcu->set_addrmap(AS_DATA, &coco_sdc_device_base::data_map);
 	m_mcu->set_eeprom_tag("eeprom");
 	// Inferred BOOTRST/BOOTSZ: reset into the 256-word boot section at 0x7e00.
 	// Physical fuse bytes have not been read back.
 	m_mcu->set_high_fuses(0xde);
-	m_mcu->gpio_out<atmega328_device::GPIOB>().set(FUNC(coco_sdc_device::port_b_w));
+	m_mcu->gpio_out<atmega328_device::GPIOB>().set(FUNC(coco_sdc_device_base::port_b_w));
 	m_mcu->gpio_in<atmega328_device::GPIOB>().set([this]() { return (m_miso ? 0x10 : 0x00) | (m_command_pending ? 0x01 : 0x00); });
-	m_mcu->gpio_out<atmega328_device::GPIOC>().set(FUNC(coco_sdc_device::port_c_w));
-	// DRGN switch off (RA0 pulled high while sampled as an input), button released.
-	m_mcu->gpio_in<atmega328_device::GPIOC>().set_constant(0x21);
-	m_mcu->gpio_in<atmega328_device::GPIOD>().set(FUNC(coco_sdc_device::port_d_r));
-	m_mcu->gpio_out<atmega328_device::GPIOD>().set(FUNC(coco_sdc_device::port_d_w));
+	m_mcu->gpio_out<atmega328_device::GPIOC>().set(FUNC(coco_sdc_device_base::port_c_w));
+	// DRGN switch on RA0 (sampled as an input; high = CoCo), button released.
+	m_mcu->gpio_in<atmega328_device::GPIOC>().set_constant(m_dragon ? 0x20 : 0x21);
+	m_mcu->gpio_in<atmega328_device::GPIOD>().set(FUNC(coco_sdc_device_base::port_d_r));
+	m_mcu->gpio_out<atmega328_device::GPIOD>().set(FUNC(coco_sdc_device_base::port_d_w));
 
 	SST_39SF010(config, m_flash);
 	SPI_SDCARD(config, m_sdcard, 0);
 	m_sdcard->spi_miso_callback().set([this](int state) { m_miso = state; });
 }
 
-void coco_sdc_device::port_b_w(u8 data)
+void coco_sdc_device_base::port_b_w(u8 data)
 {
 	// The card device uses an active-high select input; the PCB signal is /SS.
 	m_sdcard->spi_ss_w(!BIT(data, 2));
@@ -133,7 +183,7 @@ void coco_sdc_device::port_b_w(u8 data)
 	m_sdcard->spi_clock_w(BIT(data, 5));
 }
 
-void coco_sdc_device::port_c_w(u8 data)
+void coco_sdc_device_base::port_c_w(u8 data)
 {
 	if (!BIT(m_port_c, 4) && BIT(data, 4))
 	{
@@ -164,7 +214,7 @@ void coco_sdc_device::port_c_w(u8 data)
 	m_port_c = data;
 }
 
-void coco_sdc_device::port_d_w(u8 data)
+void coco_sdc_device_base::port_d_w(u8 data)
 {
 	// The bootloader holds a RA4 write strobe with XD7-XD3 high, then
 	// raises XD0 to restore the DIP-switch bank. RUN @bank,R suppresses
@@ -179,14 +229,14 @@ void coco_sdc_device::port_d_w(u8 data)
 	m_port_d = data;
 }
 
-u8 coco_sdc_device::mcu_read(u8 reg) const
+u8 coco_sdc_device_base::mcu_read(u8 reg) const
 {
 	switch (reg)
 	{
 	case 0:
 	case 1:
 	case 2:
-		return m_dskreg;
+		return mcu_dskreg();
 	case 3:
 		return m_registers[3];
 	case 4:
@@ -200,18 +250,18 @@ u8 coco_sdc_device::mcu_read(u8 reg) const
 	}
 }
 
-u8 coco_sdc_device::port_d_r()
+u8 coco_sdc_device_base::port_d_r()
 {
 	if (!BIT(m_port_c, 4))
 		return m_read_data;
 	// While a read strobe is held, the bus reports transfer/command flags.
 	// The receive byte remains available after the strobe is released.
 	if (!m_strobe_write || !(m_port_c & 4))
-		return (m_dskreg & 0x67) | (m_command_pending ? 0x10 : 0) | (m_drq ? 0x80 : 0);
+		return (mcu_dskreg() & 0x67) | (m_command_pending ? 0x10 : 0) | (m_drq ? 0x80 : 0);
 	return mcu_read(m_port_c & 7);
 }
 
-void coco_sdc_device::mcu_write(u8 reg, u8 data)
+void coco_sdc_device_base::mcu_write(u8 reg, u8 data)
 {
 	LOGMASKED(LOG_BUS, "MCU write RA=%u XD=%02x\n", reg, data);
 	if (reg == 1)
@@ -239,7 +289,7 @@ void coco_sdc_device::mcu_write(u8 reg, u8 data)
 	update_lines();
 }
 
-void coco_sdc_device::update_mcu_irq()
+void coco_sdc_device_base::update_mcu_irq()
 {
 	m_mcu->pb_w<0>(m_command_pending);
 }
@@ -253,8 +303,16 @@ void coco_sdc_device::update_lines()
 	set_line_value(line::HALT, !m_drq && BIT(m_dskreg, 7));
 }
 
-u8 coco_sdc_device::scs_read(offs_t offset)
+void dragon_sdc_device::update_lines()
 {
+	// Same Dragon interrupt wiring as dragon_fdc_device_base::update_lines.
+	set_line_value(line::NMI, m_intrq && BIT(m_dskreg, 5));
+	set_line_value(line::CART, m_drq);
+}
+
+u8 coco_sdc_device_base::scs_read(offs_t offset)
+{
+	offset = host_offset(offset);
 	// Streaming hosts poll status for READY, then read a whole sector
 	// without further handshaking.  Keep the processors interleaved
 	// while polling so the first data reads cannot overtake the MCU.
@@ -266,7 +324,11 @@ u8 coco_sdc_device::scs_read(offs_t offset)
 	case 2:
 		return m_flash_data;
 	case 3:
-		return 0x60 | m_bank;
+		// Bits 3-4 follow the flash data latch.  Darren Atkinson's SDC
+		// presence test (DOSPlus SDC extender) writes 1A then 00 to the
+		// latch and expects exactly these bits to change.  Other bits
+		// are unverified.
+		return 0x60 | (m_flash_data & 0x18) | m_bank;
 	case 8:
 	{
 		u8 const result = m_type1
@@ -298,8 +360,9 @@ u8 coco_sdc_device::scs_read(offs_t offset)
 	}
 }
 
-void coco_sdc_device::scs_write(offs_t offset, u8 data)
+void coco_sdc_device_base::scs_write(offs_t offset, u8 data)
 {
+	offset = host_offset(offset);
 	LOGMASKED(LOG_HOST, "Host write %02x=%02x\n", offset, data);
 	switch (offset & 0x1b)
 	{
@@ -344,7 +407,7 @@ void coco_sdc_device::scs_write(offs_t offset, u8 data)
 	machine().scheduler().perfect_quantum(attotime::from_msec(1));
 }
 
-void coco_sdc_device::device_start()
+void coco_sdc_device_base::device_start()
 {
 	save_item(NAME(m_bank));
 	save_item(NAME(m_port_c));
@@ -363,10 +426,10 @@ void coco_sdc_device::device_start()
 	save_item(NAME(m_read_data));
 	save_item(NAME(m_transfer_active));
 	save_item(NAME(m_type1));
-	machine().save().register_postload(save_prepost_delegate(FUNC(coco_sdc_device::cart_base_changed), this));
+	machine().save().register_postload(save_prepost_delegate(FUNC(coco_sdc_device_base::cart_base_changed), this));
 }
 
-void coco_sdc_device::device_reset()
+void coco_sdc_device_base::device_reset()
 {
 	if (m_power_on)
 		m_bank = m_switches->read() & 7;
@@ -380,12 +443,17 @@ void coco_sdc_device::device_reset()
 	m_strobe_reg = 0;
 	m_read_data = 0xff;
 	m_port_c = m_port_d = 0;
-	set_line_value(line::CART, m_autostart->read() ? line_value::Q : line_value::CLEAR);
 	update_lines();
 	cart_base_changed();
 }
 
-void coco_sdc_device::device_reset_after_children()
+void coco_sdc_device::device_reset()
+{
+	coco_sdc_device_base::device_reset();
+	set_line_value(line::CART, m_autostart->read() ? line_value::Q : line_value::CLEAR);
+}
+
+void coco_sdc_device_base::device_reset_after_children()
 {
 	// The CoCo RESET pin resets the MCU. Distinguish it from initial power
 	// so the real bootloader can retain RUN @bank,R and mounted disk state.
@@ -395,17 +463,17 @@ void coco_sdc_device::device_reset_after_children()
 	update_mcu_irq();
 }
 
-u8 *coco_sdc_device::get_cart_base()
+u8 *coco_sdc_device_base::get_cart_base()
 {
 	return m_flash->base() + (u32(m_bank) << 14);
 }
 
-u32 coco_sdc_device::get_cart_size()
+u32 coco_sdc_device_base::get_cart_size()
 {
 	return 0x4000;
 }
 
-u8 coco_sdc_device::cts_read(offs_t offset)
+u8 coco_sdc_device_base::cts_read(offs_t offset)
 {
 	offs_t const address = (u32(m_bank) << 14) | (offset & 0x3fff);
 	// The CPLD substitutes the data latch and pulses /WE on CTS reads
@@ -426,6 +494,17 @@ u8 coco_sdc_device::cts_read(offs_t offset)
 const tiny_rom_entry *coco_sdc_device::device_rom_region() const
 {
 	return ROM_NAME(coco_sdc);
+}
+
+const tiny_rom_entry *dragon_sdc_device::device_rom_region() const
+{
+	return ROM_NAME(dragon_sdc);
+}
+
+ioport_constructor dragon_sdc_device::device_input_ports() const
+{
+	// SDC-DOS is CoCo-only; bank 0 holds DOSPlus.
+	return INPUT_PORTS_NAME(dragon_sdc);
 }
 
 ioport_constructor coco_sdc_device::device_input_ports() const
