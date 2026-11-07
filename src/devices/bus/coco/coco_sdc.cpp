@@ -329,11 +329,10 @@ u8 coco_sdc_device_base::scs_read(offs_t offset)
 	case 2:
 		return m_flash_data;
 	case 3:
-		// Bits 3-4 follow the flash data latch.  Darren Atkinson's SDC
-		// presence test (DOSPlus SDC extender) writes 1A then 00 to the
-		// latch and expects exactly these bits to change.  Other bits
-		// are unverified.
-		return 0x60 | (m_flash_data & 0x18) | m_bank;
+		// The CPLD returns flash data latch bits 3-7 above the bank.
+		// The DOSPlus SDC extender (writes 1A, 00) and SDCFLASH (writes
+		// 64, 00) presence tests both depend on this.
+		return (m_flash_data & 0xf8) | m_bank;
 	case 8:
 	{
 		u8 const result = m_type1
