@@ -48001,6 +48001,7 @@ t4426
 coco3
 coco3h
 coco3p
+coco3x
 msm3
 
 @source:trs/coco3fpga.cpp

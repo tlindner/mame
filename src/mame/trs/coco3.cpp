@@ -60,6 +60,21 @@ void coco3_state::coco3_mem(address_map &map)
 
 
 
+std::vector<std::string> coco3_state::searchpath() const
+{
+	auto result = coco_state::searchpath();
+	if (!strcmp(machine().system().name, "coco3x"))
+		result.emplace_back("coco3");
+	return result;
+}
+
+void coco3_state::coco3x_mem(address_map &map)
+{
+	coco3_mem(map);
+	map(0xffe0, 0xffef).rw(m_gime, FUNC(gime_device::extended_read), FUNC(gime_device::extended_write));
+}
+
+
 //**************************************************************************
 //  INPUT PORTS
 //**************************************************************************
@@ -371,6 +386,19 @@ static INPUT_PORTS_START( coco3 )
 	PORT_INCLUDE( screen_config )
 INPUT_PORTS_END
 
+static INPUT_PORTS_START( coco3x )
+	PORT_INCLUDE( coco3 )
+
+	PORT_MODIFY("screen_config")
+	PORT_CONFNAME(0x01, 0x01, "Video type")
+	PORT_CONFSETTING(0x00, "Composite")
+	PORT_CONFSETTING(0x01, "RGB / VGA")
+
+	PORT_START("gimex_buttons")
+	PORT_BIT(0x01, IP_ACTIVE_HIGH, IPT_OTHER) PORT_NAME("GIME-X Artifact / SG6") PORT_CODE(KEYCODE_F6) PORT_CHANGED_MEMBER("gime", FUNC(gime_device::gimex_button), 0)
+	PORT_BIT(0x02, IP_ACTIVE_HIGH, IPT_OTHER) PORT_NAME("GIME-X Scan Lines") PORT_CODE(KEYCODE_F7) PORT_CHANGED_MEMBER("gime", FUNC(gime_device::gimex_button), 1)
+INPUT_PORTS_END
+
 static DEVICE_INPUT_DEFAULTS_START( rs_printer )
 	DEVICE_INPUT_DEFAULTS( "RS232_RXBAUD", 0xff, RS232_BAUD_600 )
 	DEVICE_INPUT_DEFAULTS( "RS232_DATABITS", 0xff, RS232_DATABITS_8 )
@@ -480,6 +508,34 @@ void coco3_state::coco3(machine_config &config)
 	bind_rat_mouse(*m_ratmouse_l, 1);
 }
 
+uint32_t coco3_state::screen_update_gimex(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect)
+{
+	// VGA doubles each source line; the button blanks alternate output lines.
+	const rectangle source(cliprect.left(), cliprect.right(), cliprect.top() / 2, cliprect.bottom() / 2);
+	if (m_screen_config->read() & 1)
+		m_gime->update_rgb(m_gimex_bitmap, source);
+	else
+		m_gime->update_composite(m_gimex_bitmap, source);
+	for (int y = cliprect.top(); y <= cliprect.bottom(); y++)
+	{
+		if ((m_screen_config->read() & 1) && m_gime->gimex_scanlines() && (y & 1))
+			std::fill_n(&bitmap.pix(y, cliprect.left()), cliprect.width(), rgb_t::black());
+		else
+			std::copy_n(&m_gimex_bitmap.pix(y / 2, cliprect.left()), cliprect.width(), &bitmap.pix(y, cliprect.left()));
+	}
+	return 0;
+}
+
+void coco3_state::coco3x(machine_config &config)
+{
+	coco3(config);
+	m_gime->set_gimex(true);
+	m_screen->set_raw(28.636363_MHz_XTAL, 912, 0, gime_device::SCREEN_WIDTH, 526, 2, 480);
+	m_screen->set_screen_update(FUNC(coco3_state::screen_update_gimex));
+	m_maincpu->set_addrmap(AS_PROGRAM, &coco3_state::coco3x_mem);
+	subdevice<ram_device>(RAM_TAG)->set_default_size("512K").set_extra_options("128K,2M");
+}
+
 void coco3_state::coco3p(machine_config &config)
 {
 	coco3(config);
@@ -522,6 +578,7 @@ ROM_START(msm3)
 ROM_END
 
 #define rom_coco3h  rom_coco3
+#define rom_coco3x  rom_coco3
 
 //**************************************************************************
 //  SYSTEM DRIVERS
@@ -532,3 +589,5 @@ COMP( 1986, coco3,    coco,  0,     coco3,    coco3,   coco3_state, empty_init, 
 COMP( 1986, coco3p,   coco,  0,     coco3p,   coco3,   coco3_state, empty_init, "Tandy Radio Shack", "Color Computer 3 (PAL)",           MACHINE_SUPPORTS_SAVE )
 COMP( 19??, coco3h,   coco,  0,     coco3h,   coco3,   coco3_state, empty_init, "Tandy Radio Shack", "Color Computer 3 (NTSC; HD6309)",  MACHINE_SUPPORTS_SAVE | MACHINE_UNOFFICIAL )
 COMP( 1987, msm3,     coco,  0,     coco3,    coco3,   coco3_state, empty_init, "ILCE / SEP",        "Micro-Sep Model 3",                MACHINE_SUPPORTS_SAVE )
+
+COMP( 2020, coco3x,   coco,  0,     coco3x,   coco3x,  coco3_state, empty_init, "Gary Becker / Ed Snider", "Color Computer 3 (GIME-X)", MACHINE_SUPPORTS_SAVE | MACHINE_IMPERFECT_GRAPHICS | MACHINE_IMPERFECT_TIMING )

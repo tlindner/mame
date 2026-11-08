@@ -234,6 +234,12 @@ void gime_device::device_start()
 	update_composite_palette();
 
 	// set up save states
+	save_item(NAME(m_turbo));
+	save_item(NAME(m_sg6));
+	save_item(NAME(m_scanlines_enabled));
+	save_item(NAME(m_artifact_mode));
+	save_item(NAME(m_dma_address));
+	save_item(NAME(m_dma_increment));
 	save_item(NAME(m_gime_registers));
 	save_item(NAME(m_mmu));
 	save_item(NAME(m_sam_state));
@@ -259,6 +265,8 @@ void gime_device::device_start()
 
 	for (int i = 0; i < std::size(m_scanlines); i++)
 	{
+		save_item(NAME(m_scanlines[i].m_legacy_line), i);
+		save_item(NAME(m_scanlines[i].m_sg6), i);
 		save_item(NAME(m_scanlines[i].m_border), i);
 		save_item(NAME(m_scanlines[i].m_css), i);
 		save_item(NAME(m_scanlines[i].m_line_in_row), i);
@@ -279,6 +287,14 @@ void gime_device::device_start()
 
 void gime_device::update_rgb_palette()
 {
+	for (unsigned color = 0; color < 512; color++)
+	{
+		const unsigned r = (BIT(color, 8) << 2) | (BIT(color, 5) << 1) | BIT(color, 2);
+		const unsigned g = (BIT(color, 7) << 2) | (BIT(color, 4) << 1) | BIT(color, 1);
+		const unsigned b = (BIT(color, 6) << 2) | (BIT(color, 3) << 1) | BIT(color, 0);
+		m_gimex_rgb_palette[color] = rgb_t(r * 255 / 7, g * 255 / 7, b * 255 / 7);
+	}
+
 	for (int color = 0; color < 64; color++)
 	{
 		m_rgb_palette[color] = get_rgb_color(color);
@@ -369,6 +385,10 @@ void gime_device::device_reset()
 	m_palette_rotated_position = 0;
 	m_palette_rotated_position_used = false;
 
+	m_turbo = false;
+	m_dma_address[0] = m_dma_address[1] = 0;
+	m_dma_increment = 0;
+
 	/* clear SAM state */
 	m_sam_state = 0x0000;
 
@@ -407,7 +427,7 @@ void gime_device::device_pre_save()
 	super::device_pre_save();
 
 	// copy to palette rotation position zero
-	for (offs_t i = 0; i < 16; i++)
+	for (offs_t i = 0; i < std::size(m_palette_rotated[0]); i++)
 		m_palette_rotated[0][i] = m_palette_rotated[m_palette_rotated_position][i];
 }
 
@@ -421,7 +441,7 @@ void gime_device::device_post_load()
 	super::device_post_load();
 	update_cart_rom();
 	update_memory();
-	update_cpu_clock();
+	update_gimex_clock();
 
 	// we update to position zero
 	m_palette_rotated_position = 0;
@@ -611,7 +631,8 @@ void gime_device::update_memory(int bank)
 		block = m_mmu[bank];
 
 		// also check $FF9B - relevant for the 2-8 MB upgrade
-		block |= ((uint32_t) ((m_gime_registers[11] >> 4) & 0x03)) << 8;
+		if (!m_gimex)
+			block |= ((uint32_t) ((m_gime_registers[11] >> 4) & 0x03)) << 8;
 	}
 	else
 	{
@@ -765,6 +786,103 @@ uint8_t gime_device::read(offs_t offset)
 
 
 
+// GIME-X Installation and User Guide, 22 April 2020, pp. 8-12.
+// Offsets here are relative to $FFE0, independently of the stock GIME map.
+uint8_t gime_device::extended_read(offs_t offset)
+{
+	if (offset == 8 || offset == 9)
+	{
+		const uint32_t address = (m_dma_address[1] + ((offset == 9 && !BIT(m_dma_increment, 1)) ? 1 : 0)) & 0x1fffff;
+		const uint8_t data = *memory_pointer(address);
+		if (BIT(m_dma_increment, 1) && !machine().side_effects_disabled())
+			m_dma_address[1] = (m_dma_address[1] + 1) & 0x1fffff;
+		return data;
+	}
+	// The guide specifies writes to the address/control registers only.
+	return m_rom[0x7fe0 + (offset & 15)];
+}
+
+void gime_device::extended_write(offs_t offset, uint8_t data)
+{
+	if (offset == 0)
+	{
+		video_flush();
+		rotate_palette();
+		update_value(&m_palette_rotated[m_palette_rotated_position][16 + data], m_palette_rotated[m_palette_rotated_position][0]);
+	}
+	else if (offset >= 1 && offset <= 6)
+	{
+		const unsigned index = (offset - 1) / 3;
+		const unsigned shift = (2 - (offset - 1) % 3) * 8;
+		m_dma_address[index] = ((m_dma_address[index] & ~(0xffU << shift)) | (uint32_t(data) << shift)) & 0x1fffff;
+	}
+	else if (offset == 7)
+		m_dma_increment = data & 3;
+	else if (offset == 8 || offset == 9)
+	{
+		video_flush();
+		const uint32_t address = (m_dma_address[0] + ((offset == 9 && !BIT(m_dma_increment, 0)) ? 1 : 0)) & 0x1fffff;
+		*memory_pointer(address) = data;
+		if (BIT(m_dma_increment, 0))
+			m_dma_address[0] = (m_dma_address[0] + 1) & 0x1fffff;
+	}
+}
+
+void gime_device::update_gimex_clock()
+{
+	if (m_gimex && m_turbo)
+		m_cpu->owner()->set_unscaled_clock(clock() / 10);
+	else
+		update_cpu_clock();
+}
+
+bool gime_device::wide_mode(uint8_t ff98, uint8_t ff99) const
+{
+	return !m_legacy_video && ((m_gimex && (ff98 & 0xc0) == 0xc0) || (ff99 & 4));
+}
+
+unsigned gime_device::graphics_hres(uint8_t ff98, uint8_t ff99) const
+{
+	// GIME-X selects the two new widths with bandwidth=1 and HRES=000/001.
+	return (ff98 & 0x40) ? ((ff99 & 4) ? 11 : 9) : ((ff99 >> 2) & 7);
+}
+
+INPUT_CHANGED_MEMBER(gime_device::gimex_button)
+{
+	if (!newval)
+		return;
+	video_flush();
+	if (param)
+		update_value(&m_scanlines_enabled, !m_scanlines_enabled);
+	else if (m_legacy_video && (m_ff22_value & MODE_GM0) && !(m_ff22_value & MODE_AG))
+		update_value(&m_sg6, !m_sg6);
+	else
+		update_value(&m_artifact_mode, uint8_t((m_artifact_mode + 1) & 3));
+}
+
+void gime_device::render_gimex_graphics(const scanline_record *scanline, pixel_t *pixels, palette_resolver &resolver)
+{
+	const unsigned hres = graphics_hres(scanline->m_ff98_value, scanline->m_ff99_value);
+	const unsigned cres = scanline->m_ff99_value & 3;
+	const unsigned bytes = gime_video::graphics_bytes(hres);
+	const unsigned scale = gime_video::graphics_scale(hres, cres, true);
+	const unsigned ppb = 8 >> cres;
+	const unsigned border = wide_mode(scanline->m_ff98_value, scanline->m_ff99_value) ? WIDE_BORDER : NARROW_BORDER;
+	for (unsigned x = 0; x < SCREEN_WIDTH; x++)
+	{
+		if (x < border || x >= SCREEN_WIDTH - border)
+			pixels[x] = resolver.lookup(uint16_t(scanline->m_border[x]) << 3);
+		else
+		{
+			const unsigned pixel = (x - border) / scale;
+			const unsigned byte = (pixel / ppb) % bytes;
+			const unsigned color = gime_video::graphics_pixel(scanline->m_data[byte], cres, pixel);
+			pixels[x] = resolver.get_palette(scanline->m_palette[byte])[(cres == 3 ? 16 : 0) + color];
+		}
+	}
+}
+
+
 //-------------------------------------------------
 //  read_gime_register
 //-------------------------------------------------
@@ -810,7 +928,7 @@ inline uint8_t gime_device::read_gime_register(offs_t offset)
 
 inline uint8_t gime_device::read_mmu_register(offs_t offset)
 {
-	return (m_mmu[offset & 0x0f] & 0x3f) | (read_floating_bus() & 0xc0);
+	return m_gimex ? m_mmu[offset & 0x0f] : (m_mmu[offset & 0x0f] & 0x3f) | (read_floating_bus() & 0xc0);
 }
 
 
@@ -827,7 +945,7 @@ inline uint8_t gime_device::read_palette_register(offs_t offset)
 	//  POKE&HFFB1,0:PRINTPEEK(&HFFB1)      returns 64
 	//
 	// This is because of the floating bus
-	return m_palette_rotated[m_palette_rotated_position][offset & 0x0f] | (read_floating_bus() & 0xc0);
+	return (m_palette_rotated[m_palette_rotated_position][offset & 0x0f] >> (m_gimex ? 3 : 0)) | (read_floating_bus() & 0xc0);
 }
 
 
@@ -860,12 +978,17 @@ void gime_device::write(offs_t offset, uint8_t data)
 			break;
 
 		case 0x20:
-			write_palette_register(offset & 0x0f, data & 0x3f);     // $FFB0 - $FFBF
+			write_palette_register(offset & 0x0f, m_gimex ? data : data & 0x3f);     // $FFB0 - $FFBF
 			break;
 
 		case 0x30:
 		case 0x40:
-			write_sam_register(offset - 0x30);                      // $FFC0 - $FFDF
+			write_sam_register(offset - 0x30);
+			if (m_gimex && (offset == 0x48 || offset == 0x49))
+			{
+				m_turbo = offset == 0x49 && data == 0xa5;
+				update_gimex_clock();
+			}                      // $FFC0 - $FFDF
 			break;
 	}
 }
@@ -887,7 +1010,7 @@ inline void gime_device::write_gime_register(offs_t offset, uint8_t data)
 	uint8_t xorval = m_gime_registers[offset] ^ data;
 	if (offset == 0x0a && (xorval & 0x3f) && !m_legacy_video)
 		video_flush();
-	if (((offset == 0x08 && (xorval & 0x80)) || (offset == 0x09 && (xorval & 0x1f))
+	if (((offset == 0x08 && (xorval & (m_gimex ? 0xc0 : 0x80))) || (offset == 0x09 && (xorval & 0x1f))
 		|| (offset == 0x0f && xorval)) && !m_legacy_video)
 	{
 		// Flush before mode or offset changes. LPR-only writes must apply
@@ -1127,6 +1250,8 @@ inline void gime_device::write_mmu_register(offs_t offset, uint8_t data)
 	{
 		m_mmu[offset] = data;
 		update_memory(offset & 0x07);
+		if (m_gimex && (offset & 7) == 7)
+			update_memory(8);
 	}
 
 	LOGMMU("%s: MMU Write: $%04x <== $%02X\n",describe_context(), 0xffa0+offset, data );
@@ -1144,29 +1269,23 @@ inline void gime_device::write_palette_register(offs_t offset, uint8_t data)
 
 	LOGPALETTE("%s: CoCo3 Palette: $%04x <== $%02x\n", describe_context(), offset + 0xffB0, data);
 
-	/* has this entry changed? */
-	if (m_palette_rotated[m_palette_rotated_position][offset] != data)
+	const uint16_t color = m_gimex ? gime_video::palette_write(m_palette_rotated[m_palette_rotated_position][offset], data, true) : data;
+	if (m_palette_rotated[m_palette_rotated_position][offset] != color)
 	{
-		// Capture elapsed pixels before changing the palette they use.
 		video_flush();
+		rotate_palette();
+		m_palette_rotated[m_palette_rotated_position][offset] = color;
+	}
+}
 
-		/* do we need to rotate the palette? */
-		if (m_palette_rotated_position_used)
-		{
-			/* identify the new position */
-			uint16_t new_palette_rotated_position = (m_palette_rotated_position + 1) % std::size(m_palette_rotated);
-
-			/* copy the palette */
-			for (int i = 0; i < std::size(m_palette_rotated[0]); i++)
-				m_palette_rotated[new_palette_rotated_position][i] = m_palette_rotated[m_palette_rotated_position][i];
-
-			/* and advance */
-			m_palette_rotated_position = new_palette_rotated_position;
-			m_palette_rotated_position_used = false;
-		}
-
-		/* record the change */;
-		m_palette_rotated[m_palette_rotated_position][offset] = data;
+void gime_device::rotate_palette()
+{
+	if (m_palette_rotated_position_used)
+	{
+		const uint16_t next = (m_palette_rotated_position + 1) % std::size(m_palette_rotated);
+		std::copy(std::begin(m_palette_rotated[m_palette_rotated_position]), std::end(m_palette_rotated[m_palette_rotated_position]), m_palette_rotated[next]);
+		m_palette_rotated_position = next;
+		m_palette_rotated_position_used = false;
 	}
 }
 
@@ -1477,6 +1596,13 @@ void gime_device::record_partial_border_scanline(uint16_t physical_scanline, int
 inline uint16_t gime_device::get_lines_per_row()
 {
 	uint16_t lines_per_row;
+	if (m_gimex && m_legacy_video)
+	{
+		static constexpr uint16_t rows[8] = { 12, 3, 3, 2, 2, 1, 1, 12 };
+		return rows[m_sam_state & 7];
+	}
+	if (m_gimex && !m_legacy_video && (m_gime_registers[8] & 0xc7) == 0xc3 && (m_gime_registers[9] & 0x1f) == 7)
+		return 2; // 640 x 112.5, 256 colours
 	if (m_legacy_video)
 	{
 		if (m_ff22_value & MODE_AG)
@@ -1538,7 +1664,7 @@ inline uint16_t gime_device::get_lines_per_row()
 //  record_scanline_res
 //-------------------------------------------------
 
-template<uint8_t xres, gime_device::get_data_func get_data, bool record_mode>
+template<int xres, gime_device::get_data_func get_data, bool record_mode>
 inline uint32_t gime_device::record_scanline_res(int scanline, int32_t start_clock, int32_t end_clock)
 {
 	int column;
@@ -1548,7 +1674,7 @@ inline uint32_t gime_device::record_scanline_res(int scanline, int32_t start_clo
 	uint32_t offset = 0;
 
 	// Wide modes add sixteen VDG clocks at each side of the active area.
-	const bool wide = !m_legacy_video && (m_scanlines[scanline].m_ff99_value & 0x04);
+	const bool wide = wide_mode(m_scanlines[scanline].m_ff98_value, m_scanlines[scanline].m_ff99_value);
 	const int active_clock = (m_legacy_video ? GIME_LEGACY_ACTIVE_VIDEO_CLOCK : GIME_NATIVE_ACTIVE_VIDEO_CLOCK) - (wide ? 16 : 0);
 	const int active_clocks = wide ? 160 : 128;
 	const int first_column = std::clamp((start_clock - active_clock) * xres / active_clocks, 0, int(xres));
@@ -1559,7 +1685,7 @@ inline uint32_t gime_device::record_scanline_res(int scanline, int32_t start_clo
 	{
 		/* input data */
 		uint8_t data, mode;
-		offset += ((*this).*(get_data))((m_video_position + ((base_offset + offset) & 0xff)) | bank_512k, &data, &mode);
+		offset += ((*this).*(get_data))((m_video_position + ((base_offset + offset) & ((m_gimex && xres > 256 && !(m_horizontal_offset & 0x80)) ? 0x3ff : 0xff))) | bank_512k, &data, &mode);
 
 		if (column < first_column || column >= last_column)
 			continue;
@@ -1654,7 +1780,7 @@ void gime_device::record_body_scanline(uint16_t physical_scanline, uint16_t logi
 	// already fetched before a trailing graphics/text or resolution change.
 	const uint8_t ff98 = m_horizontal_offset_latched ? m_scanlines[physical_scanline].m_ff98_value : m_gime_registers[0x08];
 	const uint8_t ff99 = m_horizontal_offset_latched ? m_scanlines[physical_scanline].m_ff99_value : m_gime_registers[0x09];
-	const bool wide = !m_legacy_video && (ff99 & 0x04);
+	const bool wide = wide_mode(ff98, ff99);
 	const int active_clock = (m_legacy_video ? GIME_LEGACY_ACTIVE_VIDEO_CLOCK : GIME_NATIVE_ACTIVE_VIDEO_CLOCK) - (wide ? 16 : 0);
 	const int active_end_clock = active_clock + (wide ? 160 : 128);
 	// A blanking-only flush must not replace the completed line's mode,
@@ -1691,6 +1817,8 @@ void gime_device::record_body_scanline(uint16_t physical_scanline, uint16_t logi
 
 	/* set the line in row */
 	update_value(&m_scanlines[physical_scanline].m_line_in_row, m_line_in_row);
+	update_value(&m_scanlines[physical_scanline].m_legacy_line, uint8_t(logical_scanline % 12));
+	update_value(&m_scanlines[physical_scanline].m_sg6, m_sg6);
 
 	/* we're using this palette rotation */
 	m_palette_rotated_position_used = true;
@@ -1744,7 +1872,14 @@ void gime_device::record_body_scanline(uint16_t physical_scanline, uint16_t logi
 		if (ff98 & 0x80)
 		{
 			/* graphics */
-			switch(ff99 & 0x1c)
+			if (m_gimex && (ff98 & 0x40))
+			{
+				if (ff99 & 0x04)
+					pitch = record_scanline_res<640, &gime_device::get_data_without_attributes, false>(physical_scanline, start_clock, end_clock);
+				else
+					pitch = record_scanline_res<320, &gime_device::get_data_without_attributes, false>(physical_scanline, start_clock, end_clock);
+			}
+			else switch(ff99 & 0x1c)
 			{
 				case 0x00:  pitch = record_scanline_res< 16, &gime_device::get_data_without_attributes, false>(physical_scanline, start_clock, end_clock); break;
 				case 0x04:  pitch = record_scanline_res< 20, &gime_device::get_data_without_attributes, false>(physical_scanline, start_clock, end_clock); break;
@@ -1851,7 +1986,7 @@ void gime_device::update_geometry()
 	}
 
 	// bit 3 of $FF99 controls "wideness"
-	bool wide = !m_legacy_video && (m_gime_registers[9] & 0x08);
+	bool wide = m_gimex ? wide_mode(m_gime_registers[8], m_gime_registers[9]) : (!m_legacy_video && (m_gime_registers[9] & 0x08));
 
 	// set the geometry
 	set_geometry(top_border_scanlines, body_scanlines, wide);
@@ -1920,9 +2055,19 @@ inline uint32_t gime_device::emit_mc6847_samples(const scanline_record *scanline
 				break;
 			}
 		}
+		if (m_gimex && !(css_mode & MODE_AG) && (css_mode & MODE_AS))
+		{
+			const bool sg6 = scanline->m_sg6 && (scanline->m_ff22_value & MODE_GM0);
+			const unsigned row = sg6 ? scanline->m_legacy_line / 4 : scanline->m_legacy_line / 6;
+			for (int i = 0; i < sample_count; i++)
+				for (unsigned x = 0; x < 8; x++)
+					std::fill_n(&output[(i * 8 + x) * xscale], xscale,
+						palette[gime_video::semigraphics_pixel(data[i], sg6, row, x / 4, css_mode & MODE_CSS)]);
+			return uint32_t(sample_count * 8 * xscale);
+		}
 		return super::emit_mc6847_samples<xscale>(css_mode,
 			data, sample_count, output, palette,
-			super::m_charrom_cb, sample_start, scanline->m_line_in_row);
+			super::m_charrom_cb, sample_start, m_gimex ? scanline->m_legacy_line : scanline->m_line_in_row);
 	};
 	const uint32_t count = emit(mode, pixels);
 	const unsigned visible_count = std::min<unsigned>(count, 512 - std::min(pixel_start, 512));
@@ -2030,7 +2175,7 @@ inline void gime_device::render_scanline(const scanline_record *scanline, pixel_
 {
 
 	/* is this a wide video mode? */
-	bool wide = !m_legacy_video && (scanline->m_ff99_value & 0x04);
+	bool wide = wide_mode(scanline->m_ff98_value, scanline->m_ff99_value);
 
 	/* size up the borders */
 	int left_border, right_border;
@@ -2048,19 +2193,20 @@ inline void gime_device::render_scanline(const scanline_record *scanline, pixel_
 	/* left border */
 	for (int x = min_x; x < left_border; x++)
 	{
-		pixels[x] = resolver->lookup(scanline->m_border[x]);
+		pixels[x] = resolver->lookup(uint16_t(scanline->m_border[x]) << (m_gimex ? 3 : 0));
 	}
 
 	/* right border */
 	for (int x = right_border; x <= max_x; x++)
 	{
-		pixels[x] = resolver->lookup(scanline->m_border[x]);
+		pixels[x] = resolver->lookup(uint16_t(scanline->m_border[x]) << (m_gimex ? 3 : 0));
 	}
 
 	/* offset the pixel counts depending on wide */
 	pixels += left_border;
 
-	const bool artifacting = m_legacy_video && (sample_count > 0) && m_artifacter.get_ntsc_artifacting();
+	const bool artifacting = m_legacy_video && (sample_count > 0) && m_artifacter.get_ntsc_artifacting()
+		&& (!m_gimex || m_artifact_mode == 1 || (!m_artifact_mode && !m_displayed_rgb));
 	uint8_t artifact_modes[256]{};
 	pixel_t artifact_colors[256][2]{};
 
@@ -2079,7 +2225,7 @@ inline void gime_device::render_scanline(const scanline_record *scanline, pixel_
 		/* emit the samples, with a (hopefully) aggressively inlined function */
 		const uint32_t pixel_count = ((*this).*(emit_samples))(scanline, x, x2 - x, &pixels[pixel_position], resolved_palette, pixel_position);
 
-		if (artifacting)
+		if (artifacting || (m_gimex && m_artifact_mode == 2))
 		{
 			// GIME output has two pixels per legacy artifact sample.
 			const unsigned start = std::min<unsigned>(pixel_position / 2, 256);
@@ -2102,6 +2248,20 @@ inline void gime_device::render_scanline(const scanline_record *scanline, pixel_
 	if (artifacting)
 	{
 		m_artifacter.process_artifacts<2>(pixels, scanline->m_mode[0], resolved_palette, artifact_modes, artifact_colors);
+	}
+	if (m_gimex && m_legacy_video && sample_count > 0 && (scanline->m_ff22_value & 0xf8) == 0xf8)
+	{
+		if (m_artifact_mode == 3)
+			std::fill_n(pixels, 512, rgb_t::black());
+		else if (m_artifact_mode == 2)
+		{
+			const pixel_t colors[4] = { rgb_t::black(), rgb_t(0, 0, 255), rgb_t(255, 0, 0), rgb_t::white() };
+			for (unsigned x = 0; x < 512; x += 4)
+			{
+				const unsigned pattern = (pixels[x] == artifact_colors[x / 2][1] ? 2 : 0) | (pixels[x + 2] == artifact_colors[x / 2 + 1][1] ? 1 : 0);
+				std::fill_n(pixels + x, 4, colors[pattern]);
+			}
+		}
 	}
 }
 
@@ -2171,6 +2331,10 @@ bool gime_device::update_screen(bitmap_rgb32 &bitmap, const rectangle &cliprect,
 					render_scanline<32, &gime_device::emit_mc6847_samples<2>>(scanline, pixels, min_x, max_x, &resolver);
 					break;
 			}
+		}
+		else if (m_gimex && (scanline->m_ff98_value & 0x80))
+		{
+			render_gimex_graphics(scanline, pixels, resolver);
 		}
 		else if (scanline->m_ff98_value & 0x80)
 		{
@@ -2331,7 +2495,7 @@ inline const gime_device::pixel_t *gime_device::palette_resolver::get_palette(ui
 {
 	if (UNEXPECTED(m_current_resolved_palette != palette_rotation))
 	{
-		for (int i = 0; i < 16; i++)
+		for (unsigned i = 0; i < (m_gime.m_gimex ? 272 : 16); i++)
 			m_resolved_palette[i] = lookup(m_gime.m_palette_rotated[palette_rotation][i]);
 		m_current_resolved_palette = palette_rotation;
 	}
@@ -2344,10 +2508,13 @@ inline const gime_device::pixel_t *gime_device::palette_resolver::get_palette(ui
 //  palette_resolver::lookup
 //-------------------------------------------------
 
-inline gime_device::pixel_t gime_device::palette_resolver::lookup(uint8_t color)
+inline gime_device::pixel_t gime_device::palette_resolver::lookup(uint16_t color)
 {
-	assert(color <= 63);
-	return m_palette[color];
+	assert(color <= (m_gime.m_gimex ? 511 : 63));
+	if (!m_gime.m_gimex)
+		return m_palette[color];
+	const pixel_t rgb = m_gime.m_gimex_rgb_palette[color];
+	return !m_gime.m_displayed_rgb && (m_gime.m_gime_registers[8] & 0x10) ? black_and_white(rgb) : rgb;
 }
 
 
@@ -2360,6 +2527,8 @@ std::vector<std::string> gime_device::searchpath() const
 {
 	auto result = device_t::searchpath();
 	result.emplace(result.begin(), "gime");
+	if (m_gimex)
+		result.emplace_back("coco3");
 	return result;
 }
 

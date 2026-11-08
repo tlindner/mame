@@ -62,6 +62,7 @@
 ***************************************************************************/
 
 #include "emu.h"
+#include "gime.h"
 
 #include "bus/coco/coco_dwsock.h"
 #include "bus/pc_kbd/keyboards.h"
@@ -1574,10 +1575,7 @@ void coco3fpga_state::hw_w(offs_t addr, u8 data)
 	if ((addr >= 0xffb0 && addr <= 0xffbf) || addr == 0xff9a)
 	{
 		u16 &p = m_palette[(addr == 0xff9a) ? 16 : (addr & 0x0f)];
-		if (!BIT(data, 7))
-			p = ((data & 0x3f) << 6) | (data & 0x3f);
-		else
-			p = (p & 0xfc0) | (data & 0x3f);
+		p = gime_video::palette_write(p, data, false);
 		return;
 	}
 	if (addr >= 0xffc0 && addr <= 0xffdf)
@@ -2363,8 +2361,7 @@ u32 coco3fpga_state::screen_off() const
 	}
 	else
 	{
-		static constexpr u16 gfx[16] = { 16, 20, 32, 40, 64, 80, 128, 160, 256, 320, 512, 640, 32, 32, 32, 32 };
-		stride = gfx[m_hres];
+		stride = gime_video::graphics_bytes(m_hres);
 	}
 	return (m_row_add + stride) & 0x7fffff;
 }
@@ -2614,8 +2611,7 @@ void coco3fpga_state::gen_active(u16 *out, int width)
 						if (!mode6)
 						{
 							const bool six = (m_sam_v != 0) ? m_six_r : (m_vlpr >= 6);
-							const int bitn = six ? (cell ? 0 : 1) : (cell ? 2 : 3);
-							code = BIT(c, bitn) ? ((c >> 4) & 7) : 0x08;
+							code = gime_video::semigraphics_pixel(c, false, six, cell, m_css);
 						}
 						else
 						{
@@ -2624,8 +2620,7 @@ void coco3fpga_state::gen_active(u16 *out, int width)
 								code = 0x08;
 							else
 							{
-								const int bitn = (2 - sg6) * 2 + (cell ? 0 : 1);
-								code = BIT(c, bitn) ? ((m_css ? 6 : 2) + BIT(c, 6)) : 0x08;
+								code = gime_video::semigraphics_pixel(c, true, sg6, cell, m_css);
 							}
 						}
 					}
@@ -2681,25 +2676,9 @@ void coco3fpga_state::gen_active(u16 *out, int width)
 	static constexpr u8 fetch_shift[16] = { 6, 6, 5, 5, 4, 4, 3, 3, 2, 2, 1, 1, 5, 5, 5, 5 };
 	const int k = fetch_shift[m_hres];
 	const int nbytes = std::max(1, (width * 2) >> k);
-	const int bpp = 1 << m_cres;
 	const int ppb = 8 >> m_cres;
 
-	int exp;
-	switch (((m_hres >> 1) << 2) | m_cres)
-	{
-	case 0x01: exp = 8; break;  // 16/20 bytes, 4 colour
-	case 0x04: exp = 2; break;  // 32/40 bytes, 2 colour
-	case 0x06: exp = 8; break;  // 32/40 bytes, 16 colour
-	case 0x08: exp = 1; break;  // 64/80 bytes, 2 colour
-	case 0x09: exp = 2; break;  // 64/80 bytes, 4 colour
-	case 0x0b: exp = 8; break;  // 64/80 bytes, 256 colour
-	case 0x0d: exp = 1; break;  // 128/160 bytes, 4 colour
-	case 0x0e: exp = 2; break;  // 128/160 bytes, 16 colour
-	case 0x12: exp = 1; break;  // 256/320 bytes, 16 colour
-	case 0x13: exp = 2; break;  // 256/320 bytes, 256 colour
-	case 0x17: exp = 1; break;  // 512/640 bytes, 256 colour
-	default:   exp = 4; break;  // HDL default expansion
-	}
+	const int exp = gime_video::graphics_scale(m_hres, m_cres);
 
 	for (int x = 0; x < width; x++)
 	{
@@ -2710,7 +2689,7 @@ void coco3fpga_state::gen_active(u16 *out, int width)
 		if (m_cres == 3)
 			out[x] = 0x100 | v;
 		else
-			out[x] = (v >> (8 - bpp * (sub + 1))) & ((1 << bpp) - 1);
+			out[x] = gime_video::graphics_pixel(v, m_cres, sub);
 	}
 }
 

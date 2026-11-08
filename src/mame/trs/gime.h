@@ -23,6 +23,52 @@
 //  GIME CORE
 //**************************************************************************
 
+// Shared shifter and colour decoding for the FPGA GIME implementations.
+// Register decoding and beam timing remain specific to each implementation.
+struct gime_video
+{
+	static constexpr unsigned graphics_bytes(unsigned hres)
+	{
+		constexpr unsigned bytes[16] = { 16, 20, 32, 40, 64, 80, 128, 160, 256, 320, 512, 640, 32, 32, 32, 32 };
+		return bytes[hres & 15];
+	}
+
+	static constexpr unsigned graphics_scale(unsigned hres, unsigned cres, bool gimex = false)
+	{
+		if (gimex)
+		{
+			const unsigned scale = ((hres >= 8 || (hres & 1)) ? 640 : 512) / (graphics_bytes(hres) * (8 >> cres));
+			return scale ? scale : 1;
+		}
+		switch (((hres >> 1) << 2) | cres)
+		{
+		case 0x01: case 0x06: case 0x0b: return 8;
+		case 0x04: case 0x09: case 0x0e: case 0x13: return 2;
+		case 0x08: case 0x0d: case 0x12: case 0x17: return 1;
+		default: return 4;
+		}
+	}
+
+	static constexpr unsigned graphics_pixel(uint8_t data, unsigned cres, unsigned pixel)
+	{
+		const unsigned bpp = 1U << cres;
+		return (data >> (8 - bpp * ((pixel % (8 / bpp)) + 1))) & ((1U << bpp) - 1);
+	}
+
+	static constexpr unsigned semigraphics_pixel(uint8_t data, bool sg6, unsigned row, unsigned cell, bool css)
+	{
+		const unsigned bit = (sg6 ? (2 - row) * 2 : (1 - row) * 2) + (cell ? 0 : 1);
+		return BIT(data, bit) ? (sg6 ? (css ? 6 : 2) + BIT(data, 6) : ((data >> 4) & 7)) : 8;
+	}
+
+	static constexpr uint16_t palette_write(uint16_t previous, uint8_t data, bool gimex)
+	{
+		if (gimex)
+			return BIT(data, 7) ? ((previous & 0x1f8) | ((data >> 3) & 7)) : ((data & 0x3f) << 3);
+		return BIT(data, 7) ? ((previous & 0xfc0) | (data & 0x3f)) : (((data & 0x3f) << 6) | (data & 0x3f));
+	}
+};
+
 class cococart_slot_device;
 
 class gime_device : public mc6847_friend_device, public sam6883_friend_device_interface
@@ -37,6 +83,13 @@ public:
 	auto irq_wr_callback() { return m_write_irq.bind(); }
 	auto firq_wr_callback() { return m_write_firq.bind(); }
 	auto floating_bus_rd_callback() { return m_read_floating_bus.bind(); }
+
+	// Select the documented April 2020 GIME-X extensions at configuration time.
+	void set_gimex(bool enabled) { m_gimex = enabled; }
+	bool gimex_scanlines() const { return m_scanlines_enabled; }
+	uint8_t extended_read(offs_t offset);
+	void extended_write(offs_t offset, uint8_t data);
+	DECLARE_INPUT_CHANGED_MEMBER(gimex_button);
 
 	// read/write
 	uint8_t read(offs_t offset);
@@ -101,9 +154,11 @@ protected:
 		uint8_t m_ff22_value;
 		uint8_t m_ff98_value;
 		uint8_t m_ff99_value;
-		uint8_t m_mode[160];
-		uint8_t m_data[160];
-		uint16_t m_palette[160];
+		uint8_t m_mode[640];
+		uint8_t m_data[640];
+		uint16_t m_palette[640];
+		uint8_t m_legacy_line;
+		bool m_sg6;
 	};
 
 	typedef uint32_t (gime_device::*get_data_func)(uint32_t, uint8_t *, uint8_t *);
@@ -113,12 +168,12 @@ protected:
 	public:
 		palette_resolver(gime_device &gime, const pixel_t *palette);
 		const pixel_t *get_palette(uint16_t palette_rotation);
-		pixel_t lookup(uint8_t color);
+		pixel_t lookup(uint16_t color);
 
 	private:
 		gime_device &m_gime;
 		const pixel_t *m_palette;
-		pixel_t m_resolved_palette[16];
+		pixel_t m_resolved_palette[272];
 		int m_current_resolved_palette;
 	};
 
@@ -147,6 +202,18 @@ protected:
 	devcb_read8        m_read_floating_bus;
 
 	// device state
+	bool                        m_gimex = false;
+	bool                        m_turbo = false;
+	bool                        m_sg6 = false;
+	bool                        m_scanlines_enabled = false;
+	uint8_t                     m_artifact_mode = 0;
+	uint32_t                    m_dma_address[2]{}; // destination, source
+	uint8_t                     m_dma_increment = 0;
+	void update_gimex_clock();
+	bool wide_mode(uint8_t ff98, uint8_t ff99) const;
+	unsigned graphics_hres(uint8_t ff98, uint8_t ff99) const;
+	void rotate_palette();
+	void render_gimex_graphics(const scanline_record *scanline, pixel_t *pixels, palette_resolver &resolver);
 	uint8_t                     m_gime_registers[16];
 	uint8_t                     m_mmu[16];
 	uint8_t                     m_ff22_value;
@@ -171,7 +238,7 @@ protected:
 	bool                        m_displayed_rgb;
 
 	// palette state
-	uint8_t                     m_palette_rotated[1024][16];
+	uint16_t                    m_palette_rotated[1024][272];
 	uint16_t                    m_palette_rotated_position;
 	bool                        m_palette_rotated_position_used;
 
@@ -193,6 +260,7 @@ protected:
 	pixel_t                     m_composite_palette[64];
 	pixel_t                     m_composite_bw_palette[64];
 	pixel_t                     m_rgb_palette[64];
+	pixel_t                     m_gimex_rgb_palette[512];
 	uint8_t                     m_dummy_bank[0x2000];
 
 	// read/write
@@ -255,7 +323,7 @@ protected:
 	uint32_t get_data_with_attributes(uint32_t video_position, uint8_t *data, uint8_t *mode);
 
 	// template function for doing video update collection
-	template<uint8_t xres, get_data_func get_data, bool record_mode>
+	template<int xres, get_data_func get_data, bool record_mode>
 	uint32_t record_scanline_res(int scanline, int32_t start_clock, int32_t end_clock);
 	void record_body_scanline(uint16_t physical_scanline, uint16_t logical_scanline, int32_t start_clock, int32_t end_clock);
 

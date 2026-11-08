@@ -34,12 +34,17 @@ public:
 	{
 	}
 
+	virtual std::vector<std::string> searchpath() const override;
+
 	virtual void ff20_write(offs_t offset, uint8_t data) override;
 	virtual uint8_t ff40_read(offs_t offset) override;
 	virtual void ff40_write(offs_t offset, uint8_t data) override;
 
 	uint32_t screen_update(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
 
+	uint32_t screen_update_gimex(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
+	void coco3x(machine_config &config);
+	void coco3x_mem(address_map &map) ATTR_COLD;
 	void coco3p(machine_config &config);
 	void coco3h(machine_config &config);
 	void coco3dw1(machine_config &config);
@@ -65,6 +70,7 @@ protected:
 	void bind_rat_mouse(quadmouse_device &quad, int port_index);
 
 private:
+	bitmap_rgb32 m_gimex_bitmap{gime_device::SCREEN_WIDTH, 263};
 	required_device<gime_device> m_gime;
 	required_ioport m_screen_config;
 	required_device<quadmouse_device> m_ratmouse_r;
