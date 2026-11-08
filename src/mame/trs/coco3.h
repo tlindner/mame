@@ -44,6 +44,7 @@ public:
 
 	uint32_t screen_update_gimex(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
 	void coco3x(machine_config &config);
+	void coco3hx(machine_config &config);
 	void coco3x_mem(address_map &map) ATTR_COLD;
 	void coco3p(machine_config &config);
 	void coco3h(machine_config &config);

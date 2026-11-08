@@ -63,7 +63,7 @@ void coco3_state::coco3_mem(address_map &map)
 std::vector<std::string> coco3_state::searchpath() const
 {
 	auto result = coco_state::searchpath();
-	if (!strcmp(machine().system().name, "coco3x"))
+	if (!strcmp(machine().system().name, "coco3x") || !strcmp(machine().system().name, "coco3hx"))
 		result.emplace_back("coco3");
 	return result;
 }
@@ -536,6 +536,13 @@ void coco3_state::coco3x(machine_config &config)
 	subdevice<ram_device>(RAM_TAG)->set_default_size("512K").set_extra_options("128K,2M");
 }
 
+void coco3_state::coco3hx(machine_config &config)
+{
+	coco3x(config);
+	HD6309E(config.replace(), m_maincpu, DERIVED_CLOCK(1, 1));
+	m_maincpu->set_addrmap(AS_PROGRAM, &coco3_state::coco3x_mem);
+}
+
 void coco3_state::coco3p(machine_config &config)
 {
 	coco3(config);
@@ -579,6 +586,7 @@ ROM_END
 
 #define rom_coco3h  rom_coco3
 #define rom_coco3x  rom_coco3
+#define rom_coco3hx rom_coco3
 
 //**************************************************************************
 //  SYSTEM DRIVERS
@@ -591,3 +599,4 @@ COMP( 19??, coco3h,   coco,  0,     coco3h,   coco3,   coco3_state, empty_init, 
 COMP( 1987, msm3,     coco,  0,     coco3,    coco3,   coco3_state, empty_init, "ILCE / SEP",        "Micro-Sep Model 3",                MACHINE_SUPPORTS_SAVE )
 
 COMP( 2020, coco3x,   coco,  0,     coco3x,   coco3x,  coco3_state, empty_init, "Gary Becker / Ed Snider", "Color Computer 3 (GIME-X)", MACHINE_SUPPORTS_SAVE | MACHINE_IMPERFECT_GRAPHICS | MACHINE_IMPERFECT_TIMING )
+COMP( 2020, coco3hx,  coco,  0,     coco3hx,  coco3x,  coco3_state, empty_init, "Gary Becker / Ed Snider", "Color Computer 3 (GIME-X; HD6309)", MACHINE_SUPPORTS_SAVE | MACHINE_IMPERFECT_GRAPHICS | MACHINE_IMPERFECT_TIMING | MACHINE_UNOFFICIAL )
