@@ -751,6 +751,18 @@ u32 device_cococart_interface::get_cart_size()
 
 
 //-------------------------------------------------
+//  cts_read_is_dynamic - whether cartridge ROM
+//  reads must reach the device even when the host
+//  maps get_cart_base() directly
+//-------------------------------------------------
+
+bool device_cococart_interface::cts_read_is_dynamic()
+{
+	return false;
+}
+
+
+//-------------------------------------------------
 //  set_cart_base_update
 //-------------------------------------------------
 
