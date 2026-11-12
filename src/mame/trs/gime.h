@@ -184,8 +184,8 @@ protected:
 	memory_bank *               m_read_banks[9];
 	memory_bank *               m_write_banks[9];
 	memory_passthrough_handler  m_cart_read_taps[9];
-	bool                       m_cart_read_enabled[9] = {};
-	offs_t                     m_cart_read_offsets[9] = {};
+	bool                        m_cart_read_enabled[9] = {};
+	offs_t                      m_cart_read_offsets[9] = {};
 	uint8_t *                   m_rom;
 	required_memory_region      m_rom_region;
 	uint8_t *                   m_cart_rom;

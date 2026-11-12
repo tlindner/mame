@@ -26,7 +26,7 @@
     RA1 controls INTRQ. RA3 publishes a data byte and sets DRQ. Enhanced
     transfers pair RA6 (high byte) with RA3 (low byte). Holding a read
     strobe exposes command/transfer flags; releasing it captures input
-    data. Exact CPLD equations and timing remain unverified.
+    data.
 
     MCU-FIRM.AVR is a sparse flash image: big-endian 16-bit checksum of
     the remaining bytes, 256 page indices, then 128-byte pages.  Index zero
@@ -38,7 +38,9 @@
 
     Both WD-compatible byte transfers and SDC-DOS enhanced word transfers
     use the real MCU firmware and its SD/FAT implementation. No separate
-    WD177x or host-side FAT parser is involved. Index timing remains TODO.
+    WD177x or host-side FAT parser is involved.
+
+    TODO: index pulse timing
 
     The DRGN DIP switch is modelled as a separate device. In Dragon mode
     the MCU samples RA0 low, the WD-compatible registers move to FF40-FF43
@@ -132,6 +134,8 @@ coco_sdc_device_base::coco_sdc_device_base(const machine_config &mconfig, device
 	, m_sdcard(*this, "sdcard")
 	, m_switches(*this, "SWITCHES")
 	, m_dragon(dragon)
+	, m_power_on(true)
+	, m_miso(true)
 {
 }
 
@@ -151,22 +155,16 @@ void coco_sdc_device_base::program_map(address_map &map)
 	map(0x0000, 0x7fff).rom();
 }
 
-void coco_sdc_device_base::data_map(address_map &map)
-{
-	map(0x0100, 0x08ff).ram();
-}
-
 void coco_sdc_device_base::device_add_mconfig(machine_config &config)
 {
 	ATMEGA328(config, m_mcu, 10_MHz_XTAL);
 	m_mcu->set_addrmap(AS_PROGRAM, &coco_sdc_device_base::program_map);
-	m_mcu->set_addrmap(AS_DATA, &coco_sdc_device_base::data_map);
 	m_mcu->set_eeprom_tag("eeprom");
 	// Inferred BOOTRST/BOOTSZ: reset into the 256-word boot section at 0x7e00.
 	// Physical fuse bytes have not been read back.
 	m_mcu->set_high_fuses(0xde);
 	m_mcu->gpio_out<atmega328_device::GPIOB>().set(FUNC(coco_sdc_device_base::port_b_w));
-	m_mcu->gpio_in<atmega328_device::GPIOB>().set([this]() { return (m_miso ? 0x10 : 0x00) | (m_command_pending ? 0x01 : 0x00); });
+	m_mcu->gpio_in<atmega328_device::GPIOB>().set([this] () -> u8 { return (m_miso ? 0x10 : 0x00) | (m_command_pending ? 0x01 : 0x00); });
 	m_mcu->gpio_out<atmega328_device::GPIOC>().set(FUNC(coco_sdc_device_base::port_c_w));
 	// DRGN switch on RA0 (sampled as an input; high = CoCo), button released.
 	m_mcu->gpio_in<atmega328_device::GPIOC>().set_constant(m_dragon ? 0x20 : 0x21);
@@ -175,7 +173,7 @@ void coco_sdc_device_base::device_add_mconfig(machine_config &config)
 
 	SST_39SF010(config, m_flash);
 	SPI_SDCARD(config, m_sdcard, 0);
-	m_sdcard->spi_miso_callback().set([this](int state) { m_miso = state; });
+	m_sdcard->spi_miso_callback().set([this] (int state) { m_miso = bool(state); });
 }
 
 void coco_sdc_device_base::port_b_w(u8 data)
@@ -183,7 +181,7 @@ void coco_sdc_device_base::port_b_w(u8 data)
 	// The card device uses an active-high select input; the PCB signal is /SS.
 	m_sdcard->spi_ss_w(!BIT(data, 2));
 	if (BIT(data, 2))
-		m_miso = 1; // Deselected cards release MISO.
+		m_miso = true; // Deselected cards release MISO.
 	m_sdcard->spi_mosi_w(BIT(data, 3));
 	m_sdcard->spi_clock_w(BIT(data, 5));
 }
@@ -268,7 +266,7 @@ u8 coco_sdc_device_base::port_d_r()
 
 void coco_sdc_device_base::mcu_write(u8 reg, u8 data)
 {
-	LOGMASKED(LOG_BUS, "MCU write RA=%u XD=%02x\n", reg, data);
+	LOGMASKED(LOG_BUS, "%s: MCU write RA=%u XD=%02x\n", machine().describe_context(), reg, data);
 	if (reg == 1)
 	{
 		// The low register bank contains interface controls, not mirrors
@@ -367,7 +365,7 @@ u8 coco_sdc_device_base::scs_read(offs_t offset)
 void coco_sdc_device_base::scs_write(offs_t offset, u8 data)
 {
 	offset = host_offset(offset);
-	LOGMASKED(LOG_HOST, "Host write %02x=%02x\n", offset, data);
+	LOGMASKED(LOG_HOST, "%s: Host write %02x=%02x\n", machine().describe_context(), offset, data);
 	switch (offset & 0x1b)
 	{
 	case 0:
@@ -458,9 +456,8 @@ void coco_sdc_device::device_reset()
 
 void coco_sdc_device_base::device_reset_after_children()
 {
-	// The CoCo RESET pin resets the MCU. Distinguish it from initial power
-	// so the real bootloader can retain RUN @bank,R and mounted disk state.
-	m_mcu->space(AS_DATA).write_byte(0x54, m_power_on ? 0x01 : 0x02); // MCUSR: PORF / EXTRF
+	// The CoCo RESET pin resets the MCU; it reports EXTRF rather than PORF
+	// in MCUSR, so the bootloader can retain RUN @bank,R and mounted disks.
 	m_power_on = false;
 	port_b_w(0x04); // /SS high, release MISO before firmware starts.
 	update_mcu_irq();
@@ -474,6 +471,35 @@ u8 *coco_sdc_device_base::get_cart_base()
 u32 coco_sdc_device_base::get_cart_size()
 {
 	return 0x4000;
+}
+
+bool coco_sdc_device_base::cts_read_is_dynamic()
+{
+	return true;
+}
+
+offs_t coco_sdc_device_base::host_offset(offs_t offset) const
+{
+	return offset;
+}
+
+u8 coco_sdc_device_base::mcu_dskreg() const
+{
+	return m_dskreg;
+}
+
+offs_t dragon_sdc_device::host_offset(offs_t offset) const
+{
+	// Dragon mode swaps the halves: WD-compatible registers at FF40-FF43,
+	// control register at FF48.
+	return offset ^ 0x08;
+}
+
+u8 dragon_sdc_device::mcu_dskreg() const
+{
+	// Dragon single-density (bit 3) is presented where the firmware
+	// expects CoCo bit 6, so FF48=0B matches the 43 command-mode code.
+	return bitswap<8>(m_dskreg, 7, 3, 5, 4, 6, 2, 1, 0);
 }
 
 u8 coco_sdc_device_base::cts_read(offs_t offset)

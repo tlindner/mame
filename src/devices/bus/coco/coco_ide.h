@@ -40,7 +40,7 @@ protected:
 
 	virtual u8 *get_cart_base() override;
 	virtual u32 get_cart_size() override;
-	virtual bool cts_read_is_dynamic() override { return m_slot->cts_read_is_dynamic(); }
+	virtual bool cts_read_is_dynamic() override;
 
 	virtual address_space &cartridge_space() override;
 	virtual void add_sound_route(device_sound_interface &sound_device, int output_index, double gain) override;
