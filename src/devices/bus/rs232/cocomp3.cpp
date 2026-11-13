@@ -18,9 +18,12 @@
     directory on the sample path. For example, Lad vs Sewer Slimes wants
     samples/cocomp3/LAD/00001.mp3 and so on.
 
-    The CoCo software seen so far (Lad vs Sewer Slimes) expects the receive
-    data at PIA1 PB0 to be inverted compared to MAME's RS-232 convention:
-    idle low, start bit high. This device drives its output that way.
+    The real device's transistor interface sends its replies inverted
+    compared to standard RS-232, so the CoCo reads PIA1 PB0 low when the
+    line is idle and high for a start bit. CoCo software written for it
+    (Lad vs Sewer Slimes, Glen Hewlett's CoCoMP3 library) expects this,
+    so this device drives its output inverted too. Confirmed on real
+    hardware.
 
     TODO:
     - WAV playback
