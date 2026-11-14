@@ -107,10 +107,11 @@
 #define GIME_TYPE_1987          0
 #define NO_ATTRIBUTE            0x80
 
-// Active-video offsets from HS rise, in VDG clocks.  Keep the legacy
-// CSS-test alignment; native video starts about 247 pixel clocks after
-// HS falls (64 pixel clocks before our HS-rise scanline boundary).
-static constexpr int GIME_LEGACY_ACTIVE_VIDEO_CLOCK = 33;
+// Active-video offsets from HS rise, in VDG clocks.  The legacy offset
+// matches mid-scanline CSS changes in Dragon Fire (CoCo 3) on hardware;
+// native video starts about 247 pixel clocks after HS falls (64 pixel
+// clocks before our HS-rise scanline boundary).
+static constexpr int GIME_LEGACY_ACTIVE_VIDEO_CLOCK = 28;
 static constexpr int GIME_NATIVE_ACTIVE_VIDEO_CLOCK = 46;
 
 #define LOG_INT_MASKING (1U <<  1)
