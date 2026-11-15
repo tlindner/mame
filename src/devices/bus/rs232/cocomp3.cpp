@@ -25,6 +25,9 @@
     so this device drives its output inverted too. Confirmed on real
     hardware.
 
+    CD is low while idle and high during playback, as confirmed by the
+    hardware designer. It is connected to the CoCo's PIA1 CA1 input.
+
     TODO:
     - WAV playback
     - EQ, random and folder loop modes
@@ -312,7 +315,10 @@ void serial_cocomp3_device::process_packet()
 	case 0x02: // play
 		LOGCMD("play\n");
 		if (m_status == STATUS_PAUSE)
+		{
 			m_status = STATUS_PLAY;
+			output_dcd(1);
+		}
 		else if (m_status == STATUS_STOP)
 			play_track(std::max(m_track, 0));
 		break;
@@ -323,6 +329,7 @@ void serial_cocomp3_device::process_packet()
 		{
 			m_stream->update();
 			m_status = STATUS_PAUSE;
+			output_dcd(0);
 		}
 		break;
 
@@ -566,6 +573,7 @@ std::string serial_cocomp3_device::resolve_path(const std::string &path) const
 void serial_cocomp3_device::stop()
 {
 	m_status = STATUS_STOP;
+	output_dcd(0);
 	m_file.clear();
 	m_file_pos = 0;
 	m_window_count = 0;
@@ -592,6 +600,7 @@ bool serial_cocomp3_device::play_file(const std::string &filename)
 	auto const found = std::find(m_tracks.begin(), m_tracks.end(), filename);
 	m_track = (found != m_tracks.end()) ? (found - m_tracks.begin()) : -1;
 	m_status = STATUS_PLAY;
+	output_dcd(1);
 	return true;
 }
 
