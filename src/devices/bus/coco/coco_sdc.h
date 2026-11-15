@@ -13,7 +13,6 @@
 class coco_sdc_device_base : public device_t, public device_cococart_interface
 {
 public:
-	static constexpr feature_type imperfect_features() { return feature::DISK; }
 
 	virtual u8 *get_cart_base() override;
 	virtual u32 get_cart_size() override;
@@ -55,6 +54,7 @@ private:
 	required_device<sst_39sf010_device> m_flash;
 	required_device<spi_sdcard_device> m_sdcard;
 	required_ioport m_switches;
+	required_ioport m_button;
 	bool const m_dragon;
 	bool m_power_on;
 	u8 m_bank;

@@ -106,6 +106,9 @@ static INPUT_PORTS_START(dragon_sdc)
 	PORT_CONFSETTING(0x05, "5")
 	PORT_CONFSETTING(0x06, "6")
 	PORT_CONFSETTING(0x07, "7")
+
+	PORT_START("BUTTON")
+	PORT_BIT(0x20, IP_ACTIVE_LOW, IPT_OTHER) PORT_NAME("Switch Disk")
 INPUT_PORTS_END
 
 static INPUT_PORTS_START(coco_sdc)
@@ -120,6 +123,9 @@ static INPUT_PORTS_START(coco_sdc)
 	PORT_CONFSETTING(0x06, "6")
 	PORT_CONFSETTING(0x07, "7")
 
+	PORT_START("BUTTON")
+	PORT_BIT(0x20, IP_ACTIVE_LOW, IPT_OTHER) PORT_NAME("Switch Disk")
+
 	PORT_START("AUTO")
 	PORT_CONFNAME(0x01, 0x00, "Cartridge Auto-Start Jumper")
 	PORT_CONFSETTING(0x00, "Not Installed")
@@ -133,6 +139,7 @@ coco_sdc_device_base::coco_sdc_device_base(const machine_config &mconfig, device
 	, m_flash(*this, "flash")
 	, m_sdcard(*this, "sdcard")
 	, m_switches(*this, "SWITCHES")
+	, m_button(*this, "BUTTON")
 	, m_dragon(dragon)
 	, m_power_on(true)
 	, m_miso(true)
@@ -166,8 +173,8 @@ void coco_sdc_device_base::device_add_mconfig(machine_config &config)
 	m_mcu->gpio_out<atmega328_device::GPIOB>().set(FUNC(coco_sdc_device_base::port_b_w));
 	m_mcu->gpio_in<atmega328_device::GPIOB>().set([this] () -> u8 { return (m_miso ? 0x10 : 0x00) | (m_command_pending ? 0x01 : 0x00); });
 	m_mcu->gpio_out<atmega328_device::GPIOC>().set(FUNC(coco_sdc_device_base::port_c_w));
-	// DRGN switch on RA0 (sampled as an input; high = CoCo), button released.
-	m_mcu->gpio_in<atmega328_device::GPIOC>().set_constant(m_dragon ? 0x20 : 0x21);
+	// DRGN switch on RA0 (sampled as an input; high = CoCo), button on PC5.
+	m_mcu->gpio_in<atmega328_device::GPIOC>().set([this] () -> u8 { return m_button->read() | (m_dragon ? 0x00 : 0x01); });
 	m_mcu->gpio_in<atmega328_device::GPIOD>().set(FUNC(coco_sdc_device_base::port_d_r));
 	m_mcu->gpio_out<atmega328_device::GPIOD>().set(FUNC(coco_sdc_device_base::port_d_w));
 
@@ -207,11 +214,6 @@ void coco_sdc_device_base::port_c_w(u8 data)
 				m_command_pending = false;
 				update_mcu_irq();
 			}
-		}
-		if (m_transfer_active && m_strobe_write && m_strobe_reg == 4 && ((m_port_c & 7) == 7))
-		{
-			m_drq = true;
-			update_lines();
 		}
 	}
 	m_port_c = data;
