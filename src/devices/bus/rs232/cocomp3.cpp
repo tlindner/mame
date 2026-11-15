@@ -25,8 +25,9 @@
     so this device drives its output inverted too. Confirmed on real
     hardware.
 
-    CD is low while idle and high during playback, as confirmed by the
-    hardware designer. It is connected to the CoCo's PIA1 CA1 input.
+    External CD is low while idle and high during playback, as confirmed
+    by the hardware designer. The CoCo's receiver inverts it before PIA1
+    CA1, so drive the emulated DCD line low during playback and high idle.
 
     TODO:
     - WAV playback
@@ -201,7 +202,7 @@ void serial_cocomp3_device::device_reset()
 {
 	// idle line, inverted (see header comment)
 	output_rxd(0);
-	output_dcd(0);
+	output_dcd(1);
 	output_dsr(0);
 	output_cts(0);
 	output_ri(0);
@@ -317,7 +318,7 @@ void serial_cocomp3_device::process_packet()
 		if (m_status == STATUS_PAUSE)
 		{
 			m_status = STATUS_PLAY;
-			output_dcd(1);
+			output_dcd(0);
 		}
 		else if (m_status == STATUS_STOP)
 			play_track(std::max(m_track, 0));
@@ -329,7 +330,7 @@ void serial_cocomp3_device::process_packet()
 		{
 			m_stream->update();
 			m_status = STATUS_PAUSE;
-			output_dcd(0);
+			output_dcd(1);
 		}
 		break;
 
@@ -573,7 +574,7 @@ std::string serial_cocomp3_device::resolve_path(const std::string &path) const
 void serial_cocomp3_device::stop()
 {
 	m_status = STATUS_STOP;
-	output_dcd(0);
+	output_dcd(1);
 	m_file.clear();
 	m_file_pos = 0;
 	m_window_count = 0;
@@ -600,7 +601,7 @@ bool serial_cocomp3_device::play_file(const std::string &filename)
 	auto const found = std::find(m_tracks.begin(), m_tracks.end(), filename);
 	m_track = (found != m_tracks.end()) ? (found - m_tracks.begin()) : -1;
 	m_status = STATUS_PLAY;
-	output_dcd(1);
+	output_dcd(0);
 	return true;
 }
 
