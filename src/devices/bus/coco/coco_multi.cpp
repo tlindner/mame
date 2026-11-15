@@ -55,6 +55,7 @@
 
 #include "emu.h"
 #include "coco_multi.h"
+#include "coco_sdc.h"
 
 #include "cococart.h"
 
@@ -172,6 +173,7 @@ protected:
 static void coco_cart_slot1_3(device_slot_interface &device)
 {
 	coco_cart_add_basic_devices(device);
+	device.option_add("sdc", COCO_SDC);
 }
 
 static void coco_cart_slot4(device_slot_interface &device)
@@ -205,6 +207,7 @@ void coco_multipak_device::device_add_mconfig(machine_config &config)
 static void dragon_cart_slot1_3(device_slot_interface &device)
 {
 	dragon_cart_add_basic_devices(device);
+	device.option_add("sdc", DRAGON_SDC);
 }
 
 static void dragon_cart_slot4(device_slot_interface &device)
