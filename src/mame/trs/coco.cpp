@@ -130,9 +130,11 @@ void coco_state::machine_start()
 
 	// cart slot
 	m_cococart->set_cart_base_update(cococart_base_update_delegate(&coco_state::update_cart_base, this));
-	// 12 allowed one more instruction to finished after the line is pulled
-	m_cococart->set_line_delay(cococart_slot_device::line::NMI, 12);
-	// 6 allowed one more instruction to finished after the line is pulled
+	// 6 allows one more instruction to finish after a line is pulled.
+	// NMI and HALT must use the same delay: a controller that raises INTRQ
+	// right after the last DRQ (e.g. the CoCo SDC) releases HALT and asserts
+	// NMI together, and a later NMI lets a disk read loop store an extra byte.
+	m_cococart->set_line_delay(cococart_slot_device::line::NMI, 6);
 	m_cococart->set_line_delay(cococart_slot_device::line::HALT, 6);
 
 	// miscellaneous
