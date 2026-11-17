@@ -397,7 +397,7 @@ SUB16:
 CMP16:
 	@m_temp.b.h = read_operand(0);
 	@m_temp.b.l = read_operand(1);
-	set_flags(CC_NZVC, regop16().w, m_temp.w, regop16().w - m_temp.w);
+	m_alu16_result = set_flags(CC_NZVC, regop16().w, m_temp.w, regop16().w - m_temp.w);
 	if(!hd6309_native_mode())
 	{
 		@dummy_read_opcode_arg(0);
