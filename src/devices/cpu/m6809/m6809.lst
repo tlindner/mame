@@ -1,12 +1,19 @@
 // license:BSD-3-Clause
 // copyright-holders:Nathan Woods
 MAIN:
-	// check interrupt lines
-	switch(get_pending_interrupt())
+	// remember the previous instruction (undocumented store immediate flags)
+	m_prev_opcode = m_full_opcode;
+	m_full_opcode = 0xffff;
+
+	// check interrupt lines (ignored by the HCF test mode, which only reset ends)
+	if (!m_free_run)
 	{
-		case VECTOR_NMI:    goto NMI;
-		case VECTOR_FIRQ:   goto FIRQ;
-		case VECTOR_IRQ:    goto IRQ;
+		switch(get_pending_interrupt())
+		{
+			case VECTOR_NMI:    goto NMI;
+			case VECTOR_FIRQ:   goto FIRQ;
+			case VECTOR_IRQ:    goto IRQ;
+		}
 	}
 
 	// debugger hook
@@ -20,6 +27,7 @@ DISPATCH01:
 	m_lic_func(CLEAR_LINE);
 
 	if (m_free_run) goto FREERUN;
+	m_full_opcode = m_opcode;
 
 EXECUTE01:
 	// dispatch opcode
@@ -291,6 +299,7 @@ EXECUTE01:
 
 DISPATCH10:
 	@m_opcode = read_opcode();
+	m_full_opcode = 0x1000 | m_opcode;
 	switch(m_opcode)
 	{
 		case 0x10:                                                  %DISPATCH10; return;
@@ -355,12 +364,13 @@ DISPATCH10:
 		case 0xFF:              set_regop16(m_s);       %EXTENDED;  %ST16;      return;
 
 		// Undefined page 2/3 opcodes execute as page 1, discarding the prefix
-		default:                                                    goto EXECUTE01;
+		default:                m_full_opcode = m_opcode;           goto EXECUTE01;
 	}
 	return;
 
 DISPATCH11:
 	@m_opcode = read_opcode();
+	m_full_opcode = 0x1100 | m_opcode;
 	switch(m_opcode)
 	{
 		case 0x10:                                                  %DISPATCH11; return;
@@ -374,18 +384,18 @@ DISPATCH11:
 		case 0x8F:              set_regop16(m_x);       set_imm();  %XST16;     return;
 		case 0x93:              set_regop16(m_u);       %DIRECT;    %CMP16;     return;
 		case 0x9C:              set_regop16(m_s);       %DIRECT;    %CMP16;     return;
-		case 0xC3:              set_regop16(m_u);       set_imm();  %XADD16;    return;
+		case 0xC3:              set_regop16(m_u);       set_imm();  %XADDU16;   return;
 		case 0xC7:              set_regop8(m_q.r.b);    set_imm();  %XST8;      return;
 		case 0xCF:              set_regop16(m_u);       set_imm();  %XST16;     return;
 		case 0xA3:              set_regop16(m_u);       %INDEXED;   %CMP16;     return;
 		case 0xAC:              set_regop16(m_s);       %INDEXED;   %CMP16;     return;
 		case 0xB3:              set_regop16(m_u);       %EXTENDED;  %CMP16;     return;
 		case 0xBC:              set_regop16(m_s);       %EXTENDED;  %CMP16;     return;
-		case 0xD3:              set_regop16(m_u);       %DIRECT;    %XADD16;    return;
-		case 0xE3:              set_regop16(m_u);       %INDEXED;   %XADD16;    return;
-		case 0xF3:              set_regop16(m_u);       %EXTENDED;  %XADD16;    return;
+		case 0xD3:              set_regop16(m_u);       %DIRECT;    %XADDU16;   return;
+		case 0xE3:              set_regop16(m_u);       %INDEXED;   %XADDU16;   return;
+		case 0xF3:              set_regop16(m_u);       %EXTENDED;  %XADDU16;   return;
 		// Undefined page 2/3 opcodes execute as page 1, discarding the prefix
-		default:                                                    goto EXECUTE01;
+		default:                m_full_opcode = m_opcode;           goto EXECUTE01;
 	}
 	return;
 
@@ -655,9 +665,11 @@ FREERUN:
 	return;
 
 X18:
+	// CC is masked with the next byte and shifted left; V also gets Z if bit 2 of the mask is set
 	@m_temp.b.l = read_opcode_arg(m_pc.w);
-	m_temp.b.l = (m_cc & m_temp.b.l) << 1;
-	m_cc = m_temp.b.l | ((m_cc & 0x04) >> 1);
+	m_cc &= m_temp.b.l;
+	m_cc = (m_cc << 1) | ((m_cc & CC_Z) >> 1);
+	@dummy_vma(1);
 	return;
 
 XANDCC:
@@ -709,20 +721,17 @@ XCLR8:
 	return;
 
 XST8:
-	// TODO: Flag setting is much more complex, see:
-	// https://github.com/hoglet67/6809Decoder/wiki/Undocumented-6809-Behaviours#store-immediate
-
 	@read_operand();
-	set_flags(CC_NZV, regop8());
+	set_storeimm_flags();
 	return;
 
 XST16:
-	// TODO: Flag setting is much more complex, see:
-	// https://github.com/hoglet67/6809Decoder/wiki/Undocumented-6809-Behaviours#store-immediate
-
 	m_temp.b.h = read_operand(0);
 	write_memory(m_pc.w++, regop16().b.l);
-	set_flags(CC_NZV, regop16().w);
+	set_storeimm_flags();
+	m_cc &= ~CC_V;
+	if (regop16().b.l)
+		m_cc &= ~CC_Z;
 	return;
 
 XSWI2:
@@ -738,7 +747,19 @@ XSWI2:
 XADD16:
 	@m_temp.b.h = read_operand(0);
 	@m_temp.b.l = read_operand(1);
-	set_flags(CC_NZVC, regop16().w, m_temp.w, regop16().w + m_temp.w);
+	m_alu16_result = set_flags(CC_NZVC, regop16().w, m_temp.w, regop16().w + m_temp.w);
+	if(!hd6309_native_mode())
+	{
+		@dummy_read_opcode_arg(0);
+		;
+	}
+	return;
+
+XADDU16:
+	// like XADD16, but the high byte of U reads as $FF
+	@m_temp.b.h = read_operand(0);
+	@m_temp.b.l = read_operand(1);
+	m_alu16_result = set_flags(CC_NZVC, uint16_t(regop16().w | 0xff00), m_temp.w, (regop16().w | 0xff00) + m_temp.w);
 	if(!hd6309_native_mode())
 	{
 		@dummy_read_opcode_arg(0);

@@ -179,6 +179,7 @@ protected:
 	uint8_t                     m_cc;
 	PAIR16                      m_temp;
 	uint8_t                     m_opcode;
+	uint16_t                    m_alu16_result;     // last 16-bit compare result (undocumented store immediate flags)
 
 	// other internal state
 	uint8_t *                   m_reg8;
@@ -311,6 +312,8 @@ private:
 	uint32_t                    m_state;
 	bool                        m_cond;
 	bool                        m_free_run;
+	uint16_t                    m_full_opcode;      // prefix << 8 | opcode of the current instruction
+	uint16_t                    m_prev_opcode;      // the same for the previous instruction
 
 	// incidentals
 	int                         m_clock_divider;
@@ -318,6 +321,7 @@ private:
 	// functions
 	inline void execute_one();
 	const char *inputnum_string(int inputnum);
+	void set_storeimm_flags();
 };
 
 // ======================> mc6809_device

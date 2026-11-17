@@ -218,6 +218,9 @@ void m6809_base_device::device_start()
 	m_state = 0;
 	m_cond = false;
 	m_free_run = false;
+	m_alu16_result = 0;
+	m_full_opcode = 0;
+	m_prev_opcode = 0;
 
 	// setup regtable
 	save_item(NAME(m_pc.w));
@@ -248,6 +251,9 @@ void m6809_base_device::device_start()
 	save_item(NAME(m_reg));
 	save_item(NAME(m_cond));
 	save_item(NAME(m_free_run));
+	save_item(NAME(m_alu16_result));
+	save_item(NAME(m_full_opcode));
+	save_item(NAME(m_prev_opcode));
 
 	// set our instruction counter
 	set_icountptr(m_icount);
@@ -652,6 +658,105 @@ void m6809_base_device::write_exgtfr_register(uint8_t reg, uint16_t value)
 void m6809_base_device::log_illegal()
 {
 	logerror("%s: illegal opcode at %04x\n", machine().describe_context(), (unsigned) m_pc.w);
+}
+
+
+//-------------------------------------------------
+//  set_storeimm_flags - N, Z and V for the
+//  undocumented store immediate opcodes. With a
+//  $10 or $11 prefix they are always N=1 Z=0 V=0.
+//  Without one they depend on the instruction
+//  executed just before. See:
+//  https://github.com/hoglet67/6809Decoder/wiki/Undocumented-6809-Behaviours#store-immediate
+//-------------------------------------------------
+
+void m6809_base_device::set_storeimm_flags()
+{
+	m_cc &= ~CC_NZV;
+	if (m_full_opcode > 0xff)
+	{
+		m_cc |= CC_N;
+		return;
+	}
+
+	// flags of value - 1, with V set if value was $80
+	auto const value_less_one = [this] (uint8_t value)
+	{
+		uint8_t const result = value - 1;
+		if (result & 0x80)
+			m_cc |= CC_N;
+		if (!result)
+			m_cc |= CC_Z;
+		if (value == 0x80)
+			m_cc |= CC_V;
+	};
+
+	switch (m_prev_opcode)
+	{
+	// CMPA, BITA
+	case 0x81: case 0x91: case 0xa1: case 0xb1:
+	case 0x85: case 0x95: case 0xa5: case 0xb5:
+		m_cc |= CC_Z;
+		break;
+
+	// LDA, LDD
+	case 0x86: case 0x96: case 0xa6: case 0xb6:
+	case 0xcc: case 0xdc: case 0xec: case 0xfc:
+		if (m_q.r.a & 0x80)
+			m_cc |= CC_N;
+		if (!m_q.r.a)
+			m_cc |= CC_Z;
+		break;
+
+	// SUBA, SBCA, ANDA, EORA, ADCA, ORA, ADDA
+	case 0x80: case 0x90: case 0xa0: case 0xb0:
+	case 0x82: case 0x92: case 0xa2: case 0xb2:
+	case 0x84: case 0x94: case 0xa4: case 0xb4:
+	case 0x88: case 0x98: case 0xa8: case 0xb8:
+	case 0x89: case 0x99: case 0xa9: case 0xb9:
+	case 0x8a: case 0x9a: case 0xaa: case 0xba:
+	case 0x8b: case 0x9b: case 0xab: case 0xbb:
+		if (m_q.r.a < 0x80)
+			m_cc |= CC_N;
+		if (m_q.r.a == 0xff)
+			m_cc |= CC_Z;
+		break;
+
+	// DAA, the inherent A ops except CLRA, SUBD, ADDD
+	case 0x19:
+	case 0x40: case 0x41: case 0x42: case 0x43: case 0x44: case 0x45: case 0x46:
+	case 0x47: case 0x48: case 0x49: case 0x4a: case 0x4b: case 0x4c: case 0x4d:
+	case 0x83: case 0x93: case 0xa3: case 0xb3:
+	case 0xc3: case 0xd3: case 0xe3: case 0xf3:
+		value_less_one(m_q.r.a);
+		break;
+
+	// SEX
+	case 0x1d:
+		value_less_one(m_q.r.b);
+		break;
+
+	// CMPX, CMPD, CMPY, CMPU, CMPS, XADDD, XADDU
+	case 0x8c: case 0x9c: case 0xac: case 0xbc:
+	case 0x1083: case 0x1093: case 0x10a3: case 0x10b3:
+	case 0x108c: case 0x109c: case 0x10ac: case 0x10bc:
+	case 0x10c3: case 0x10d3: case 0x10e3: case 0x10f3:
+	case 0x1183: case 0x1193: case 0x11a3: case 0x11b3:
+	case 0x118c: case 0x119c: case 0x11ac: case 0x11bc:
+	case 0x11c3: case 0x11d3: case 0x11e3: case 0x11f3:
+		value_less_one(m_alu16_result >> 8);
+		break;
+
+	// LEAX, LEAY, LEAS, LEAU
+	case 0x30: value_less_one(m_x.b.h | m_x.b.l); break;
+	case 0x31: value_less_one(m_y.b.h | m_y.b.l); break;
+	case 0x32: value_less_one(m_s.b.h | m_s.b.l); break;
+	case 0x33: value_less_one(m_u.b.h | m_u.b.l); break;
+
+	default:
+		m_cc |= CC_N;
+		break;
+	}
 }
 
 

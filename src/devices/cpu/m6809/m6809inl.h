@@ -160,6 +160,10 @@ inline ATTR_FORCE_INLINE void m6809_base_device::daa()
 
 	// and put it back into A
 	m_q.r.a = set_flags(CC_NZ, (uint8_t) t);
+
+	// undocumented: V is the new C XOR bit 7 of the result
+	if (BIT(m_cc, 0) != BIT(m_q.r.a, 7))
+		m_cc |= CC_V;
 }
 
 
