@@ -29,6 +29,13 @@
 
 #define ACIA_TAG        "acia"
 
+// MAME device clocks are whole Hz, and 14.318181 MHz isn't a multiple of 16.
+// Deriving the CPU (/16) and VDG (/4) clocks from it separately makes them
+// drift apart by about one VDG clock per second, so mid-line video changes
+// timed by the CPU move around.  The nearest multiple of 16 Hz keeps the
+// SAM's clock ratios exact.
+constexpr u32 COCO_NTSC_OSC = (14'318'181 / 16) * 16; // 14,318,176 Hz
+
 
 //**************************************************************************
 //  TYPE DEFINITIONS

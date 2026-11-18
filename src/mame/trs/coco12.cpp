@@ -535,7 +535,7 @@ DEVICE_INPUT_DEFAULTS_END
 
 void coco12_state::coco(machine_config &config)
 {
-	this->set_clock(XTAL(14'318'181) / 16);
+	this->set_clock(COCO_NTSC_OSC / 16);
 
 	// basic machine hardware
 	MC6809E(config, m_maincpu, DERIVED_CLOCK(1, 1));
@@ -566,7 +566,7 @@ void coco12_state::coco(machine_config &config)
 	m_pia_1->irqa_handler().set(m_firqs, FUNC(input_merger_device::in_w<0>));
 	m_pia_1->irqb_handler().set(m_firqs, FUNC(input_merger_device::in_w<1>));
 
-	SAM6883(config, m_sam, XTAL(14'318'181), m_maincpu);
+	SAM6883(config, m_sam, COCO_NTSC_OSC, m_maincpu);
 	m_sam->set_ram(m_ram);
 	m_sam->set_addrmap(1, &coco12_state::coco_rom0);
 	m_sam->set_addrmap(2, &coco12_state::coco_rom1);
@@ -603,10 +603,13 @@ void coco12_state::coco(machine_config &config)
 
 	// video hardware
 	SCREEN(config, m_screen);
-	m_screen->set_raw(XTAL(14'318'181) / 2, 456, 0, 372, 262, 0, 243);
+	m_screen->set_raw(COCO_NTSC_OSC / 2, 456, 0, 372, 262, 0, 243);
 	m_screen->set_screen_update(m_vdg, FUNC(mc6847_base_device::screen_update));
 
-	MC6847(config, m_vdg, XTAL(14'318'181) / 4); // VClk output from MC6883
+	MC6847(config, m_vdg, COCO_NTSC_OSC / 4); // VClk output from MC6883
+	// with the 6809's interrupt latency, coco_cart:drgnfire's mid-line CSS
+	// changes line up for offsets 33-36
+	m_vdg->set_mode_change_offset(36);
 	// Hardware captures show two extra DA0 transitions on a CoCo 1 with a
 	// '783 SAM, but not on a CoCo 2B with a 6847T1 and '785 SAM.  A PAL
 	// CoCo report agrees with the CoCo 1; Dragon reports do not show it.
@@ -715,7 +718,8 @@ void coco12_state::coco2b(machine_config &config)
 	coco(config);
 	m_ram->set_default_size("64K").set_extra_options("16K");
 
-	MC6847T1(config.replace(), m_vdg, XTAL(14'318'181) / 4);
+	MC6847T1(config.replace(), m_vdg, COCO_NTSC_OSC / 4);
+	m_vdg->set_mode_change_offset(36);
 	m_vdg->set_field_sync_extra_transitions(false);
 	m_vdg->set_screen(m_screen);
 	m_vdg->hsync_wr_callback().set(FUNC(coco12_state::horizontal_sync));

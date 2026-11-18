@@ -56,6 +56,10 @@
 namespace
 {
 
+// MAME clocks are whole Hz; use the nearest multiple of 16 Hz to 14.318181 MHz
+// so the SAM-derived CPU (/16) and VDG (/4) clocks keep exact ratios
+constexpr u32 AGVISION_OSC = (14'318'181 / 16) * 16; // 14,318,176 Hz
+
 class agvision_state : public driver_device
 {
 public:
@@ -200,7 +204,7 @@ DEVICE_INPUT_DEFAULTS_END
 void agvision_state::agvision(machine_config &config)
 {
 	// basic machine hardware
-	MC6809E(config, m_maincpu, XTAL(14'318'181) / 16);
+	MC6809E(config, m_maincpu, AGVISION_OSC / 16);
 	m_maincpu->set_addrmap(AS_PROGRAM, &agvision_state::mem_map);
 
 	PIA6821(config, m_pia_0);
@@ -210,17 +214,18 @@ void agvision_state::agvision(machine_config &config)
 
 	// video hardware
 	SCREEN(config, m_screen);
-	m_screen->set_raw(XTAL(3'579'545) * 2, 456, 0, 372, 262, 0, 243);
+	m_screen->set_raw(AGVISION_OSC / 2, 456, 0, 372, 262, 0, 243);
 	m_screen->set_screen_update("vdg", FUNC(mc6847_base_device::screen_update));
 
-	MC6847(config, m_vdg, XTAL(14'318'181) / 4); // VClk output from MC6883
+	MC6847(config, m_vdg, AGVISION_OSC / 4); // VClk output from MC6883
+	m_vdg->set_mode_change_offset(36); // same as the CoCo
 	m_vdg->set_screen(m_screen);
 	m_vdg->hsync_wr_callback().set(m_pia_0, FUNC(pia6821_device::ca1_w));
 	m_vdg->hsync_wr_callback().append(m_sam, FUNC(sam6883_device::hs_w));
 	m_vdg->input_callback().set(FUNC(agvision_state::sam_read));
 
 	// memory controller
-	SAM6883(config, m_sam, XTAL(14'318'181), m_maincpu);
+	SAM6883(config, m_sam, AGVISION_OSC, m_maincpu);
 	m_sam->set_ram(m_ram);
 	m_sam->set_addrmap(2, &agvision_state::rom_map);            // ROM at $A000
 	m_sam->set_addrmap(3, &agvision_state::static_ram_map);     // RAM at $C000
