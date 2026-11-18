@@ -108,10 +108,11 @@
 #define NO_ATTRIBUTE            0x80
 
 // Active-video offsets from HS rise, in VDG clocks.  Keep the legacy
-// CSS-test alignment; native video starts about 247 pixel clocks after
-// HS falls (64 pixel clocks before our HS-rise scanline boundary).
+// CSS-test alignment separate from native video.  With the CPU's SYNC
+// wake timing, 48 aligns Sock Master's DRIVE demo's border changes with
+// the left edge; 46 leaves an eight-pixel gap.
 static constexpr int GIME_LEGACY_ACTIVE_VIDEO_CLOCK = 33;
-static constexpr int GIME_NATIVE_ACTIVE_VIDEO_CLOCK = 46;
+static constexpr int GIME_NATIVE_ACTIVE_VIDEO_CLOCK = 48;
 
 #define LOG_INT_MASKING (1U <<  1)
 #define LOG_GIME        (1U <<  2)
