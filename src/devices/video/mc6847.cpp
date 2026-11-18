@@ -85,8 +85,11 @@
     detailed tmgtest_v1_3 test suite.  Although Stewart's tests were
     designed for Dragons, many apply to the NTSC CoCos, and in fact
     tuning to those tests improved emulation of coco_cart:drgnfire on
-    NTSC CoCos.  There are still many tests in tmgtest_v1_3 that
-    fail and may require work in other components.
+    NTSC CoCos.  With the 6809's interrupt latching emulated, all of
+    tmgtest_v1_3 passes on dragon32 (tests 1-10) and dragon64 (tests
+    1-9 and 11).  The PAL Dragons need mid-line mode changes to land
+    one CPU cycle later than coco_cart:drgnfire needs on a CoCo, so the
+    offset is set per machine (set_mode_change_offset).
 
 **********************************************************************/
 
@@ -208,6 +211,7 @@ mc6847_friend_device::mc6847_friend_device(const machine_config &mconfig, device
 	, m_character_map(is_mc6847t1)
 	, m_tpfs(tpfs)
 	, m_pal(pal)
+	, m_pal_padding_hsync_inhibit(true)
 	, m_lines_top_border(pal ? LINES_TOP_BORDER + LINES_PADDING_TOP_PAL : LINES_TOP_BORDER)
 	, m_lines_until_vblank((pal ? LINES_UNTIL_VBLANK_PAL : LINES_UNTIL_VBLANK_NTSC) + extra_bottom_border_scanlines)
 	, m_lines_until_retrace((pal ? LINES_UNTIL_RETRACE_PAL : LINES_UNTIL_RETRACE_NTSC) + extra_bottom_border_scanlines)
@@ -416,11 +420,9 @@ TIMER_CALLBACK_MEMBER(mc6847_friend_device::change_horizontal_sync)
 		// log if apprpriate
 		LOGMASKED(LOG_HSYNC, "%s: change_horizontal_sync(): line=%d, (vpos,hpos)=(%d,%d), m_physical_scanline=%d\n", describe_context(), line ? 1 : 0, screen().vpos(), screen().hpos(), m_physical_scanline);
 
-		// invoke callback (to issue interrupt) if this isn't a PAL padding line
-		// TODO: Apparently HS is inhibited during PAL padding on Dragon 64, but
-		// not Dragon 32.  I do not know the behavior on other PAL 6847 machines.
-		// For now, inhibiting for all PAL machines
-		if (!is_pal_padding_line(m_physical_scanline))
+		// invoke callback (to issue interrupt) unless HS is inhibited during
+		// PAL padding (Dragon 64 inhibits it, Dragon 32 does not)
+		if (!is_pal_hsync_inhibited_line(m_physical_scanline))
 			m_write_hsync(line);
 
 		// call virtual function
@@ -541,12 +543,22 @@ inline bool mc6847_friend_device::is_bottom_pal_padding_line(int scanline) const
 
 
 //-------------------------------------------------
-//  is_pal_padding_line
+//  is_pal_hsync_inhibited_line
 //-------------------------------------------------
 
-inline bool mc6847_friend_device::is_pal_padding_line(int scanline) const
+inline bool mc6847_friend_device::is_pal_hsync_inhibited_line(int scanline) const
 {
-	return is_top_pal_padding_line(scanline) || is_bottom_pal_padding_line(scanline);
+	if (!m_pal || !m_pal_padding_hsync_inhibit)
+		return false;
+
+	// The top padding is really inserted straight after vertical retrace,
+	// before the 13 vblank lines; it is only drawn at the top of the frame.
+	// Stewart Orchard's tmgtest_v1_3 tests 11.4-11.6 measure 8 lines between
+	// the two HS gaps on a Dragon 64.  So HS is inhibited for the vblank lines
+	// and for the top padding lines that stand in for the rest of the gap.
+	return is_bottom_pal_padding_line(scanline)
+		|| scanline >= m_lines_until_vblank
+		|| scanline < LINES_PADDING_TOP_PAL - LINES_VBLANK;
 }
 
 
@@ -673,6 +685,7 @@ mc6847_base_device::mc6847_base_device(const machine_config &mconfig, device_typ
 	, m_input_cb(*this, 0)
 	, m_black_and_white(false)
 	, m_field_sync_extra_transitions(false)
+	, m_mode_change_offset(24)
 	, m_fixed_mode(0)
 	, m_fixed_mode_mask(0)
 {
@@ -975,15 +988,11 @@ void mc6847_base_device::record_partial_body_scanline(uint16_t physical_scanline
 
 int32_t mc6847_base_device::scanline_position_from_clock(int32_t clocks_since_hsync)
 {
-	// Align active video to six slow CPU cycles (24 VDG clocks),
-	// calibrated against Dragon Fire's CPU-timed CSS changes.
-	const int CLOCKS_OFFSET_TO_FIRST_VISIBLE_PIXEL = 24;
-
 	// Dividing by 4 converts 128 clocks per horizontal active video
 	// into 32 bytes per horizontal active video.  The borders come
 	// along for the ride.  They are 58 clocks total (for L + R), and
 	// dividing by 4 gives 14.5 bytes
-	return (clocks_since_hsync - CLOCKS_OFFSET_TO_FIRST_VISIBLE_PIXEL) / 4;
+	return (clocks_since_hsync - m_mode_change_offset) / 4;
 }
 
 
