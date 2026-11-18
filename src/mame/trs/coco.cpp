@@ -338,6 +338,16 @@ void coco_state::pia0_pb_w(uint8_t value)
 
 
 //-------------------------------------------------
+//  keyboard_changed
+//-------------------------------------------------
+
+void coco_state::keyboard_changed(ioport_field &field, u32 param, ioport_value oldval, ioport_value newval)
+{
+	refresh_keyboard_matrix();
+}
+
+
+//-------------------------------------------------
 //  joystick_button_changed
 //-------------------------------------------------
 
