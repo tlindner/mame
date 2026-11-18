@@ -24,6 +24,10 @@
 #include "formats/coco_cas.h"
 
 
+// Device clocks are whole Hz.  Keep the GIME and its /32 and /16 CPU
+// clocks in phase so CPU-timed video changes do not drift across scanlines.
+static constexpr u32 COCO3_NTSC_OSC = (28'636'363 / 32) * 32; // 28,636,352 Hz
+
 
 //**************************************************************************
 //  ADDRESS MAPS
@@ -385,7 +389,7 @@ DEVICE_INPUT_DEFAULTS_END
 
 void coco3_state::coco3(machine_config &config)
 {
-	this->set_clock(XTAL(28'636'363) / 32);
+	this->set_clock(COCO3_NTSC_OSC / 32);
 
 	// basic machine hardware
 	MC6809E(config, m_maincpu, DERIVED_CLOCK(1, 1));
@@ -397,7 +401,7 @@ void coco3_state::coco3(machine_config &config)
 	INPUT_MERGER_ANY_HIGH(config, m_firqs).output_handler().set_inputline(m_maincpu, M6809_FIRQ_LINE);
 
 	// memory and video hardware
-	GIME_NTSC(config, m_gime, XTAL(28'636'363), MAINCPU_TAG, RAM_TAG, m_cococart, MAINCPU_TAG);
+	GIME_NTSC(config, m_gime, COCO3_NTSC_OSC, MAINCPU_TAG, RAM_TAG, m_cococart, MAINCPU_TAG);
 	m_gime->set_screen("screen");
 	m_gime->hsync_wr_callback().set(m_pia_0, FUNC(pia6821_device::ca1_w));
 	m_gime->fsync_wr_callback().set(m_pia_0, FUNC(pia6821_device::cb1_w));
@@ -454,7 +458,7 @@ void coco3_state::coco3(machine_config &config)
 
 	// monitor
 	SCREEN(config, m_screen);
-	m_screen->set_raw(28.636363_MHz_XTAL/2, 912, 0, gime_device::SCREEN_WIDTH, 263, 1, 240);
+	m_screen->set_raw(COCO3_NTSC_OSC / 2, 912, 0, gime_device::SCREEN_WIDTH, 263, 1, 240);
 	m_screen->set_screen_update(FUNC(coco3_state::screen_update));
 
 	// internal ram
