@@ -104,6 +104,9 @@ public:
 	virtual void pia1_pa_w(uint8_t data);
 	virtual void pia1_pb_w(uint8_t data);
 
+	// keyboard handling
+	DECLARE_INPUT_CHANGED_MEMBER(keyboard_changed);
+
 	// joystick handling
 	DECLARE_INPUT_CHANGED_MEMBER(joystick_changed);
 	DECLARE_INPUT_CHANGED_MEMBER(joystick_button_changed);
