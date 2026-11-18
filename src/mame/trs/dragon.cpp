@@ -544,6 +544,9 @@ void dragon_state::dragon_base(machine_config &config)
 	m_screen->set_screen_update(m_vdg, FUNC(mc6847_base_device::screen_update));
 
 	MC6847(config, m_vdg, 14.218_MHz_XTAL / 4, true);
+	// tmgtest_v1_3's mid-line CSS tests pass for offsets 37-40, one CPU
+	// cycle later than coco_cart:drgnfire needs on a CoCo
+	m_vdg->set_mode_change_offset(40);
 	m_vdg->set_screen(m_screen);
 	m_vdg->hsync_wr_callback().set(FUNC(dragon_state::horizontal_sync));
 	m_vdg->fsync_wr_callback().set(FUNC(dragon_state::field_sync));
@@ -568,6 +571,9 @@ void dragon_state::dragon32(machine_config &config)
 
 	// internal ram
 	RAM(config, m_ram).set_default_size("32K").set_extra_options("64K");
+
+	// the Dragon 32 doesn't inhibit HS during the PAL padding lines
+	m_vdg->set_pal_padding_hsync_inhibit(false);
 
 	// cartridge
 	COCOCART_SLOT(config, m_cococart, DERIVED_CLOCK(1, 1), &dragon_state::dragon_cart, "dragon_fdc");
@@ -650,16 +656,17 @@ void d64plus_state::d64plus(machine_config &config)
 void dragon64_state::tanodr64(machine_config &config)
 {
 	dragon64(config);
-	this->set_clock(14.318181_MHz_XTAL / 16);
+	this->set_clock(COCO_NTSC_OSC / 16);
 
-	m_sam->set_clock(14.318181_MHz_XTAL);
+	m_sam->set_clock(COCO_NTSC_OSC);
 
 	SCREEN(config.replace(), m_screen);
-	m_screen->set_raw(XTAL(14'318'181) / 2, 456, 0, 372, 262, 0, 243);
+	m_screen->set_raw(COCO_NTSC_OSC / 2, 456, 0, 372, 262, 0, 243);
 	m_screen->set_screen_update(m_vdg, FUNC(mc6847_base_device::screen_update));
 
 	// video hardware
-	MC6847(config.replace(), m_vdg, 14.318181_MHz_XTAL / 4);
+	MC6847(config.replace(), m_vdg, COCO_NTSC_OSC / 4);
+	m_vdg->set_mode_change_offset(36); // same as the CoCo
 	m_vdg->set_screen(m_screen);
 	m_vdg->hsync_wr_callback().set(FUNC(dragon_state::horizontal_sync));
 	m_vdg->fsync_wr_callback().set(FUNC(dragon_state::field_sync));

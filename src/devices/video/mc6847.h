@@ -62,6 +62,9 @@ public:
 	auto hsync_wr_callback() { return m_write_hsync.bind(); }
 	auto fsync_wr_callback() { return m_write_fsync.bind(); }
 
+	// PAL only: whether HS is suppressed while padding lines are inserted
+	void set_pal_padding_hsync_inhibit(bool inhibit) { m_pal_padding_hsync_inhibit = inhibit; }
+
 	template <typename... T> void set_get_char_rom(T &&... args) { m_charrom_cb.set(std::forward<T>(args)...); }
 
 protected:
@@ -447,13 +450,14 @@ protected:
 protected:
 	double m_tpfs;
 	bool m_pal;
+	bool m_pal_padding_hsync_inhibit;
 	const uint16_t m_lines_top_border;
 	const uint16_t m_lines_until_vblank;
 	const uint16_t m_lines_until_retrace;
 
 	bool is_top_pal_padding_line(int scanline) const;
 	bool is_bottom_pal_padding_line(int scanline) const;
-	bool is_pal_padding_line(int scanline) const;
+	bool is_pal_hsync_inhibited_line(int scanline) const;
 	virtual attotime field_sync_delay();
 
 private:
@@ -511,6 +515,11 @@ public:
 	void set_fixed_mode(uint8_t mode) { m_fixed_mode = mode; }
 	void set_black_and_white(bool bw) { m_black_and_white = bw; }
 	void set_field_sync_extra_transitions(bool enabled) { m_field_sync_extra_transitions = enabled; }
+
+	// VDG clocks from HS rising to the first byte a mid-line mode change
+	// affects.  This depends on how the CPU's timing relates to the VDG,
+	// so it's tuned per machine.
+	void set_mode_change_offset(int clocks) { m_mode_change_offset = clocks; }
 
 	/* updates the screen -- this will call begin_update(),
 	   followed by update_row() repeatedly and after all row
@@ -577,6 +586,7 @@ private:
 	/* if true, this is black and white */
 	bool m_black_and_white;
 	bool m_field_sync_extra_transitions;
+	int m_mode_change_offset;
 
 	// incidentals
 	uint8_t m_fixed_mode;
