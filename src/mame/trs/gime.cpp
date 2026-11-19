@@ -107,11 +107,12 @@
 #define GIME_TYPE_1987          0
 #define NO_ATTRIBUTE            0x80
 
-// Active-video offsets from HS rise, in VDG clocks.  Keep the legacy
-// CSS-test alignment separate from native video.  With the CPU's SYNC
-// wake timing, 48 aligns Sock Master's DRIVE demo's border changes with
-// the left edge; 46 leaves an eight-pixel gap.
-static constexpr int GIME_LEGACY_ACTIVE_VIDEO_CLOCK = 33;
+// Active-video offsets from HS rise, in VDG clocks.  With the CPU's SYNC
+// wake timing, legacy 40 matches a real CoCo 3's capture of Dragon Fire's
+// mid-line CSS changes (one clock either side leaves 4-pixel bars at the
+// castle window edges).  Native 48 aligns Sock Master's DRIVE demo's
+// border changes with the left edge; 46 leaves an eight-pixel gap.
+static constexpr int GIME_LEGACY_ACTIVE_VIDEO_CLOCK = 40;
 static constexpr int GIME_NATIVE_ACTIVE_VIDEO_CLOCK = 48;
 
 #define LOG_INT_MASKING (1U <<  1)
