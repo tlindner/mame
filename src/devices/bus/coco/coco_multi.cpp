@@ -114,6 +114,7 @@ protected:
 	virtual bool cts_read_is_dynamic() override { return active_cts_slot() && active_cts_slot()->cts_read_is_dynamic(); }
 
 	virtual address_space &cartridge_space() override;
+	virtual address_space &cpu_space() override;
 	virtual void add_sound_route(device_sound_interface &sound_device, int output_index, double gain) override;
 	virtual void set_sound_gain(device_sound_interface &sound_device, int output_index, double gain) override;
 	virtual ioport_constructor device_input_ports() const override ATTR_COLD;
@@ -631,6 +632,17 @@ template <unsigned SlotCount>
 address_space &coco_multipak_device<SlotCount>::cartridge_space()
 {
 	return device_cococart_interface::cartridge_space();
+}
+
+
+//-------------------------------------------------
+//  cpu_space
+//-------------------------------------------------
+
+template <unsigned SlotCount>
+address_space &coco_multipak_device<SlotCount>::cpu_space()
+{
+	return device_cococart_interface::cpu_space();
 }
 
 // Provide every supported slot count for derived Multi-Pak devices.

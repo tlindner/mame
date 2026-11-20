@@ -56,6 +56,7 @@
 #include "coco_ssc.h"
 #include "coco_stecomp.h"
 #include "coco_sym12.h"
+#include "coco_vhd.h"
 #include "coco_wpk.h"
 #include "coco_wpk2p.h"
 #include "coco_xsid.h"
@@ -808,6 +809,16 @@ address_space &device_cococart_interface::cartridge_space()
 
 
 //-------------------------------------------------
+//  cpu_space
+//-------------------------------------------------
+
+address_space &device_cococart_interface::cpu_space()
+{
+	return host().cpu_space();
+}
+
+
+//-------------------------------------------------
 //  add_sound_route
 //-------------------------------------------------
 
@@ -846,6 +857,7 @@ void coco_cart_add_basic_devices(device_slot_interface &device)
 	device.option_add("banked_16k", COCO_PAK_BANKED);
 	device.option_add("ccpsg", COCO_PSG);
 	device.option_add("dcmodem", COCO_DCMODEM);
+	device.option_add("emudsk", COCO_EMUDSK);
 	device.option_add("gmc", COCO_PAK_GMC);
 	device.option_add("ide", COCO_IDE);
 	device.option_add("max", COCO_PAK_MAX);

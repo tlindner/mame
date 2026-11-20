@@ -104,8 +104,6 @@ coco_state::coco_state(const machine_config &mconfig, device_type type, const ch
 	m_cassette(*this, "cassette"),
 	m_floating(*this, "floating"),
 	m_rs232(*this, RS232_TAG),
-	m_vhd_0(*this, "vhd0"),
-	m_vhd_1(*this, "vhd1"),
 	m_beckerport(*this, "dwsock"),
 	m_beckerportconfig(*this, BECKERPORT_TAG),
 	m_irqs(*this, "irqs"),
@@ -144,7 +142,6 @@ void coco_state::machine_start()
 	save_item(NAME(m_dac_output));
 	save_item(NAME(m_pia0_pa_buffer));
 	save_item(NAME(m_pia0_pb_buffer));
-	save_item(NAME(m_vhd_select));
 	save_item(NAME(m_in_floating_bus_read));
 }
 
@@ -159,7 +156,6 @@ void coco_state::machine_reset()
 	/* reset state */
 	m_dac_output = 0;
 	m_pia0_pa_buffer = 0;
-	m_vhd_select = 0;
 
 	// PIA1 CB2 is an input at reset, leaving SNDEN low.  The mux resets
 	// after the PIA, so establish the disabled sound path here.
@@ -635,18 +631,7 @@ uint8_t coco_state::ff40_read(offs_t offset)
 
 uint8_t coco_state::ff60_read(offs_t offset)
 {
-	uint8_t result;
-
-	if ((current_vhd() != nullptr) && (offset >= 32) && (offset <= 37))
-	{
-		result = current_vhd()->read(offset - 32);
-	}
-	else
-	{
-		result = floating_space_read(0xff60 + offset);
-	}
-
-	return result;
+	return floating_space_read(0xff60 + offset);
 }
 
 
@@ -657,41 +642,7 @@ uint8_t coco_state::ff60_read(offs_t offset)
 
 void coco_state::ff60_write(offs_t offset, uint8_t data)
 {
-	if ((current_vhd() != nullptr) && (offset >= 32) && (offset <= 37))
-	{
-		current_vhd()->write(offset - 32, data);
-	}
-	else if (offset == 38)
-	{
-		/* writes to $FF86 will switch the VHD */
-		m_vhd_select = data;
-	}
-	else
-	{
-		floating_space_write(0xff60 + offset, data);
-	}
-}
-
-
-
-/***************************************************************************
-  VHD
- ***************************************************************************/
-
-//-------------------------------------------------
-//  current_vhd
-//-------------------------------------------------
-
-coco_vhd_image_device *coco_state::current_vhd()
-{
-	switch(m_vhd_select)
-	{
-		case 0:     return m_vhd_0;
-		case 1:     return m_vhd_1;
-		default:
-			osd_printf_warning("Unknown Color Computer virtual hard disk index.\n");
-			return nullptr;
-	}
+	floating_space_write(0xff60 + offset, data);
 }
 
 
@@ -718,6 +669,17 @@ void coco_state::cart_w(bool state)
 address_space &coco_state::cartridge_space()
 {
 	return m_floating->space(0);
+}
+
+
+
+//-------------------------------------------------
+//  cpu_space
+//-------------------------------------------------
+
+address_space &coco_state::cpu_space()
+{
+	return m_maincpu->space(AS_PROGRAM);
 }
 
 
