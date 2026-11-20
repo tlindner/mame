@@ -14,7 +14,6 @@
 #include "emu.h"
 #pragma once
 
-#include "bus/coco/coco_dwsock.h"
 #include "bus/coco/cococart.h"
 #include "bus/rs232/rs232.h"
 #include "imagedev/cassette.h"
@@ -34,7 +33,6 @@
 
 INPUT_PORTS_EXTERN( coco_analog_control );
 INPUT_PORTS_EXTERN( coco_joystick );
-INPUT_PORTS_EXTERN( coco_beckerport );
 
 void coco_cart(device_slot_interface &device);
 
@@ -49,7 +47,6 @@ void coco_cart(device_slot_interface &device);
 // inputs
 #define CTRL_SEL_RIGHT              "ctrl_sel_right"
 #define CTRL_SEL_LEFT               "ctrl_sel_left"
-#define BECKERPORT_TAG              "beckerport"
 #define JOYSTICK_RX_TAG             "joystick_rx"
 #define JOYSTICK_RY_TAG             "joystick_ry"
 #define JOYSTICK_LX_TAG             "joystick_lx"
@@ -173,8 +170,6 @@ protected:
 	required_device<cassette_image_device> m_cassette;
 	required_device<address_map_bank_device> m_floating;
 	optional_device<rs232_port_device> m_rs232;
-	optional_device<beckerport_device> m_beckerport;
-	optional_ioport m_beckerportconfig;
 	required_device<input_merger_device> m_irqs;
 	required_device<input_merger_device> m_firqs;
 	required_ioport_array<4> m_joystick_ports;

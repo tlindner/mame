@@ -215,19 +215,6 @@ INPUT_PORTS_END
 
 
 //-------------------------------------------------
-//  INPUT_PORTS( coco_beckerport )
-//-------------------------------------------------
-
-INPUT_PORTS_START( coco_beckerport )
-	PORT_START(BECKERPORT_TAG)
-	PORT_CONFNAME( 0x01, 0x00, "Becker Port" )
-	PORT_CONFSETTING(    0x00, DEF_STR( Off ))
-	PORT_CONFSETTING(    0x01, DEF_STR( On ))
-INPUT_PORTS_END
-
-
-
-//-------------------------------------------------
 //  INPUT_PORTS( coco_keyboard )
 //-------------------------------------------------
 //
@@ -322,7 +309,6 @@ static INPUT_PORTS_START( coco )
 	PORT_INCLUDE( coco_keyboard )
 	PORT_INCLUDE( coco_joystick )
 	PORT_INCLUDE( coco_analog_control )
-	PORT_INCLUDE( coco_beckerport )
 INPUT_PORTS_END
 
 
@@ -439,7 +425,6 @@ static INPUT_PORTS_START( cp400c2 )
 	PORT_INCLUDE( cp400c2_keyboard )
 	PORT_INCLUDE( coco_joystick )
 	PORT_INCLUDE( coco_analog_control )
-	PORT_INCLUDE( coco_beckerport )
 INPUT_PORTS_END
 
 
@@ -585,9 +570,6 @@ void coco12_state::coco(machine_config &config)
 	m_mux->set_mode(mc14529_device::SEL_Y, mc14529_device::MODE_SOUND);
 	m_mux->add_route(mc14529_device::w_sound_output(), "speaker", 1.0);
 	m_mux->set_sound_crossfade(mc14529_device::SEL_Y, attotime::from_usec(500));
-
-	// Becker Port device
-	COCO_DWSOCK(config, m_beckerport);
 
 	// sound hardware
 	coco_sound(config);

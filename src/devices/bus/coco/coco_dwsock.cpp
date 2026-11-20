@@ -1,82 +1,89 @@
 // license:BSD-3-Clause
 // copyright-holders:Nathan Woods
+/***************************************************************************
+
+    Virtual Becker Port
+
+    A synthetic serial port for talking to a DriveWire server, as used by
+    HDB-DOS and NitrOS-9.  It connects through its bitbanger media, for
+    example -bitb socket.127.0.0.1:65504.
+
+    Address       Description
+    -------       -----------
+    FF41          Status (bit 1 set when a byte is waiting)
+    FF42          Data
+
+    The registers are decoded through SCS.  In a Multi-Pak, the SCS select
+    in $FF7F must point to the slot holding this cartridge.
+
+***************************************************************************/
+
 #include "emu.h"
 #include "coco_dwsock.h"
 
-#include <cstdlib>
-
-#ifdef __GNUC__
-#include <unistd.h>
-#endif
-#include <fcntl.h>
-#include <sys/types.h>
+#include "imagedev/bitbngr.h"
 
 //#define VERBOSE 1
 #include "logmacro.h"
 
 
 //**************************************************************************
-//  DEVICE DEFINITIONS
+//  TYPE DEFINITIONS
 //**************************************************************************
 
-DEFINE_DEVICE_TYPE(COCO_DWSOCK, beckerport_device, "coco_dwsock", "Virtual Becker Port")
+// ======================> beckerport_device
 
-//-------------------------------------------------
-//  INPUT_PORTS( coco_drivewire )
-//-------------------------------------------------
-
-INPUT_PORTS_START( coco_drivewire )
-	PORT_START(DRIVEWIRE_PORT_TAG)
-	PORT_CONFNAME( 0xffff, 65504, "Drivewire Server TCP Port") PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(beckerport_device::drivewire_port_changed), 0)
-	PORT_CONFSETTING(      65500, "65500" )
-	PORT_CONFSETTING(      65501, "65501" )
-	PORT_CONFSETTING(      65502, "65502" )
-	PORT_CONFSETTING(      65503, "65503" )
-	PORT_CONFSETTING(      65504, "65504" )
-	PORT_CONFSETTING(      65505, "65505" )
-	PORT_CONFSETTING(      65506, "65506" )
-	PORT_CONFSETTING(      65507, "65507" )
-	PORT_CONFSETTING(      65508, "65508" )
-	PORT_CONFSETTING(      65509, "65509" )
-INPUT_PORTS_END
-
-//-------------------------------------------------
-//  input_ports - device-specific input ports
-//-------------------------------------------------
-
-ioport_constructor beckerport_device::device_input_ports() const
+namespace
 {
-	return INPUT_PORTS_NAME( coco_drivewire );
-}
+	class beckerport_device :
+			public device_t,
+			public device_cococart_interface
+	{
+	public:
+		beckerport_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock = 0);
 
-//-------------------------------------------------
-//  drivewire_port_changed
-//-------------------------------------------------
-INPUT_CHANGED_MEMBER(beckerport_device::drivewire_port_changed)
-{
-	this->update_port();
-}
+	protected:
+		// device_t implementation
+		virtual void device_add_mconfig(machine_config &config) override ATTR_COLD;
+		virtual void device_start() override ATTR_COLD;
+
+		// device_cococart_interface implementation
+		virtual u8 scs_read(offs_t offset) override;
+		virtual void scs_write(offs_t offset, u8 data) override;
+
+	private:
+		required_device<bitbanger_device> m_socket;
+
+		unsigned int m_rx_pending;
+		unsigned int m_head;
+		u8 m_buf[0x80];
+	};
+} // anonymous namespace
 
 //**************************************************************************
 //  LIVE DEVICE
 //**************************************************************************
 
 //-------------------------------------------------
-//  beckerport_device - constructor / destructor
+//  beckerport_device - constructor
 //-------------------------------------------------
 
 beckerport_device::beckerport_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock)
 	: device_t(mconfig, COCO_DWSOCK, tag, owner, clock)
-	, m_hostname(nullptr), m_dwconfigport(*this, DRIVEWIRE_PORT_TAG), m_dwtcpport(0)
+	, device_cococart_interface(mconfig, *this)
+	, m_socket(*this, "socket")
+	, m_rx_pending(0)
+	, m_head(0)
 {
-	m_head = 0;
-	m_rx_pending = 0;
 }
 
-beckerport_device::~beckerport_device()
+//-------------------------------------------------
+//  device_add_mconfig - add device configuration
+//-------------------------------------------------
+
+void beckerport_device::device_add_mconfig(machine_config &config)
 {
-	if (m_pSocket)
-		beckerport_device::device_stop();
+	BITBANGER(config, m_socket, 0);
 }
 
 /*-------------------------------------------------
@@ -85,128 +92,73 @@ beckerport_device::~beckerport_device()
 
 void beckerport_device::device_start()
 {
-	osd_printf_verbose("%s: Connecting to Drivewire server on %s:%d... ", tag(), m_hostname, m_dwtcpport);
-
-	u64 filesize; // unused
-	/* format address string for opening the port */
-	std::error_condition filerr = osd_file::open(util::string_format("socket.%s:%d", m_hostname, m_dwtcpport), 0, m_pSocket, filesize);
-	if (filerr)
-	{
-		osd_printf_verbose("Error: osd_open returned error %s:%d %s!\n", filerr.category().name(), filerr.value(), filerr.message());
-		return;
-	}
-
-	osd_printf_verbose("Connected!\n");
-
 	// save state support
 	save_item(NAME(m_rx_pending));
 	save_item(NAME(m_head));
 	save_item(NAME(m_buf));
-
 }
 
 /*-------------------------------------------------
-    device_stop
+    scs_read
 -------------------------------------------------*/
 
-void beckerport_device::device_stop()
+u8 beckerport_device::scs_read(offs_t offset)
 {
-	if (m_pSocket)
-	{
-		osd_printf_verbose("%s: Closing connection to Drivewire server\n", tag());
-		m_pSocket.reset();
-	}
-}
+	u8 data = 0x5a;
 
-/*-------------------------------------------------
-    device_config_complete
--------------------------------------------------*/
+	if (offset != 1 && offset != 2)
+		return device_cococart_interface::scs_read(offset);
 
-void beckerport_device::device_config_complete()
-{
-	m_hostname = "127.0.0.1";
-	m_dwtcpport = 65504;
-}
-
-/*-------------------------------------------------
-    read
--------------------------------------------------*/
-
-u8 beckerport_device::read(offs_t offset)
-{
-	unsigned char data = 0x5a;
-
-	if (!m_pSocket)
+	if (!m_socket->exists())
 		return data;
 
 	switch (offset)
 	{
-		case DWS_STATUS:
+		case 1: // status
 			if (!m_rx_pending)
 			{
-				// Try to read from dws
-				std::error_condition filerr = m_pSocket->read(m_buf, 0, sizeof(m_buf), m_rx_pending);
-				if (filerr && (std::errc::operation_would_block != filerr))
-					osd_printf_error("%s: beckerport_device::read() socket read operation failed with error %s:%d %s\n", tag(), filerr.category().name(), filerr.value(), filerr.message());
-				else
-					m_head = 0;
+				// Try to read from the DriveWire server
+				m_rx_pending = m_socket->input(m_buf, sizeof(m_buf));
+				m_head = 0;
 			}
 			LOG("status read. %d bytes remaining.\n", m_rx_pending);
 			data = (m_rx_pending > 0) ? 2 : 0;
 			break;
-		case DWS_DATA:
+		case 2: // data
 			if (!m_rx_pending)
 			{
-				osd_printf_error("%s: coco_dwsock.c: beckerport_device::read() buffer underrun\n", tag());
+				logerror("read buffer underrun\n");
 				break;
 			}
 			data = m_buf[m_head++];
 			m_rx_pending--;
-			//logerror("beckerport_device: data read 1 byte (0x%02x).  %i bytes remaining.\n", data&0xff, m_rx_pending);
 			break;
-		default:
-			logerror("read from bad offset %u\n", offset);
 	}
 
 	return data;
 }
 
 /*-------------------------------------------------
-    write
+    scs_write
 -------------------------------------------------*/
 
-void beckerport_device::write(offs_t offset, u8 data)
+void beckerport_device::scs_write(offs_t offset, u8 data)
 {
-	char d = char(data);
-	std::error_condition filerr;
-	u32 written;
-
-	if (!m_pSocket)
-		return;
-
 	switch (offset)
 	{
-		case DWS_STATUS:
-			LOG("beckerport_write: error: write (0x%02x) to status register\n", data);
+		case 1: // status
+			LOG("error: write (0x%02x) to status register\n", data);
 			break;
-		case DWS_DATA:
-			filerr = m_pSocket->write(&d, 0, 1, written);
-			if (filerr)
-				osd_printf_error("%s: coco_dwsock.c: beckerport_device::write() socket write operation failed with error %s:%d %s\n", tag(), filerr.category().name(), filerr.value(), filerr.message());
-			LOG("beckerport_write: data write one byte (0x%02x)\n", data);
+		case 2: // data
+			m_socket->output(data);
+			LOG("data write one byte (0x%02x)\n", data);
 			break;
-		default:
-			logerror("write to bad offset %u\n", offset);
 	}
 }
 
-/*-------------------------------------------------
-    update_port
--------------------------------------------------*/
 
-void beckerport_device::update_port()
-{
-	device_stop();
-	m_dwtcpport = m_dwconfigport->read();
-	device_start();
-}
+//**************************************************************************
+//  DEVICE DECLARATION
+//**************************************************************************
+
+DEFINE_DEVICE_TYPE_PRIVATE(COCO_DWSOCK, device_cococart_interface, beckerport_device, "coco_dwsock", "Virtual Becker Port")

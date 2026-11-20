@@ -41,6 +41,7 @@
 #include "cococart.h"
 
 #include "coco_dcmodem.h"
+#include "coco_dwsock.h"
 #include "coco_fdc.h"
 #include "coco_gmc.h"
 #include "coco_ide.h"
@@ -855,6 +856,7 @@ void coco_cart_add_basic_devices(device_slot_interface &device)
 {
 	// basic devices, on both the main slot and the Multi-Pak interface
 	device.option_add("banked_16k", COCO_PAK_BANKED);
+	device.option_add("becker", COCO_DWSOCK);
 	device.option_add("ccpsg", COCO_PSG);
 	device.option_add("dcmodem", COCO_DCMODEM);
 	device.option_add("emudsk", COCO_EMUDSK);
