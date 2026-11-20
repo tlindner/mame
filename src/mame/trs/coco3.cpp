@@ -371,7 +371,6 @@ static INPUT_PORTS_START( coco3 )
 	PORT_INCLUDE( coco3_analog_control )
 	PORT_INCLUDE( coco_rat_mouse )
 	PORT_INCLUDE( coco_lightgun )
-	PORT_INCLUDE( coco_beckerport )
 	PORT_INCLUDE( screen_config )
 INPUT_PORTS_END
 
@@ -437,9 +436,6 @@ void coco3_state::coco3(machine_config &config)
 	m_mux->set_mode(mc14529_device::SEL_Y, mc14529_device::MODE_SOUND);
 	m_mux->add_route(mc14529_device::w_sound_output(), "speaker", 1.0);
  	m_mux->set_sound_crossfade(mc14529_device::SEL_Y, attotime::from_usec(500));
-
-	// Becker Port device
-	COCO_DWSOCK(config, m_beckerport);
 
 	// sound hardware
 	coco_sound(config);

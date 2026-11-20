@@ -104,8 +104,6 @@ coco_state::coco_state(const machine_config &mconfig, device_type type, const ch
 	m_cassette(*this, "cassette"),
 	m_floating(*this, "floating"),
 	m_rs232(*this, RS232_TAG),
-	m_beckerport(*this, "dwsock"),
-	m_beckerportconfig(*this, BECKERPORT_TAG),
 	m_irqs(*this, "irqs"),
 	m_firqs(*this, "firqs"),
 	m_joystick_ports(*this, {JOYSTICK_RX_TAG, JOYSTICK_RY_TAG, JOYSTICK_LX_TAG, JOYSTICK_LY_TAG}),
@@ -600,11 +598,6 @@ void coco_state::pia1_pb_w(uint8_t data)
 
 void coco_state::ff40_write(offs_t offset, uint8_t data)
 {
-	if (offset >= 1 && offset <= 2 && m_beckerportconfig.read_safe(0) == 1)
-	{
-		return m_beckerport->write(offset-1, data);
-	}
-
 	m_cococart->scs_write(offset, data);
 }
 
@@ -615,11 +608,6 @@ void coco_state::ff40_write(offs_t offset, uint8_t data)
 
 uint8_t coco_state::ff40_read(offs_t offset)
 {
-	if (offset >= 1 && offset <= 2 && m_beckerportconfig.read_safe(0) == 1)
-	{
-		return m_beckerport->read(offset-1);
-	}
-
 	return m_cococart->scs_read(offset);
 }
 
