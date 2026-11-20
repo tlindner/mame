@@ -264,3 +264,13 @@ address_space &coco_ide_device::cartridge_space()
 {
 	return device_cococart_interface::cartridge_space();
 }
+
+
+//-------------------------------------------------
+//  cpu_space
+//-------------------------------------------------
+
+address_space &coco_ide_device::cpu_space()
+{
+	return device_cococart_interface::cpu_space();
+}

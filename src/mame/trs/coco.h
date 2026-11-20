@@ -14,8 +14,6 @@
 #include "emu.h"
 #pragma once
 
-#include "coco_vhd.h"
-
 #include "bus/coco/coco_dwsock.h"
 #include "bus/coco/cococart.h"
 #include "bus/rs232/rs232.h"
@@ -125,6 +123,7 @@ public:
 	// cartridge stuff
 	void cart_w(int state) { cart_w((bool) state); }
 	virtual address_space &cartridge_space() override;
+	virtual address_space &cpu_space() override;
 	virtual void add_sound_route(device_sound_interface &sound_device, int output_index, double gain) override;
 	virtual void set_sound_gain(device_sound_interface &sound_device, int output_index, double gain) override;
 
@@ -158,9 +157,6 @@ protected:
 	uint8_t m_pia0_pa_buffer;
 	uint8_t m_pia0_pb_buffer;
 
-	// VHD selection
-	coco_vhd_image_device *current_vhd();
-
 	// floating bus
 	uint8_t floating_bus_read();
 
@@ -177,8 +173,6 @@ protected:
 	required_device<cassette_image_device> m_cassette;
 	required_device<address_map_bank_device> m_floating;
 	optional_device<rs232_port_device> m_rs232;
-	optional_device<coco_vhd_image_device> m_vhd_0;
-	optional_device<coco_vhd_image_device> m_vhd_1;
 	optional_device<beckerport_device> m_beckerport;
 	optional_ioport m_beckerportconfig;
 	required_device<input_merger_device> m_irqs;
@@ -199,9 +193,6 @@ protected:
 
 	// DAC output
 	uint8_t m_dac_output;
-
-	// VHD selection
-	uint8_t m_vhd_select = 0U;
 
 	// safety to prevent stack overflow when reading floating bus
 	bool m_in_floating_bus_read = false;

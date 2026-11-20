@@ -453,9 +453,6 @@ void coco3_state::coco3(machine_config &config)
 	rs232.dcd_handler().set(m_pia_1, FUNC(pia6821_device::ca1_w));
 	rs232.set_option_device_input_defaults("rs_printer", DEVICE_INPUT_DEFAULTS_NAME(rs_printer));
 
-	COCO_VHD(config, m_vhd_0, m_maincpu);
-	COCO_VHD(config, m_vhd_1, m_maincpu);
-
 	// monitor
 	SCREEN(config, m_screen);
 	m_screen->set_raw(COCO3_NTSC_OSC / 2, 912, 0, gime_device::SCREEN_WIDTH, 263, 1, 240);

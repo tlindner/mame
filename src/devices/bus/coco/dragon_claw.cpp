@@ -223,3 +223,13 @@ address_space &dragon_claw_device::cartridge_space()
 {
 	return device_cococart_interface::cartridge_space();
 }
+
+
+//-------------------------------------------------
+//  cpu_space
+//-------------------------------------------------
+
+address_space &dragon_claw_device::cpu_space()
+{
+	return device_cococart_interface::cpu_space();
+}
