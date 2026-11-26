@@ -416,6 +416,9 @@ public:
 	virtual bool is_readable() const noexcept override { return true; }
 	virtual bool is_writeable() const noexcept override { return false; }
 	virtual bool is_creatable() const noexcept override { return false; }
+	// The core hashes every read-only image when it loads, which means reading the whole of a 32 GB
+	// card image; like a CHD, skip that (the core only uses this to decide whether to hash).
+	virtual bool image_is_chd_type() const noexcept override { return true; }
 	virtual bool is_reset_on_load() const noexcept override { return false; }
 	virtual const char *file_extensions() const noexcept override { return "img,ima,bin,raw,hd"; }
 	virtual const char *image_type_name() const noexcept override { return "mp3card"; }
