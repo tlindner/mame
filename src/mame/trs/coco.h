@@ -19,6 +19,7 @@
 #include "bus/coco/coco_dwsock.h"
 #include "bus/coco/cococart.h"
 #include "bus/rs232/rs232.h"
+#include "bus/rs232/cocomp3.h"
 #include "imagedev/cassette.h"
 #include "machine/6821pia.h"
 #include "machine/bankdev.h"
@@ -174,6 +175,7 @@ protected:
 	required_device<cassette_image_device> m_cassette;
 	required_device<address_map_bank_device> m_floating;
 	optional_device<rs232_port_device> m_rs232;
+	cocomp3_cassette_interface *m_cassette_feed = nullptr;    // CoCoMP3 cassette cable, if plugged in
 	optional_device<coco_vhd_image_device> m_vhd_0;
 	optional_device<coco_vhd_image_device> m_vhd_1;
 	optional_device<beckerport_device> m_beckerport;

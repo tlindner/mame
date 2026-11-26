@@ -138,6 +138,10 @@ void coco_state::machine_start()
 	// miscellaneous
 	m_in_floating_bus_read = false;
 
+	// a CoCoMP3 on the serial port also drives the cassette input
+	if (m_rs232)
+		m_cassette_feed = dynamic_cast<cocomp3_cassette_interface *>(m_rs232->get_card_device());
+
 	// save state support
 	save_item(NAME(m_dac_output));
 	save_item(NAME(m_pia0_pa_buffer));
@@ -455,7 +459,10 @@ uint8_t coco_state::pia1_pa_r()
 {
 	// Port A: we need to specify the values of all the lines, regardless of whether
 	// they are in input or output mode in the DDR
-	return (m_cassette->input() >= 0 ? 0x01 : 0x00) | 0xfe;
+	double level = m_cassette->input();
+	if (m_cassette_feed)
+		level += m_cassette_feed->cassette_input();
+	return (level >= 0 ? 0x01 : 0x00) | 0xfe;
 }
 
 
