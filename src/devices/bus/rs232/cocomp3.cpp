@@ -1197,11 +1197,27 @@ void serial_cocomp3_device::scan_card(const card_fs::entry &dir, const std::stri
 // case-sensitively with the start of the name (so commands must be upper
 // case), may be empty but not longer than 7 characters: EIGHTCHR and
 // LONGFI~1 found nothing. A '.' instead of '*' finds nothing either.
+// A folder component with no '*' in its first 8 characters must be the
+// whole 8-character name and nothing more: the real module plays
+// "/STOCKING/*MP3" (STOCKMP3.BIN), while "/MUSIC/" and "/EIGHTDIR*/" fail.
+// That fits a chip that compares the 8-byte name field when it finds no '*'.
+// A file with an 8-character name works the same way, with the extension
+// right after the name: "/MUSIC*/EIGHTCHRMP3" plays EIGHTCHR.MP3, while
+// EIGHTCHR.MP3, EIGHTCHR, EIGHTCHR*, EIGHTCHR*MP3 and EIGHTCHR/MP3 find nothing.
 static bool path_match(const std::string &pattern, const std::string &name, bool is_file)
 {
 	size_t const star = pattern.find('*');
 	if (star == std::string::npos || star > 7)
-		return false;
+	{
+		size_t const dot = name.find('.');
+		std::string const base = name.substr(0, dot);
+		std::string const ext = (dot == std::string::npos) ? std::string() : name.substr(dot + 1);
+		if (base.size() != 8)
+			return false;
+		if (!is_file)
+			return ext.empty() && pattern == base;
+		return !ext.empty() && pattern == base + ext;
+	}
 	std::string_view const prefix(pattern.data(), star);
 	std::string_view const ext(pattern.data() + star + 1, pattern.size() - star - 1);
 
